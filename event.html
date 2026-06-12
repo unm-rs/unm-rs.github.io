@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Events</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/admin-bar.css">
+
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+</head>
+
+<body>
+    <a class="visually-hidden skip" href="#main">Skip to main content</a>
+
+    <header class="topnav">
+        <h2 class="visually-hidden">Header</h2>
+        <div class="wrapper topnav__wrapper">
+            <a href="/" class="topnav__homelink">
+                <img src="/img/rs-logo-text.png" alt="Robotics Society Homepage" class="topnav__logo" width="128" height="128">
+            </a>
+            <nav>
+                <ul class="topnav__links">
+                    <li class="topnav__item"><a href="" class="topnav__link">Events</a></li>
+                    <li class="topnav__item"><a href="/committee.html" class="topnav__link">Committee</a></li>
+                    <li class="topnav__item"><a href="" class="topnav__link">About</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main id="main">
+
+        <section class="event-hero">
+            <div class="event-hero__bg" id="js-hero-bg"></div>
+            <div class="event-hero__overlay"></div>
+            <label class="event-hero__img-btn" id="js-img-btn" hidden>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Change Image
+                <input type="file" id="js-img-input" accept="image/*" hidden>
+            </label>
+            <div class="event-hero__content">
+                <h1 class="event-hero__title" id="js-title">Loading…</h1>
+                <a href="#apply-form" class="event-hero__join-btn">Join Now</a>
+            </div>
+        </section>
+
+        <section class="event-detail">
+            <div class="event-detail__inner">
+                <div class="event-detail__desc" id="js-desc">Loading…</div>
+
+                <div class="event-detail__divider" id="js-divider" hidden></div>
+
+                <div class="event-detail__outcomes-block" id="js-outcomes-block" hidden>
+                    <h3 class="event-detail__outcomes-heading">Learning Outcomes</h3>
+                    <div class="event-detail__outcomes-text" id="js-outcomes"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="apply-section" id="apply-form">
+            <div class="apply-inner">
+                <h2 class="apply-heading" id="js-apply-heading">Application Form</h2>
+                <form class="apply-form" id="js-apply-form" novalidate>
+                    <div class="apply-field">
+                        <label class="apply-label" for="af-name">Full Name</label>
+                        <input class="apply-input" type="text" id="af-name" required placeholder="Your full name">
+                    </div>
+                    <div class="apply-field">
+                        <label class="apply-label" for="af-sid">Student ID</label>
+                        <input class="apply-input" type="text" id="af-sid" required placeholder="e.g. 2311234">
+                    </div>
+                    <div class="apply-field">
+                        <label class="apply-label" for="af-owa">OWA</label>
+                        <input class="apply-input" type="email" id="af-owa" required placeholder="your.name@stu.unm.edu.my">
+                    </div>
+                    <div class="apply-field">
+                        <label class="apply-label" for="af-year">Year of Study</label>
+                        <select class="apply-input apply-select" id="af-year" required>
+                            <option value="" disabled selected>Select your year…</option>
+                            <option value="Year 1">Year 1</option>
+                            <option value="Year 2">Year 2</option>
+                            <option value="Year 3">Year 3</option>
+                            <option value="Year 4">Year 4</option>
+                            <option value="Postgraduate">Postgraduate</option>
+                        </select>
+                    </div>
+                    <div class="apply-field">
+                        <label class="apply-label" for="af-course">Course of Study</label>
+                        <input class="apply-input" type="text" id="af-course" required placeholder="e.g. Bachelor of Computer Science">
+                    </div>
+                    <div id="af-error" class="apply-error" hidden></div>
+                    <button type="submit" class="apply-submit" id="af-submit">Submit Application</button>
+                </form>
+                <div class="apply-success" id="af-success" hidden>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+                    <h3>Application Submitted!</h3>
+                    <p>Thanks for applying. We'll be in touch soon.</p>
+                </div>
+            </div>
+        </section>
+
+        <div class="edit-savebar" id="js-savebar" hidden>
+            <span class="edit-savebar__msg">Unsaved changes</span>
+            <button class="edit-savebar__btn" id="js-savebtn">Save Changes</button>
+        </div>
+
+    </main>
+
+    <footer class="footer">
+        <h2 class="visually-hidden">Footer</h2>
+
+        <div class="footer__inner">
+
+            <div class="footer__brand">
+                <a href="/" class="footer__logo-link">
+                    <img src="/img/rs-logo-text.png" alt="UNM Robotics Society" class="footer__logo" width="80" height="80">
+                </a>
+                <p class="footer__name">UNM Robotics Society</p>
+                <p class="footer__tagline">ambatublou</p>
+            </div>
+
+            <nav class="footer__nav" aria-label="Footer navigation">
+                <div class="footer__col">
+                    <h3 class="footer__col-heading">Explore</h3>
+                    <ul class="footer__links">
+                        <li><a href="/#news"    class="footer__link">Events</a></li>
+                        <li><a href="/#about"   class="footer__link">About</a></li>
+                        <li><a href="#"          class="footer__link">Committee</a></li>
+                        <li><a href="#"          class="footer__link">Projects</a></li>
+                    </ul>
+                </div>
+                <div class="footer__col">
+                    <h3 class="footer__col-heading">Get Involved</h3>
+                    <ul class="footer__links">
+                        <li><a href="#" class="footer__link">Join Us</a></li>
+                        <li><a href="#" class="footer__link">Workshops</a></li>
+                        <li><a href="#" class="footer__link">Competitions</a></li>
+                    </ul>
+                </div>
+                <div class="footer__col">
+                    <h3 class="footer__col-heading">Resources</h3>
+                    <ul class="footer__links">
+                        <li><a href="#" class="footer__link">GitHub</a></li>
+                        <li><a href="#" class="footer__link">Contact</a></li>
+                    </ul>
+                </div>
+            </nav>
+
+            <div class="footer__social">
+                <h3 class="footer__col-heading">Follow Us</h3>
+                <div class="footer__social-links">
+                    <a href="https://www.instagram.com/robotics_unm/" target="_blank" rel="noopener noreferrer" class="footer__social-link" aria-label="Instagram">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+                        Instagram
+                    </a>
+                    <a href="" class="footer__social-link" aria-label="GitHub">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+                        GitHub
+                    </a>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="footer__bottom">
+            <div class="footer__bottom-inner">
+                <p class="footer__copyright">© 2026 UNM Robotics Society. All rights reserved.</p>
+                <nav class="footer__legal" aria-label="Legal links">
+                    <a href="#" class="footer__legal-link">Contact</a>
+                    <a href="#" class="footer__legal-link">Accessibility</a>
+                    <a href="#" class="footer__legal-link">Privacy</a>
+                </nav>
+            </div>
+        </div>
+
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="/supabase-client.js" defer></script>
+    <script src="/event-detail.js" defer></script>
+    <script src="/admin-bar.js" defer></script>
+
+</body>
+
+</html>

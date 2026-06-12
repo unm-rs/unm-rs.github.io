@@ -1,0 +1,307 @@
+/* ---- Admin bar (fixed top, only when logged in) ---- */
+
+.ab-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: hsl(0, 0%, 0%);
+    z-index: 9000;
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 7px;
+    border-bottom: 1.5px solid hsl(0, 100%, 40%);
+}
+
+.ab-bar__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0 20px;
+    gap: 16px;
+}
+
+.ab-bar__label {
+    font-family: "Source Sans 3", Arial, Helvetica, sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: hsl(0 0% 92%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ab-bar__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: hsl(0, 100%, 50%);
+    flex-shrink: 0;
+    animation: ab-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes ab-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
+}
+
+.ab-bar__actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.ab-btn {
+    font-family: "Source Sans 3", Arial, Helvetica, sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+}
+.ab-btn:hover:not(:disabled) { opacity: 0.78; }
+.ab-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.ab-btn--add {
+    background: hsla(43, 100%, 50%, 0.777);
+    color: #000000;
+    border: 1px solid hsl(0 0% 100% / 0.22);
+    font-size: 15px;
+}
+
+.ab-btn--logout {
+    background: transparent;
+    color: hsl(0 0% 62%);
+    border: 1px solid hsl(0 0% 100% / 0.14);
+}
+
+/* ---- Card edit/delete overlay buttons ---- */
+
+.card-admin-controls {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 7px;
+}
+
+.card-admin-btn {
+    font-family: system-ui, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    opacity: 0.92;
+    transition: opacity 0.12s;
+    letter-spacing: 0.03em;
+}
+.card-admin-btn:hover { opacity: 1; }
+
+.card-admin-btn--edit   { background: hsl(232, 75%, 62%); color: #fff; }
+.card-admin-btn--delete { background: hsl(5, 68%, 52%);   color: #fff; }
+
+/* ---- Login trigger in footer ---- */
+
+.ab-login-trigger {
+    font-family: inherit;
+    font-size: 12px;
+    color: hsl(0 0% 22%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.15s;
+    line-height: 1;
+}
+.ab-login-trigger:hover { color: hsl(0 0% 40%); }
+
+/* ---- Shared modal styles (login + add/edit) ---- */
+
+.ab-overlay {
+    position: fixed;
+    inset: 0;
+    background: hsl(0 0% 0% / 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 10000;
+}
+
+.ab-modal {
+    background: hsl(0, 0%, 0%);
+    border: 1px solid hsl(0, 0%, 29%);
+    border-radius: 10px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 28px;
+    font-family: system-ui, sans-serif;
+    color: hsl(0, 0%, 90%);
+}
+
+.ab-modal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+}
+
+.ab-modal__title {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.ab-modal__close {
+    background: none;
+    border: none;
+    color: hsl(0 0% 48%);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 4px;
+    transition: color 0.12s;
+    line-height: 1;
+}
+.ab-modal__close:hover { color: hsl(0 0% 88%); }
+
+.ab-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ab-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ab-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: hsl(0 0% 48%);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+}
+
+.ab-label small {
+    font-size: 11px;
+    color: hsl(0 0% 38%);
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 400;
+    margin-left: 6px;
+}
+
+.ab-input,
+.ab-textarea {
+    background: hsl(220, 14%, 17%);
+    border: 1px solid hsl(220, 14%, 24%);
+    border-radius: 6px;
+    color: hsl(0, 0%, 90%);
+    font-size: 14px;
+    font-family: inherit;
+    padding: 9px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.ab-input:focus, .ab-textarea:focus { border-color: hsl(0, 100%, 50%); }
+.ab-textarea { resize: vertical; min-height: 90px; }
+
+.ab-file-input {
+    font-size: 13px;
+    color: hsl(0 0% 50%);
+    cursor: pointer;
+}
+
+.ab-img-preview {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.ab-img-preview img {
+    width: 100%;
+    max-height: 160px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid hsl(220, 14%, 24%);
+}
+
+.ab-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.ab-form-btn {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 9px 20px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+.ab-form-btn:hover:not(:disabled) { opacity: 0.82; }
+.ab-form-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.ab-form-btn--primary { background: hsl(45,95%,55%); color: #000; }
+.ab-form-btn--ghost   { background: transparent; color: hsl(0 0% 55%); border: 1px solid hsl(220, 14%, 26%); }
+
+.ab-error {
+    font-size: 13px;
+    color: hsl(5, 68%, 62%);
+    background: hsl(5, 68%, 52%, 0.1);
+    border: 1px solid hsl(5, 68%, 52%, 0.28);
+    border-radius: 6px;
+    padding: 9px 12px;
+}
+
+/* ---- Formatting toolbar ---- */
+
+.fmt-toolbar {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: hsl(220, 14%, 12%);
+    border: 1px solid hsl(220, 14%, 24%);
+    border-radius: 7px;
+    padding: 5px 7px;
+    box-shadow: 0 4px 16px hsl(0 0% 0% / 0.35);
+    z-index: 9500;
+    font-family: system-ui, sans-serif;
+}
+
+.fmt-btn {
+    background: none;
+    border: none;
+    color: hsl(0 0% 72%);
+    font-size: 13px;
+    font-family: inherit;
+    padding: 4px 9px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    white-space: nowrap;
+}
+.fmt-btn:hover { background: hsl(220, 14%, 22%); color: hsl(0 0% 95%); }
+
+.fmt-sep {
+    width: 1px;
+    height: 16px;
+    background: hsl(220, 14%, 26%);
+    margin-inline: 4px;
+    flex-shrink: 0;
+}
