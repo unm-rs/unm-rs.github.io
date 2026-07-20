@@ -379,7 +379,7 @@
         const threadLikeMap = await fetchThreadLikeCounts(threads);
         let theirTags = await fetchUserTags(userId);
 
-        document.title = `${p.full_name || 'Profile'} — UNM Robotics`;
+        document.title = `${p.full_name || 'Profile'}`;
 
         const name     = p.full_name || '';
         const initials = getInitials(name || '?');
