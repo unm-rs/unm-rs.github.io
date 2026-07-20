@@ -204,21 +204,26 @@
         document.getElementById('pf-avatar-input')?.addEventListener('change', async e => {
             const file = e.target.files[0];
             if (!file || !validateImageFile(file, e.target)) return;
-            const cropped = await window.openImageCropper(file, { aspect: 1, circle: true, outputWidth: 512, outputHeight: 512 });
+            // GIFs go through untouched — cropping would flatten the animation to a single frame
+            const result = file.type === 'image/gif'
+                ? file
+                : await window.openImageCropper(file, { aspect: 1, circle: true, outputWidth: 512, outputHeight: 512 });
             e.target.value = '';
-            if (!cropped) return;
-            pendingAvatar = cropped;
-            swapImagePreview('pf-avatar-img', cropped, 'pf-avatar');
+            if (!result) return;
+            pendingAvatar = result;
+            swapImagePreview('pf-avatar-img', result, 'pf-avatar');
         });
 
         document.getElementById('pf-banner-input')?.addEventListener('change', async e => {
             const file = e.target.files[0];
             if (!file || !validateImageFile(file, e.target)) return;
-            const cropped = await window.openImageCropper(file, { aspect: BANNER_ASPECT, outputWidth: 1200, outputHeight: Math.round(1200 / BANNER_ASPECT) });
+            const result = file.type === 'image/gif'
+                ? file
+                : await window.openImageCropper(file, { aspect: BANNER_ASPECT, outputWidth: 1200, outputHeight: Math.round(1200 / BANNER_ASPECT) });
             e.target.value = '';
-            if (!cropped) return;
-            pendingBanner = cropped;
-            swapImagePreview('pf-banner-img', cropped, 'pf-banner__img');
+            if (!result) return;
+            pendingBanner = result;
+            swapImagePreview('pf-banner-img', result, 'pf-banner__img');
         });
     }
 
