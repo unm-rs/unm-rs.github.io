@@ -4283,7 +4283,8 @@ body:has(.ab-bar) .fr-cats-outer { top: 44px; }
 @media (max-width: 600px) {
     .fr-hero { height: auto; min-height: 300px; padding-block: 40px; }
 
-    .fr-thread-row { grid-template-columns: 36px 1fr; }
+    .fr-thread-row { grid-template-columns: 36px 1fr; gap: 20px; }
+    .fr-thread-avatar { width: 36px; height: 36px; font-size: 13px; }
     .fr-thread-stats { display: none; }
     .fr-thread-title { max-width: none; }
     .fr-thread-detail { padding-inline: 16px; }
