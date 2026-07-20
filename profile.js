@@ -271,7 +271,7 @@
         isEditing     = false;
         pendingAvatar = null;
         pendingBanner = null;
-        document.title = `${profile.full_name || 'My Profile'} — UNM Robotics`;
+        document.title = `${profile.full_name || 'My Profile'}`;
         render();
     }
 
