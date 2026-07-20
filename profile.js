@@ -221,6 +221,8 @@
 
         let avatarUrl = profile.avatar_url || null;
         let bannerUrl = profile.banner_url || null;
+        const oldAvatarUrl = profile.avatar_url || null;
+        const oldBannerUrl = profile.banner_url || null;
 
         if (pendingAvatar) {
             const result = await uploadFile(pendingAvatar, `avatars/${session.user.id}`);
@@ -262,12 +264,24 @@
             ]);
         }
 
+        if (pendingAvatar && oldAvatarUrl) deleteStorageFile(oldAvatarUrl);
+        if (pendingBanner && oldBannerUrl) deleteStorageFile(oldBannerUrl);
+
         profile       = { ...profile, ...updates };
         isEditing     = false;
         pendingAvatar = null;
         pendingBanner = null;
         document.title = `${profile.full_name || 'My Profile'} — UNM Robotics`;
         render();
+    }
+
+    async function deleteStorageFile(publicUrl) {
+        const marker = '/event-images/';
+        const idx = publicUrl.indexOf(marker);
+        if (idx === -1) return;
+        const path = decodeURIComponent(publicUrl.slice(idx + marker.length));
+        const { error } = await db.storage.from('event-images').remove([path]);
+        if (error) console.error('Failed to clean up old image:', error.message);
     }
 
     async function uploadFile(file, pathPrefix) {

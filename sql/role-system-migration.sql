@@ -520,3 +520,82 @@ CREATE POLICY "Admins manage products"
   ON public.products FOR ALL TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
+
+-- ============================================================
+-- 27. Storage cleanup for avatars/banners.
+--
+--     (a) Let a user delete their OWN previously-uploaded avatar/
+--         banner file — needed for profile.js's new "delete the old
+--         image after uploading a replacement" cleanup to actually
+--         work instead of silently failing on RLS.
+--
+--     (b) When a user_profiles row is deleted (via the ON DELETE
+--         CASCADE from auth.users), call the real Storage delete
+--         API — via pg_net, authenticated with the service_role key
+--         — so the avatar/banner file doesn't become an orphan.
+--         Deleting rows straight out of storage.objects does NOT
+--         reliably free the underlying file, which is why this goes
+--         through the actual API instead.
+--
+--     Before running the trigger below:
+--       1. Enable the extension:  CREATE EXTENSION IF NOT EXISTS pg_net;
+--       2. Store your service_role key in Vault yourself (run with
+--          your own key substituted in — don't paste the key or the
+--          result anywhere, including back to Claude):
+--            SELECT vault.create_secret('YOUR_SERVICE_ROLE_KEY', 'service_role_key');
+--       3. Then run everything below.
+-- ============================================================
+
+-- (a) self-delete policy for avatars/banners
+DROP POLICY IF EXISTS "Users delete own avatar or banner" ON storage.objects;
+CREATE POLICY "Users delete own avatar or banner"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'event-images'
+    AND (
+      name LIKE 'avatars/' || auth.uid()::text || '_%'
+      OR name LIKE 'banners/' || auth.uid()::text || '_%'
+    )
+  );
+
+-- (b) delete the files via the Storage API when the profile row goes away
+CREATE OR REPLACE FUNCTION public.cleanup_profile_images()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  service_key text;
+  paths       text[] := '{}';
+BEGIN
+  SELECT decrypted_secret INTO service_key
+  FROM vault.decrypted_secrets WHERE name = 'service_role_key';
+
+  IF service_key IS NULL THEN
+    RETURN OLD; -- Vault secret not set up yet — skip cleanup rather than error
+  END IF;
+
+  IF OLD.avatar_url IS NOT NULL AND OLD.avatar_url LIKE '%/event-images/%' THEN
+    paths := paths || regexp_replace(OLD.avatar_url, '^.*/event-images/', '');
+  END IF;
+  IF OLD.banner_url IS NOT NULL AND OLD.banner_url LIKE '%/event-images/%' THEN
+    paths := paths || regexp_replace(OLD.banner_url, '^.*/event-images/', '');
+  END IF;
+
+  IF array_length(paths, 1) > 0 THEN
+    PERFORM net.http_delete(
+      url     := 'https://kmiitfsvnchqipohypsl.supabase.co/storage/v1/object/event-images',
+      headers := jsonb_build_object('Authorization', 'Bearer ' || service_key, 'Content-Type', 'application/json'),
+      body    := jsonb_build_object('prefixes', paths)
+    );
+  END IF;
+
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_cleanup_profile_images ON public.user_profiles;
+CREATE TRIGGER trg_cleanup_profile_images
+  BEFORE DELETE ON public.user_profiles
+  FOR EACH ROW EXECUTE FUNCTION public.cleanup_profile_images();
