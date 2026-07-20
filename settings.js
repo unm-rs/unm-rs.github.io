@@ -36,6 +36,20 @@
                 </div>
             </section>` : ''}
 
+            ${isOwner ? `
+            <section class="st-section" id="st-tags-section">
+                <h2 class="st-section__title">Tags</h2>
+                <div id="st-tags-list" class="st-mods-list">Loading…</div>
+                <div class="st-tag-add-form" id="st-tags-form" hidden>
+                    <input class="st-mods-search__input" id="st-tag-name" type="text"
+                           placeholder="Tag name" maxlength="24">
+                    <input class="st-tag-color-input" id="st-tag-color" type="color" value="#f2c14e">
+                    <button class="st-mods-row__btn st-mods-row__btn--promote" id="st-tag-save">Save</button>
+                    <button class="st-mods-row__btn" id="st-tag-cancel">Cancel</button>
+                </div>
+                <button class="st-mods-row__btn st-mods-row__btn--promote" id="st-tags-add-btn">+ Add Tag</button>
+            </section>` : ''}
+
             <section class="st-section st-section--danger">
                 <h2 class="st-section__title">Session</h2>
                 <button class="pf-btn pf-btn--signout" id="st-signout">Sign Out</button>
@@ -49,6 +63,7 @@
 
     load2FAStatus(document.getElementById('st-2fa-status'));
     if (isOwner) initModerators();
+    if (isOwner) initTags();
 
     async function load2FAStatus(container) {
         if (!container) return;
@@ -282,6 +297,92 @@
             const { error } = await db.from('user_profiles').update({ role: null }).eq('id', id);
             if (error) { alert('Failed: ' + error.message); return; }
             await loadMods();
+        }
+    }
+
+    async function initTags() {
+        const listEl   = document.getElementById('st-tags-list');
+        const addBtn    = document.getElementById('st-tags-add-btn');
+        const form      = document.getElementById('st-tags-form');
+        const nameInput = document.getElementById('st-tag-name');
+        const colorInput = document.getElementById('st-tag-color');
+
+        await loadTags();
+
+        addBtn.addEventListener('click', () => {
+            form.hidden = false;
+            addBtn.hidden = true;
+            nameInput.value = '';
+            colorInput.value = '#f2c14e';
+            nameInput.focus();
+        });
+
+        document.getElementById('st-tag-cancel').addEventListener('click', () => {
+            form.hidden = true;
+            addBtn.hidden = false;
+        });
+
+        document.getElementById('st-tag-save').addEventListener('click', () => createTag());
+
+        async function loadTags() {
+            const { data: tags } = await db.from('tags').select('*').order('name');
+
+            if (!tags || tags.length === 0) {
+                listEl.innerHTML = '<p class="st-mods-empty">No tags yet.</p>';
+                return;
+            }
+
+            listEl.innerHTML = tags.map(tagRow).join('');
+
+            listEl.querySelectorAll('[data-visible-toggle]').forEach(input => {
+                input.addEventListener('change', () => toggleVisible(input.dataset.visibleToggle, input.checked));
+            });
+            listEl.querySelectorAll('[data-delete-tag]').forEach(btn => {
+                btn.addEventListener('click', () => deleteTag(btn.dataset.deleteTag, btn.dataset.name));
+            });
+        }
+
+        function tagRow(t) {
+            return `
+                <div class="st-mods-row">
+                    <span class="st-tag-swatch" style="background:${esc(t.color)}"></span>
+                    <span class="st-mods-row__name">${esc(t.name)}</span>
+                    <label class="st-tag-visible-toggle">
+                        <input type="checkbox" data-visible-toggle="${esc(t.id)}" ${t.visible ? 'checked' : ''}>
+                        Visible
+                    </label>
+                    <button class="st-mods-row__btn" data-delete-tag="${esc(t.id)}" data-name="${esc(t.name)}">Delete</button>
+                </div>`;
+        }
+
+        async function createTag() {
+            const name  = nameInput.value.trim();
+            const color = colorInput.value;
+            if (!name) { nameInput.focus(); return; }
+
+            const saveBtn = document.getElementById('st-tag-save');
+            saveBtn.disabled = true;
+
+            const { error } = await db.from('tags').insert({ name, color });
+
+            saveBtn.disabled = false;
+            if (error) { alert('Failed to create tag: ' + error.message); return; }
+
+            form.hidden = true;
+            addBtn.hidden = false;
+            await loadTags();
+        }
+
+        async function toggleVisible(id, visible) {
+            const { error } = await db.from('tags').update({ visible }).eq('id', id);
+            if (error) { alert('Failed: ' + error.message); await loadTags(); return; }
+        }
+
+        async function deleteTag(id, name) {
+            if (!confirm(`Delete the "${name}" tag? This removes it from everyone who has it.`)) return;
+            const { error } = await db.from('tags').delete().eq('id', id);
+            if (error) { alert('Failed: ' + error.message); return; }
+            await loadTags();
         }
     }
 

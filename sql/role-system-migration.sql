@@ -671,3 +671,66 @@ CREATE POLICY "Members update own photo"
   ON public.committee_members FOR UPDATE TO authenticated
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- ============================================================
+-- 30. Custom owner-defined tags (a reusable library, like "Alumni"
+--     or "Sponsor") that can be assigned to any number of members.
+--     Each tag has a name + color and a visible flag the owner can
+--     flip to hide it everywhere without deleting the assignments.
+--     Only the owner can create/assign/hide tags — same scope as
+--     moderator appointment.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.tags (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL UNIQUE,
+  color      text NOT NULL,
+  visible    boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.tags ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read tags" ON public.tags;
+CREATE POLICY "Public read tags"
+  ON public.tags FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Owner inserts tags" ON public.tags;
+CREATE POLICY "Owner inserts tags"
+  ON public.tags FOR INSERT TO authenticated
+  WITH CHECK (public.is_owner());
+
+DROP POLICY IF EXISTS "Owner updates tags" ON public.tags;
+CREATE POLICY "Owner updates tags"
+  ON public.tags FOR UPDATE TO authenticated
+  USING (public.is_owner())
+  WITH CHECK (public.is_owner());
+
+DROP POLICY IF EXISTS "Owner deletes tags" ON public.tags;
+CREATE POLICY "Owner deletes tags"
+  ON public.tags FOR DELETE TO authenticated
+  USING (public.is_owner());
+
+CREATE TABLE IF NOT EXISTS public.user_tags (
+  user_id    uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  tag_id     uuid NOT NULL REFERENCES public.tags(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, tag_id)
+);
+
+ALTER TABLE public.user_tags ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read user tags" ON public.user_tags;
+CREATE POLICY "Public read user tags"
+  ON public.user_tags FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Owner assigns user tags" ON public.user_tags;
+CREATE POLICY "Owner assigns user tags"
+  ON public.user_tags FOR INSERT TO authenticated
+  WITH CHECK (public.is_owner());
+
+DROP POLICY IF EXISTS "Owner removes user tags" ON public.user_tags;
+CREATE POLICY "Owner removes user tags"
+  ON public.user_tags FOR DELETE TO authenticated
+  USING (public.is_owner());
