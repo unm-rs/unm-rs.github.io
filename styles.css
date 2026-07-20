@@ -337,6 +337,25 @@ svg {
             color: var(--c-white);
             text-shadow: 0 1px 6px hsl(0 0% 0% / 0.6);
         }
+
+        @media (width < calc(700 / 16 * 1rem)) {
+            height: auto;
+
+            .hero__main {
+                flex-direction: column;
+                height: auto;
+                padding-block: 56px 32px;
+                gap: 36px;
+            }
+
+            .hero__tabs {
+                position: static;
+                width: 100%;
+                left: auto;
+                bottom: auto;
+                padding-inline: 24px;
+            }
+        }
     }
 
     .events {
