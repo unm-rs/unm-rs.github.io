@@ -1,7 +1,7 @@
 (async function () {
     if (typeof db === 'undefined') return;
 
-    const { session, isOwner } = await window.roleReady;
+    const { session, isOwner, roleLabels } = await window.roleReady;
 
     if (!session) {
         window.location.href = '/';
@@ -24,6 +24,22 @@
                 <h2 class="st-section__title">Security</h2>
                 <div id="st-2fa-status" class="st-2fa-box">Loading…</div>
             </section>
+
+            ${isOwner ? `
+            <section class="st-section" id="st-role-labels-section">
+                <h2 class="st-section__title">Role Labels</h2>
+                <div class="st-tag-add-form">
+                    <label class="st-tag-color-label">Owner label
+                        <input class="st-mods-search__input" id="st-label-owner" type="text"
+                               maxlength="24" value="${esc(roleLabels.owner)}">
+                    </label>
+                    <label class="st-tag-color-label">Mod label
+                        <input class="st-mods-search__input" id="st-label-mod" type="text"
+                               maxlength="24" value="${esc(roleLabels.mod)}">
+                    </label>
+                    <button class="st-mods-row__btn st-mods-row__btn--promote" id="st-labels-save">Save</button>
+                </div>
+            </section>` : ''}
 
             ${isOwner ? `
             <section class="st-section" id="st-mods-section">
@@ -69,6 +85,25 @@
     load2FAStatus(document.getElementById('st-2fa-status'));
     if (isOwner) initModerators();
     if (isOwner) initTags();
+    if (isOwner) initRoleLabels();
+
+    function initRoleLabels() {
+        document.getElementById('st-labels-save').addEventListener('click', async () => {
+            const ownerLabel = document.getElementById('st-label-owner').value.trim() || 'Owner';
+            const modLabel   = document.getElementById('st-label-mod').value.trim() || 'Mod';
+            const saveBtn    = document.getElementById('st-labels-save');
+            saveBtn.disabled = true;
+
+            const [{ error: e1 }, { error: e2 }] = await Promise.all([
+                db.from('role_labels').update({ label: ownerLabel }).eq('role', 'owner'),
+                db.from('role_labels').update({ label: modLabel }).eq('role', 'mod'),
+            ]);
+
+            saveBtn.disabled = false;
+            if (e1 || e2) { alert('Failed: ' + (e1 || e2).message); return; }
+            alert('Saved — reload the page to see the new labels everywhere.');
+        });
+    }
 
     async function load2FAStatus(container) {
         if (!container) return;

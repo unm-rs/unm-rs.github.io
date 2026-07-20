@@ -794,3 +794,28 @@ UPDATE public.forum_threads
 SET reply_count = 0
 WHERE reply_count IS DISTINCT FROM 0
   AND id NOT IN (SELECT DISTINCT thread_id FROM public.forum_replies);
+
+-- ============================================================
+-- 33. Let the owner rename the "Mod" / "Owner" badge text
+--     site-wide (Settings), instead of it being hardcoded.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.role_labels (
+  role  text PRIMARY KEY CHECK (role IN ('mod', 'owner')),
+  label text NOT NULL
+);
+
+INSERT INTO public.role_labels (role, label) VALUES ('mod', 'Mod'), ('owner', 'Owner')
+  ON CONFLICT (role) DO NOTHING;
+
+ALTER TABLE public.role_labels ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read role labels" ON public.role_labels;
+CREATE POLICY "Public read role labels"
+  ON public.role_labels FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Owner updates role labels" ON public.role_labels;
+CREATE POLICY "Owner updates role labels"
+  ON public.role_labels FOR UPDATE TO authenticated
+  USING (public.is_owner())
+  WITH CHECK (public.is_owner());

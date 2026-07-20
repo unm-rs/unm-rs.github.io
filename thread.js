@@ -8,7 +8,7 @@
     const root = document.getElementById('js-thread-root');
 
     const [
-        { session, isAdmin, isOwner },
+        { session, isAdmin, isOwner, roleLabels },
         { data: thread, error: threadErr },
         { data: replies },
     ] = await Promise.all([
@@ -56,6 +56,23 @@
         const { data: committee } = await db
             .from('committee_members').select('user_id, position').in('user_id', postAuthorIds);
         if (committee) committeeMap = Object.fromEntries(committee.map(c => [c.user_id, c.position]));
+    }
+
+    let tagsMap = {};
+    if (postAuthorIds.length) {
+        const { data: userTagRows } = await db
+            .from('user_tags')
+            .select('user_id, tags(id, name, color, bg_color, visible)')
+            .in('user_id', postAuthorIds);
+        (userTagRows || []).forEach(r => {
+            if (!r.tags || !r.tags.visible) return;
+            (tagsMap[r.user_id] || (tagsMap[r.user_id] = [])).push(r.tags);
+        });
+    }
+
+    async function refreshTagsFor(userId) {
+        tagsMap[userId] = await window.fetchUserTags(userId);
+        render();
     }
 
     let likeMap = {};
@@ -143,6 +160,8 @@
 
         root.querySelector('#fr-mod-approve')?.addEventListener('click', approveThisThread);
         root.querySelector('#fr-mod-reject')?.addEventListener('click', rejectThisThread);
+
+        if (isOwner) window.wireTagUI(root, refreshTagsFor);
     }
 
     function buildModerationBar() {
@@ -249,10 +268,12 @@
                     <div class="fr-post__head-info">
                         <p class="fr-post__author">
                             ${profUrl ? `<a class="fr-author-link" href="${profUrl}">${esc(post.author_name)}</a>` : esc(post.author_name)}
-                            ${authorRole === 'owner' ? `<span class="fr-mod-badge fr-mod-badge--owner">Owner</span>`
-                              : authorRole === 'mod' || authorRole === 'admin' ? `<span class="fr-mod-badge">Mod</span>` : ''}
+                            ${authorRole === 'owner' ? `<span class="fr-mod-badge fr-mod-badge--owner">${esc(roleLabels.owner)}</span>`
+                              : authorRole === 'mod' || authorRole === 'admin' ? `<span class="fr-mod-badge">${esc(roleLabels.mod)}</span>` : ''}
                             ${committeeMap[post.author_id] ? `<span class="cm-pos-badge">${esc(committeeMap[post.author_id])}</span>` : ''}
                             ${isByOp ? `<span class="fr-op-chip">OP</span>` : ''}
+                            ${post.author_id ? window.tagBadges(tagsMap[post.author_id], isOwner, post.author_id) : ''}
+                            ${isOwner && post.author_id ? window.tagAddButton(post.author_id) : ''}
                         </p>
                         <p class="fr-post__date">${dateStr}</p>
                     </div>

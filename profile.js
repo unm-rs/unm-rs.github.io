@@ -3,7 +3,7 @@
 
     const BANNER_ASPECT = 3; // width:height of the cropped banner output
 
-    const { session, isOwner } = await window.roleReady;
+    const { session, isOwner, roleLabels } = await window.roleReady;
 
     const urlParams  = new URLSearchParams(window.location.search);
     const viewUserId = urlParams.get('id');
@@ -45,7 +45,7 @@
     const threads = myThreads || [];
     const threadLikeMap = await fetchThreadLikeCounts(threads);
 
-    let myTags = await fetchUserTags(session.user.id);
+    let myTags = await window.fetchUserTags(session.user.id);
 
     document.title = `${profile.full_name || 'My Profile'}`;
 
@@ -111,7 +111,7 @@
                     : `<h1 class="pf-name">${esc(profile.nickname || name || 'No name set')}
                        ${roleBadge(profile.role)}
                        ${committeePosition ? `<span class="cm-pos-badge">${esc(committeePosition)}</span>` : ''}
-                       ${tagBadges(myTags, isOwner)}
+                       ${window.tagBadges(myTags, isOwner, session.user.id)}
                        ${isOwner ? `<button type="button" class="pf-tag-add-btn" id="pf-tag-add-btn" title="Manage tags" aria-label="Manage tags">+</button>` : ''}</h1>
                        ${name && profile.nickname ? `<p class="pf-nickname-display">${esc(name)}</p>` : ''}`}
                 ${(profile.course_of_study || profile.year_of_study) && !isEditing
@@ -190,14 +190,14 @@
         document.getElementById('pf-save')?.addEventListener('click', saveProfile);
 
         document.getElementById('pf-tag-add-btn')?.addEventListener('click', () => {
-            openTagPicker(session.user.id, myTags, async () => {
-                myTags = await fetchUserTags(session.user.id);
+            window.openTagPicker(session.user.id, async () => {
+                myTags = await window.fetchUserTags(session.user.id);
                 render();
             });
         });
 
-        wireTagRemoveButtons(root, session.user.id, async () => {
-            myTags = await fetchUserTags(session.user.id);
+        window.wireTagUI(root, async () => {
+            myTags = await window.fetchUserTags(session.user.id);
             render();
         });
 
@@ -395,7 +395,7 @@
             .limit(10);
         const threads = theirThreads || [];
         const threadLikeMap = await fetchThreadLikeCounts(threads);
-        let theirTags = await fetchUserTags(userId);
+        let theirTags = await window.fetchUserTags(userId);
 
         document.title = `${p.full_name || 'Profile'}`;
 
@@ -421,7 +421,7 @@
                 <h1 class="pf-name">${esc(name || 'No name set')}
                 ${roleBadge(p.role)}
                 ${committeePosition ? `<span class="cm-pos-badge">${esc(committeePosition)}</span>` : ''}
-                ${tagBadges(theirTags, isOwner)}
+                ${window.tagBadges(theirTags, isOwner, userId)}
                 ${isOwner ? `<button type="button" class="pf-tag-add-btn" id="pf-tag-add-btn" title="Manage tags" aria-label="Manage tags">+</button>` : ''}</h1>
                 ${(p.course_of_study || p.year_of_study)
                     ? `<p class="pf-submeta">${[p.course_of_study, p.year_of_study].filter(Boolean).map(esc).join(' &middot; ')}</p>`
@@ -442,14 +442,14 @@
             </section>`;
 
         document.getElementById('pf-tag-add-btn')?.addEventListener('click', () => {
-            openTagPicker(userId, theirTags, async () => {
-                theirTags = await fetchUserTags(userId);
+            window.openTagPicker(userId, async () => {
+                theirTags = await window.fetchUserTags(userId);
                 renderPublicProfile(userId, isOwner);
             });
         });
 
-        wireTagRemoveButtons(root, userId, async () => {
-            theirTags = await fetchUserTags(userId);
+        window.wireTagUI(root, async () => {
+            theirTags = await window.fetchUserTags(userId);
             renderPublicProfile(userId, isOwner);
         });
     }
@@ -461,96 +461,9 @@
     }
 
     function roleBadge(role) {
-        if (role === 'owner') return `<span class="ua-mod-badge ua-mod-badge--owner">Owner</span>`;
-        if (role === 'mod')   return `<span class="ua-mod-badge">Mod</span>`;
+        if (role === 'owner') return `<span class="ua-mod-badge ua-mod-badge--owner">${esc(roleLabels.owner)}</span>`;
+        if (role === 'mod')   return `<span class="ua-mod-badge">${esc(roleLabels.mod)}</span>`;
         return '';
-    }
-
-    async function fetchUserTags(userId) {
-        const { data } = await db
-            .from('user_tags')
-            .select('tags(id, name, color, bg_color, visible)')
-            .eq('user_id', userId);
-        return (data || []).map(r => r.tags).filter(t => t && t.visible);
-    }
-
-    function tagBadges(tags, isOwner) {
-        return (tags || [])
-            .map(t => `
-                <span class="pf-tag-badge" style="--tag-color:${esc(t.color)};--tag-bg:${esc(t.bg_color)}">
-                    ${esc(t.name)}
-                    ${isOwner ? `<button type="button" class="pf-tag-remove-btn" data-remove-tag="${esc(t.id)}"
-                        title="Remove tag" aria-label="Remove ${esc(t.name)} tag">×</button>` : ''}
-                </span>`)
-            .join('');
-    }
-
-    function wireTagRemoveButtons(root, userId, onRemoved) {
-        root.querySelectorAll('[data-remove-tag]').forEach(btn => {
-            btn.addEventListener('click', async e => {
-                e.preventDefault();
-                e.stopPropagation();
-                btn.disabled = true;
-                const { error } = await db
-                    .from('user_tags').delete().eq('user_id', userId).eq('tag_id', btn.dataset.removeTag);
-                if (error) { alert('Failed: ' + error.message); btn.disabled = false; return; }
-                onRemoved();
-            });
-        });
-    }
-
-    async function openTagPicker(userId, _currentTags, onChange) {
-        const overlay = makeOverlay();
-        overlay.innerHTML = `
-            <div class="ab-modal" style="max-width:360px">
-                <div class="ab-modal__head">
-                    <h2 class="ab-modal__title">Manage Tags</h2>
-                    <button class="ab-modal__close" id="tp-close">✕</button>
-                </div>
-                <div id="tp-list" class="st-mods-list">Loading…</div>
-            </div>`;
-        document.body.appendChild(overlay);
-
-        const close = () => overlay.remove();
-        overlay.querySelector('#tp-close').addEventListener('click', close);
-        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-
-        const listEl = overlay.querySelector('#tp-list');
-
-        const [{ data: allTags }, { data: assignedRows }] = await Promise.all([
-            db.from('tags').select('*').order('name'),
-            db.from('user_tags').select('tag_id').eq('user_id', userId),
-        ]);
-
-        if (!allTags || allTags.length === 0) {
-            listEl.innerHTML = `<p class="st-mods-empty">No tags yet.</p>`;
-            return;
-        }
-
-        const assignedIds = new Set((assignedRows || []).map(r => r.tag_id));
-
-        listEl.innerHTML = allTags.map(t => `
-            <label class="st-mods-row pf-tag-picker-row">
-                <span class="pf-tag-badge" style="--tag-color:${esc(t.color)};--tag-bg:${esc(t.bg_color)}">${esc(t.name)}</span>
-                <span class="st-mods-row__name">${t.visible ? '' : 'Hidden'}</span>
-                <input type="checkbox" data-tag-id="${esc(t.id)}" ${assignedIds.has(t.id) ? 'checked' : ''}>
-            </label>`).join('');
-
-        listEl.querySelectorAll('[data-tag-id]').forEach(input => {
-            input.addEventListener('change', async () => {
-                input.disabled = true;
-                if (input.checked) {
-                    const { error } = await db.from('user_tags').insert({ user_id: userId, tag_id: input.dataset.tagId });
-                    if (error) { alert('Failed: ' + error.message); input.checked = false; }
-                } else {
-                    const { error } = await db
-                        .from('user_tags').delete().eq('user_id', userId).eq('tag_id', input.dataset.tagId);
-                    if (error) { alert('Failed: ' + error.message); input.checked = true; }
-                }
-                input.disabled = false;
-                onChange?.();
-            });
-        });
     }
 
     async function fetchThreadLikeCounts(threads) {
