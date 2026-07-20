@@ -743,3 +743,54 @@ CREATE POLICY "Owner removes user tags"
 -- ============================================================
 ALTER TABLE public.tags
   ADD COLUMN IF NOT EXISTS bg_color text NOT NULL DEFAULT '#2a1d05';
+
+-- ============================================================
+-- 32. forum_threads.reply_count was only ever bumped by a manual
+--     client-side UPDATE in thread.js, which silently failed for
+--     anyone but an admin — forum_threads writes are admin-only
+--     (step 25/26), so a regular member's reply never actually
+--     updated the counter (no error was ever checked). The thread
+--     page itself always showed the right number because it counts
+--     the fetched replies live instead of trusting this column —
+--     forum.js and profile.js trust the column, which is why they
+--     drifted out of sync.
+--
+--     Fix: maintain reply_count server-side via a trigger, so it's
+--     always accurate and never depends on the replier's own RLS
+--     permissions. Also backfills every thread's count right now.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.sync_thread_reply_count()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  affected_thread uuid;
+BEGIN
+  affected_thread := COALESCE(NEW.thread_id, OLD.thread_id);
+
+  UPDATE public.forum_threads
+  SET reply_count = (SELECT COUNT(*) FROM public.forum_replies WHERE thread_id = affected_thread),
+      last_reply_at = CASE WHEN TG_OP = 'INSERT' THEN now() ELSE last_reply_at END
+  WHERE id = affected_thread;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sync_reply_count ON public.forum_replies;
+CREATE TRIGGER trg_sync_reply_count
+  AFTER INSERT OR DELETE ON public.forum_replies
+  FOR EACH ROW EXECUTE FUNCTION public.sync_thread_reply_count();
+
+-- One-time backfill: fix every thread's count right now
+UPDATE public.forum_threads t
+SET reply_count = sub.cnt
+FROM (SELECT thread_id, COUNT(*) AS cnt FROM public.forum_replies GROUP BY thread_id) sub
+WHERE t.id = sub.thread_id AND t.reply_count IS DISTINCT FROM sub.cnt;
+
+UPDATE public.forum_threads
+SET reply_count = 0
+WHERE reply_count IS DISTINCT FROM 0
+  AND id NOT IN (SELECT DISTINCT thread_id FROM public.forum_replies);

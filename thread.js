@@ -323,12 +323,6 @@
             return;
         }
 
-        thread.reply_count = (thread.reply_count || 0) + 1;
-        await db.from('forum_threads').update({
-            reply_count:   thread.reply_count,
-            last_reply_at: new Date().toISOString(),
-        }).eq('id', threadId);
-
         replyArr.push(newReply);
         render();
     }
@@ -363,12 +357,6 @@
             return;
         }
 
-        thread.reply_count = (thread.reply_count || 0) + 1;
-        await db.from('forum_threads').update({
-            reply_count:   thread.reply_count,
-            last_reply_at: new Date().toISOString(),
-        }).eq('id', threadId);
-
         replyArr.push(newReply);
         render();
     }
@@ -378,14 +366,7 @@
         const { error } = await db.from('forum_replies').delete().eq('id', replyId);
         if (error) { alert(error.message); return; }
 
-        const children     = replyArr.filter(r => String(r.parent_reply_id) === String(replyId));
-        const removedCount = 1 + children.length;
-
         replyArr = replyArr.filter(r => r.id !== replyId && String(r.parent_reply_id) !== String(replyId));
-
-        thread.reply_count = Math.max(0, (thread.reply_count || removedCount) - removedCount);
-        await db.from('forum_threads')
-            .update({ reply_count: thread.reply_count }).eq('id', threadId);
         render();
     }
 
