@@ -629,3 +629,45 @@ WHERE id = 'event-images';
 -- (select each one, Delete) rather than a raw SQL DELETE on this
 -- table — deleting the storage.objects row directly does not
 -- reliably free the underlying file, same reasoning as step 27.
+
+-- ============================================================
+-- 29. Committee photo is now independent of the profile picture —
+--     a linked member can change their own committee_members.image_url
+--     without touching user_profiles.avatar_url, and vice versa.
+--
+--     committee_members writes are currently is_admin()-only (step 26),
+--     so a member's own photo upload would be silently blocked. Add a
+--     self-update policy, but lock it down with a trigger so a member
+--     can ONLY change their own image_url — not position/bio/name/
+--     user_id (which would otherwise let someone self-promote to
+--     President via a raw API call, bypassing the UI entirely).
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.protect_committee_columns()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT public.is_admin() THEN
+    IF NEW.position IS DISTINCT FROM OLD.position
+       OR NEW.bio IS DISTINCT FROM OLD.bio
+       OR NEW.name IS DISTINCT FROM OLD.name
+       OR NEW.user_id IS DISTINCT FROM OLD.user_id THEN
+      RAISE EXCEPTION 'You can only change your own photo here';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_protect_committee_columns ON public.committee_members;
+CREATE TRIGGER trg_protect_committee_columns
+  BEFORE UPDATE ON public.committee_members
+  FOR EACH ROW EXECUTE FUNCTION public.protect_committee_columns();
+
+DROP POLICY IF EXISTS "Members update own photo" ON public.committee_members;
+CREATE POLICY "Members update own photo"
+  ON public.committee_members FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);

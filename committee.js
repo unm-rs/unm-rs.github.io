@@ -17,7 +17,7 @@
             opts.map(p => `<option value="${esc(p)}"${p === current ? ' selected' : ''}>${esc(p)}</option>`).join('');
     }
 
-    const [{ data: members, error }, { isAdmin }] = await Promise.all([
+    const [{ data: members, error }, { isAdmin, session }] = await Promise.all([
         db.from('committee_members').select('*').order('created_at', { ascending: true }),
         window.roleReady,
     ]);
@@ -52,8 +52,10 @@
         return (p ? p.full_name : member.name) || 'Unnamed';
     }
     function displayPhoto(member) {
+        // Committee photo is independent of the profile picture once set
+        if (member.image_url) return member.image_url;
         const p = linkedProfile(member);
-        return p ? p.avatar_url : member.image_url;
+        return p ? p.avatar_url : null;
     }
 
     list.forEach(m => grid.appendChild(buildCard(m)));
@@ -70,6 +72,7 @@
         const profileUrl = member.user_id ? `/profile.html?id=${esc(member.user_id)}` : null;
         const photoTag = profileUrl ? 'a' : 'div';
         const nameTag  = profileUrl ? 'a' : 'p';
+        const isOwnCard = !!(member.user_id && session?.user?.id === member.user_id);
 
         card.innerHTML = `
             <${photoTag} class="committee-card__photo-wrap"${profileUrl ? ` href="${profileUrl}"` : ''}>
@@ -77,12 +80,36 @@
                     ? `<img class="committee-card__photo" src="${esc(photo)}" alt="${esc(name)}">`
                     : `<span class="committee-card__initials" aria-hidden="true">${initials}</span>`
                 }
+                ${isOwnCard && !isAdmin ? `
+                    <button type="button" class="committee-card__self-photo-btn" data-self-photo-btn
+                            title="Change your photo" aria-label="Change your photo">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                            <circle cx="12" cy="13" r="4"/>
+                        </svg>
+                    </button>
+                    <input type="file" class="committee-card__self-photo-input" data-self-photo-input accept="image/*" hidden>`
+                    : ''}
             </${photoTag}>
             <div class="committee-card__body">
                 <${nameTag} class="committee-card__name"${profileUrl ? ` href="${profileUrl}"` : ''}>${esc(name)}</${nameTag}>
                 ${member.position ? `<span class="cm-pos-badge">${esc(member.position)}</span>` : ''}
                 ${member.bio ? `<p class="committee-card__bio">${esc(member.bio)}</p>` : ''}
             </div>`;
+
+        if (isOwnCard && !isAdmin) {
+            const btn   = card.querySelector('[data-self-photo-btn]');
+            const input = card.querySelector('[data-self-photo-input]');
+            btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); input.click(); });
+            input.addEventListener('click', e => e.stopPropagation());
+            input.addEventListener('change', e => {
+                e.stopPropagation();
+                const file = e.target.files[0];
+                if (!file || !validateImageFile(file, e.target)) return;
+                uploadSelfPhoto(member, card, file);
+            });
+        }
 
         if (isAdmin) {
             const controls = document.createElement('div');
@@ -98,6 +125,36 @@
         }
 
         return card;
+    }
+
+    async function uploadSelfPhoto(member, card, file) {
+        const btn = card.querySelector('[data-self-photo-btn]');
+        if (btn) btn.disabled = true;
+
+        const ext  = file.name.split('.').pop().toLowerCase();
+        const path = `committee/${member.id}-${Date.now()}.${ext}`;
+        const { data: up, error: upErr } = await db.storage
+            .from('event-images')
+            .upload(path, file, { upsert: true });
+
+        if (upErr) {
+            alert('Photo upload failed: ' + upErr.message);
+            if (btn) btn.disabled = false;
+            return;
+        }
+
+        const { data: { publicUrl } } = db.storage.from('event-images').getPublicUrl(up.path);
+        const { error: updateErr } = await db
+            .from('committee_members').update({ image_url: publicUrl }).eq('id', member.id);
+
+        if (updateErr) {
+            alert('Save failed: ' + updateErr.message);
+            if (btn) btn.disabled = false;
+            return;
+        }
+
+        member.image_url = publicUrl;
+        card.replaceWith(buildCard(member));
     }
 
     function buildAddCard() {
@@ -345,17 +402,27 @@
         card.classList.add('committee-card--new');
 
         if (member.user_id) {
-            // Linked to a real profile — name/photo come from their account, only position/bio are ours to edit
+            // Linked to a real profile — name comes from their account; photo/position/bio are ours to edit
             const name  = displayName(member);
             const photo = displayPhoto(member);
+            const hasPhoto = !!photo;
             const initials = name.split(' ').map(w => w[0] || '').slice(0, 2).join('').toUpperCase();
 
             card.innerHTML = `
-                <div class="committee-card__photo-wrap">
-                    ${photo
+                <div class="committee-card__photo-wrap committee-card__photo-wrap--editable ${hasPhoto ? 'has-photo' : ''}" id="ec-photo-wrap">
+                    ${hasPhoto
                         ? `<img class="committee-card__photo" src="${esc(photo)}" alt="${esc(name)}">`
-                        : `<span class="committee-card__initials" aria-hidden="true">${initials}</span>`
+                        : (initials ? `<span class="committee-card__initials" aria-hidden="true">${initials}</span>` : '')
                     }
+                    <div class="committee-card__photo-overlay" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                             stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                            <circle cx="12" cy="13" r="4"/>
+                        </svg>
+                        <span>${hasPhoto ? 'Change Photo' : 'Add Photo'}</span>
+                    </div>
+                    <input type="file" id="ec-img-input" accept="image/*" hidden>
                 </div>
                 <div class="committee-card__body">
                     <p class="committee-card__name">${esc(name)}</p>
@@ -369,8 +436,10 @@
                     <button class="cm-new-btn cm-new-btn--cancel" id="ec-cancel">Cancel</button>
                 </div>`;
 
+            const { getPending } = wirePhoto(card);
+
             card.querySelector('#ec-cancel').addEventListener('click', () => card.replaceWith(buildCard(member)));
-            card.querySelector('#ec-save').addEventListener('click', () => saveLinkedEditable(card, member));
+            card.querySelector('#ec-save').addEventListener('click', () => saveLinkedEditable(card, member, getPending));
             return;
         }
 
@@ -387,7 +456,7 @@
         card.querySelector('#ec-save').addEventListener('click', () => saveEditable(card, member, getPending));
     }
 
-    async function saveLinkedEditable(card, member) {
+    async function saveLinkedEditable(card, member, getPending) {
         const position = card.querySelector('#ec-position-select').value;
         const bio      = card.querySelector('.committee-card__bio--edit').textContent.trim();
 
@@ -398,6 +467,25 @@
         saveBtn.textContent = 'Saving…';
 
         const payload = { position, bio: bio || null };
+        const file = getPending?.();
+
+        if (file) {
+            const ext  = file.name.split('.').pop().toLowerCase();
+            const path = `committee/${member.id}-${Date.now()}.${ext}`;
+            const { data: up, error: upErr } = await db.storage
+                .from('event-images')
+                .upload(path, file, { upsert: true });
+
+            if (upErr) {
+                alert('Image upload failed: ' + upErr.message);
+                saveBtn.disabled    = false;
+                saveBtn.textContent = 'Save';
+                return;
+            }
+            const { data: { publicUrl } } = db.storage.from('event-images').getPublicUrl(up.path);
+            payload.image_url = publicUrl;
+        }
+
         const { error: updateErr } = await db.from('committee_members').update(payload).eq('id', member.id);
 
         if (updateErr) {

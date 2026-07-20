@@ -1403,6 +1403,28 @@ svg {
             line-height: 1;
         }
 
+        .committee-card__self-photo-btn {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 26px;
+            height: 26px;
+            border: 2px solid hsl(0, 0%, 100%);
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: hsl(233, 20%, 15%);
+            color: #fff;
+            cursor: pointer;
+            padding: 0;
+            z-index: 1;
+            transition: background 0.15s;
+
+            svg { pointer-events: none; }
+
+            &:hover { background: hsl(45, 95%, 55%); color: hsl(233, 20%, 12%); }
+        }
+
         .committee-card__body { width: 100%; }
 
         .committee-card__name {
