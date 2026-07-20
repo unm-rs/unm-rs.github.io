@@ -125,7 +125,8 @@
 
 .ua-mod-badge,
 .fr-mod-badge,
-.cm-pos-badge {
+.cm-pos-badge,
+.pf-tag-badge {
     display: inline-block;
     font-size: 11px;
     font-weight: 800;
@@ -291,6 +292,32 @@
 .ab-form-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .ab-form-btn--primary { background: hsl(45,95%,55%); color: #000; }
 .ab-form-btn--ghost   { background: transparent; color: hsl(0 0% 55%); border: 1px solid hsl(220, 14%, 26%); }
+
+.ic-frame {
+    position: relative;
+    margin-inline: auto;
+    overflow: hidden;
+    border-radius: 8px;
+    background: hsl(233, 22%, 8%);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+.ic-frame:active { cursor: grabbing; }
+.ic-frame--circle { border-radius: 50%; }
+
+.ic-bg {
+    position: absolute;
+    inset: 0;
+    background-repeat: no-repeat;
+    pointer-events: none;
+}
+
+.ic-zoom {
+    display: block;
+    width: 100%;
+    margin-block: 18px 20px;
+}
 
 .ab-error {
     font-size: 13px;

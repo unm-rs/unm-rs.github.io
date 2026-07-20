@@ -734,3 +734,12 @@ DROP POLICY IF EXISTS "Owner removes user tags" ON public.user_tags;
 CREATE POLICY "Owner removes user tags"
   ON public.user_tags FOR DELETE TO authenticated
   USING (public.is_owner());
+
+-- ============================================================
+-- 31. Tags need an independent background color, not just text
+--     color, to actually match the look of the existing mod/
+--     committee badges (solid dark background + bright text)
+--     instead of a generic light outlined pill.
+-- ============================================================
+ALTER TABLE public.tags
+  ADD COLUMN IF NOT EXISTS bg_color text NOT NULL DEFAULT '#2a1d05';

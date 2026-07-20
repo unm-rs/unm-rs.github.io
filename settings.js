@@ -43,7 +43,12 @@
                 <div class="st-tag-add-form" id="st-tags-form" hidden>
                     <input class="st-mods-search__input" id="st-tag-name" type="text"
                            placeholder="Tag name" maxlength="24">
-                    <input class="st-tag-color-input" id="st-tag-color" type="color" value="#f2c14e">
+                    <label class="st-tag-color-label">Text
+                        <input class="st-tag-color-input" id="st-tag-color" type="color" value="#f2c14e">
+                    </label>
+                    <label class="st-tag-color-label">Background
+                        <input class="st-tag-color-input" id="st-tag-bgcolor" type="color" value="#2a1d05">
+                    </label>
                     <button class="st-mods-row__btn st-mods-row__btn--promote" id="st-tag-save">Save</button>
                     <button class="st-mods-row__btn" id="st-tag-cancel">Cancel</button>
                 </div>
@@ -306,6 +311,7 @@
         const form      = document.getElementById('st-tags-form');
         const nameInput = document.getElementById('st-tag-name');
         const colorInput = document.getElementById('st-tag-color');
+        const bgColorInput = document.getElementById('st-tag-bgcolor');
 
         await loadTags();
 
@@ -314,6 +320,7 @@
             addBtn.hidden = true;
             nameInput.value = '';
             colorInput.value = '#f2c14e';
+            bgColorInput.value = '#2a1d05';
             nameInput.focus();
         });
 
@@ -340,13 +347,24 @@
             listEl.querySelectorAll('[data-delete-tag]').forEach(btn => {
                 btn.addEventListener('click', () => deleteTag(btn.dataset.deleteTag, btn.dataset.name));
             });
+            listEl.querySelectorAll('[data-edit-color]').forEach(input => {
+                input.addEventListener('change', () =>
+                    updateTagColor(input.dataset.editColor, input.dataset.field, input.value, input));
+            });
         }
 
         function tagRow(t) {
             return `
                 <div class="st-mods-row">
-                    <span class="st-tag-swatch" style="background:${esc(t.color)}"></span>
-                    <span class="st-mods-row__name">${esc(t.name)}</span>
+                    <span class="pf-tag-badge" style="--tag-color:${esc(t.color)};--tag-bg:${esc(t.bg_color)}">${esc(t.name)}</span>
+                    <label class="st-tag-color-label">Text
+                        <input class="st-tag-color-input st-tag-color-input--sm" type="color" value="${esc(t.color)}"
+                               data-edit-color="${esc(t.id)}" data-field="color">
+                    </label>
+                    <label class="st-tag-color-label">Bg
+                        <input class="st-tag-color-input st-tag-color-input--sm" type="color" value="${esc(t.bg_color)}"
+                               data-edit-color="${esc(t.id)}" data-field="bg_color">
+                    </label>
                     <label class="st-tag-visible-toggle">
                         <input type="checkbox" data-visible-toggle="${esc(t.id)}" ${t.visible ? 'checked' : ''}>
                         Visible
@@ -355,15 +373,25 @@
                 </div>`;
         }
 
+        async function updateTagColor(id, field, value, input) {
+            input.disabled = true;
+            const { error } = await db.from('tags').update({ [field]: value }).eq('id', id);
+            input.disabled = false;
+            if (error) { alert('Failed: ' + error.message); return; }
+            const badge = input.closest('.st-mods-row').querySelector('.pf-tag-badge');
+            if (badge) badge.style.setProperty(field === 'color' ? '--tag-color' : '--tag-bg', value);
+        }
+
         async function createTag() {
-            const name  = nameInput.value.trim();
-            const color = colorInput.value;
+            const name     = nameInput.value.trim();
+            const color    = colorInput.value;
+            const bg_color = bgColorInput.value;
             if (!name) { nameInput.focus(); return; }
 
             const saveBtn = document.getElementById('st-tag-save');
             saveBtn.disabled = true;
 
-            const { error } = await db.from('tags').insert({ name, color });
+            const { error } = await db.from('tags').insert({ name, color, bg_color });
 
             saveBtn.disabled = false;
             if (error) { alert('Failed to create tag: ' + error.message); return; }

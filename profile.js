@@ -1,6 +1,8 @@
 (async function () {
     if (typeof db === 'undefined') return;
 
+    const BANNER_ASPECT = 3; // width:height of the cropped banner output
+
     const { session, isOwner } = await window.roleReady;
 
     const urlParams  = new URLSearchParams(window.location.search);
@@ -109,7 +111,7 @@
                     : `<h1 class="pf-name">${esc(profile.nickname || name || 'No name set')}
                        ${roleBadge(profile.role)}
                        ${committeePosition ? `<span class="cm-pos-badge">${esc(committeePosition)}</span>` : ''}
-                       ${tagBadges(myTags)}
+                       ${tagBadges(myTags, isOwner)}
                        ${isOwner ? `<button type="button" class="pf-tag-add-btn" id="pf-tag-add-btn" title="Manage tags" aria-label="Manage tags">+</button>` : ''}</h1>
                        ${name && profile.nickname ? `<p class="pf-nickname-display">${esc(name)}</p>` : ''}`}
                 ${(profile.course_of_study || profile.year_of_study) && !isEditing
@@ -194,18 +196,29 @@
             });
         });
 
-        document.getElementById('pf-avatar-input')?.addEventListener('change', e => {
-            const file = e.target.files[0];
-            if (!file || !validateImageFile(file, e.target)) return;
-            pendingAvatar = file;
-            swapImagePreview('pf-avatar-img', file, 'pf-avatar');
+        wireTagRemoveButtons(root, session.user.id, async () => {
+            myTags = await fetchUserTags(session.user.id);
+            render();
         });
 
-        document.getElementById('pf-banner-input')?.addEventListener('change', e => {
+        document.getElementById('pf-avatar-input')?.addEventListener('change', async e => {
             const file = e.target.files[0];
             if (!file || !validateImageFile(file, e.target)) return;
-            pendingBanner = file;
-            swapImagePreview('pf-banner-img', file, 'pf-banner__img');
+            const cropped = await window.openImageCropper(file, { aspect: 1, circle: true, outputWidth: 512, outputHeight: 512 });
+            e.target.value = '';
+            if (!cropped) return;
+            pendingAvatar = cropped;
+            swapImagePreview('pf-avatar-img', cropped, 'pf-avatar');
+        });
+
+        document.getElementById('pf-banner-input')?.addEventListener('change', async e => {
+            const file = e.target.files[0];
+            if (!file || !validateImageFile(file, e.target)) return;
+            const cropped = await window.openImageCropper(file, { aspect: BANNER_ASPECT, outputWidth: 1200, outputHeight: Math.round(1200 / BANNER_ASPECT) });
+            e.target.value = '';
+            if (!cropped) return;
+            pendingBanner = cropped;
+            swapImagePreview('pf-banner-img', cropped, 'pf-banner__img');
         });
     }
 
@@ -403,7 +416,7 @@
                 <h1 class="pf-name">${esc(name || 'No name set')}
                 ${roleBadge(p.role)}
                 ${committeePosition ? `<span class="cm-pos-badge">${esc(committeePosition)}</span>` : ''}
-                ${tagBadges(theirTags)}
+                ${tagBadges(theirTags, isOwner)}
                 ${isOwner ? `<button type="button" class="pf-tag-add-btn" id="pf-tag-add-btn" title="Manage tags" aria-label="Manage tags">+</button>` : ''}</h1>
                 ${(p.course_of_study || p.year_of_study)
                     ? `<p class="pf-submeta">${[p.course_of_study, p.year_of_study].filter(Boolean).map(esc).join(' &middot; ')}</p>`
@@ -429,6 +442,11 @@
                 renderPublicProfile(userId, isOwner);
             });
         });
+
+        wireTagRemoveButtons(root, userId, async () => {
+            theirTags = await fetchUserTags(userId);
+            renderPublicProfile(userId, isOwner);
+        });
     }
 
     function esc(str) {
@@ -446,15 +464,34 @@
     async function fetchUserTags(userId) {
         const { data } = await db
             .from('user_tags')
-            .select('tags(id, name, color, visible)')
+            .select('tags(id, name, color, bg_color, visible)')
             .eq('user_id', userId);
         return (data || []).map(r => r.tags).filter(t => t && t.visible);
     }
 
-    function tagBadges(tags) {
+    function tagBadges(tags, isOwner) {
         return (tags || [])
-            .map(t => `<span class="pf-tag-badge" style="--tag-color:${esc(t.color)}">${esc(t.name)}</span>`)
+            .map(t => `
+                <span class="pf-tag-badge" style="--tag-color:${esc(t.color)};--tag-bg:${esc(t.bg_color)}">
+                    ${esc(t.name)}
+                    ${isOwner ? `<button type="button" class="pf-tag-remove-btn" data-remove-tag="${esc(t.id)}"
+                        title="Remove tag" aria-label="Remove ${esc(t.name)} tag">×</button>` : ''}
+                </span>`)
             .join('');
+    }
+
+    function wireTagRemoveButtons(root, userId, onRemoved) {
+        root.querySelectorAll('[data-remove-tag]').forEach(btn => {
+            btn.addEventListener('click', async e => {
+                e.preventDefault();
+                e.stopPropagation();
+                btn.disabled = true;
+                const { error } = await db
+                    .from('user_tags').delete().eq('user_id', userId).eq('tag_id', btn.dataset.removeTag);
+                if (error) { alert('Failed: ' + error.message); btn.disabled = false; return; }
+                onRemoved();
+            });
+        });
     }
 
     async function openTagPicker(userId, _currentTags, onChange) {
@@ -489,8 +526,8 @@
 
         listEl.innerHTML = allTags.map(t => `
             <label class="st-mods-row pf-tag-picker-row">
-                <span class="st-tag-swatch" style="background:${esc(t.color)}"></span>
-                <span class="st-mods-row__name">${esc(t.name)}${t.visible ? '' : ' (hidden)'}</span>
+                <span class="pf-tag-badge" style="--tag-color:${esc(t.color)};--tag-bg:${esc(t.bg_color)}">${esc(t.name)}</span>
+                <span class="st-mods-row__name">${t.visible ? '' : 'Hidden'}</span>
                 <input type="checkbox" data-tag-id="${esc(t.id)}" ${assignedIds.has(t.id) ? 'checked' : ''}>
             </label>`).join('');
 
