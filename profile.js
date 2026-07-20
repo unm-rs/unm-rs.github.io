@@ -481,7 +481,7 @@
         ]);
 
         if (!allTags || allTags.length === 0) {
-            listEl.innerHTML = `<p class="st-mods-empty">No tags yet — create one in Settings.</p>`;
+            listEl.innerHTML = `<p class="st-mods-empty">No tags yet.</p>`;
             return;
         }
 

@@ -47,7 +47,7 @@
                     <button class="st-mods-row__btn st-mods-row__btn--promote" id="st-tag-save">Save</button>
                     <button class="st-mods-row__btn" id="st-tag-cancel">Cancel</button>
                 </div>
-                <button class="st-mods-row__btn st-mods-row__btn--promote" id="st-tags-add-btn">+ Add Tag</button>
+                <button class="st-mods-row__btn st-mods-row__btn--promote" id="st-tags-add-btn">Add Tag</button>
             </section>` : ''}
 
             <section class="st-section st-section--danger">
