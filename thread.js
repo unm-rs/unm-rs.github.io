@@ -37,13 +37,18 @@
     const myRole   = isOwner ? 'owner' : (isAdmin ? 'mod' : null);
     let replyArr   = replies || [];
 
-    // Fetch live avatars so profile picture changes are reflected
+    // Fetch live avatars/roles so profile changes (and mod demotions) are reflected,
+    // instead of trusting the author_avatar/author_role snapshot stored on the post
     let avatarMap = {};
+    let roleMap   = {};
     const postAuthorIds = [...new Set([thread.author_id, ...replyArr.map(r => r.author_id)].filter(Boolean))];
     if (postAuthorIds.length) {
         const { data: profiles } = await db
-            .from('user_profiles').select('id, avatar_url').in('id', postAuthorIds);
-        if (profiles) avatarMap = Object.fromEntries(profiles.map(p => [p.id, p.avatar_url]));
+            .from('user_profiles').select('id, avatar_url, role').in('id', postAuthorIds);
+        if (profiles) {
+            avatarMap = Object.fromEntries(profiles.map(p => [p.id, p.avatar_url]));
+            roleMap   = Object.fromEntries(profiles.map(p => [p.id, p.role]));
+        }
     }
 
     let committeeMap = {};
@@ -226,10 +231,11 @@
             day: 'numeric', month: 'short', year: 'numeric',
             hour: '2-digit', minute: '2-digit',
         });
-        const canDelete = isAdmin || (session?.user?.id === post.author_id);
-        const avatar    = avatarMap[post.author_id] ?? post.author_avatar;
-        const profUrl   = post.author_id ? `/profile.html?id=${esc(post.author_id)}` : null;
-        const avatarEl  = `<div class="fr-post__avatar">${avatar ? `<img src="${esc(avatar)}" alt="${esc(post.author_name)}">` : `<span>${initials}</span>`}</div>`;
+        const canDelete   = isAdmin || (session?.user?.id === post.author_id);
+        const avatar      = avatarMap[post.author_id] ?? post.author_avatar;
+        const authorRole  = post.author_id in roleMap ? roleMap[post.author_id] : post.author_role;
+        const profUrl     = post.author_id ? `/profile.html?id=${esc(post.author_id)}` : null;
+        const avatarEl    = `<div class="fr-post__avatar">${avatar ? `<img src="${esc(avatar)}" alt="${esc(post.author_name)}">` : `<span>${initials}</span>`}</div>`;
         const isByOp    = !!post.author_id && post.author_id === thread.author_id;
 
         const like     = likeMap[post.id] || { count: 0, mine: false };
@@ -243,8 +249,8 @@
                     <div class="fr-post__head-info">
                         <p class="fr-post__author">
                             ${profUrl ? `<a class="fr-author-link" href="${profUrl}">${esc(post.author_name)}</a>` : esc(post.author_name)}
-                            ${post.author_role === 'owner' ? `<span class="fr-mod-badge fr-mod-badge--owner">Owner</span>`
-                              : post.author_role === 'mod' || post.author_role === 'admin' ? `<span class="fr-mod-badge">Mod</span>` : ''}
+                            ${authorRole === 'owner' ? `<span class="fr-mod-badge fr-mod-badge--owner">Owner</span>`
+                              : authorRole === 'mod' || authorRole === 'admin' ? `<span class="fr-mod-badge">Mod</span>` : ''}
                             ${committeeMap[post.author_id] ? `<span class="cm-pos-badge">${esc(committeeMap[post.author_id])}</span>` : ''}
                             ${isByOp ? `<span class="fr-op-chip">OP</span>` : ''}
                         </p>
