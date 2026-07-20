@@ -1,12 +1,18 @@
 (async function () {
+    window.initHeroImage?.('home');
+
     const track   = document.querySelector('.events__track');
     const prevBtn = document.querySelector('.events__btn--prev');
     const nextBtn = document.querySelector('.events__btn--next');
     if (!track) return;
 
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
     const { data: events, error } = await db
         .from('events')
-        .select('id, title, slug, image_url')
+        .select('id, title, slug, image_url, event_date')
+        .or(`event_date.is.null,event_date.gte.${todayStr}`)
         .order('event_date', { ascending: true });
 
     if (error) {
@@ -23,19 +29,21 @@
     }
 
     track.innerHTML = events.map(ev => `
-        <article class="event-card" data-event-id="${ev.id}" data-event-slug="${ev.slug}">
+        <article class="event-card" data-event-id="${esc(ev.id)}" data-event-slug="${esc(ev.slug)}">
             <a href="/event.html?slug=${encodeURIComponent(ev.slug)}" class="event-card__link">
                 <div class="event-card__img-wrap">
-                    <img src="${ev.image_url || '/img/trans.png'}" alt="" class="event-card__img" loading="lazy">
+                    ${ev.image_url
+                        ? `<img src="${esc(ev.image_url)}" alt="" class="event-card__img" loading="lazy">`
+                        : `<div class="event-card__img-placeholder" aria-hidden="true"></div>`
+                    }
                     <div class="event-card__body">
-                        <h3 class="event-card__title">${ev.title}</h3>
+                        <h3 class="event-card__title">${esc(ev.title)}</h3>
                     </div>
                 </div>
             </a>
         </article>
     `).join('');
 
-    // Carousel
     const slider = document.querySelector('.events__slider');
     if (!slider || !prevBtn || !nextBtn) return;
 
@@ -76,4 +84,10 @@
     });
 
     setup();
+
+    function esc(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 })();

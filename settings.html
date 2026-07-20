@@ -4,17 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UNM Robotics</title>
+    <title>Settings</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/admin-bar.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="/supabase-client.js" defer></script>
-    <script src="/role-utils.js" defer></script>
-    <script src="/hero-image.js" defer></script>
-    <script src="/cart-utils.js" defer></script>
-    <script src="/user-auth.js" defer></script>
-    <script src="/events.js" defer></script>
-    <script src="/admin-bar.js" defer></script>
 
     <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -24,135 +16,31 @@
 </head>
 
 <body>
-    <a class="visually-hidden skip" href="#main" class="skip-link">Skip to main content</a>
+    <a class="visually-hidden skip" href="#main">Skip to main content</a>
 
-    <header class="topnav">  
-
+    <header class="topnav">
         <h2 class="visually-hidden">Header</h2>
-
-        <div class="wrapper topnav__wrapper">   
-
+        <div class="wrapper topnav__wrapper">
             <a href="/" class="topnav__homelink">
                 <img src="/img/rs-logo-text.png" alt="Robotics Society Homepage" class="topnav__logo" width="128" height="128">
             </a>
-
-            <nav>   
-
+            <nav>
                 <ul class="topnav__links">
-
-                    <li class="topnav__item">
-                        <a href="/eventspage.html" class="topnav__link">Events</a>
-                    </li>
-
-                    <li class="topnav__item">
-                        <a href="/forum.html" class="topnav__link">Forum</a>
-                    </li>
-
-                    <li class="topnav__item">
-                        <a href="/products.html" class="topnav__link">Products</a>
-                    </li>
-
-                    <li class="topnav__item">
-                        <a href="/committee.html" class="topnav__link">Committee</a>
-                    </li>
-
-                    <li class="topnav__item">
-                        <a href="" class="topnav__link">About</a>
-                    </li>
-
+                    <li class="topnav__item"><a href="/eventspage.html" class="topnav__link">Events</a></li>
+                    <li class="topnav__item"><a href="/forum.html"      class="topnav__link">Forum</a></li>
+                    <li class="topnav__item"><a href="/products.html"   class="topnav__link">Products</a></li>
+                    <li class="topnav__item"><a href="/committee.html"  class="topnav__link">Committee</a></li>
+                    <li class="topnav__item"><a href=""                 class="topnav__link">About</a></li>
                 </ul>
-
             </nav>
-
         </div>
-
     </header>
 
-    <main id="main">
-
-        <section class="hero">
-            <div class="hero__main">
-                <div class="hero__bg" id="js-hero-bg"></div>
-                <div class="hero__overlay"></div>
-                <label class="hero-img-btn" id="js-img-btn" hidden>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Change Image
-                    <input type="file" id="js-img-input" accept="image/*" hidden>
-                </label>
-                <div class="hero__content">
-                    <h1 class="hero__title">UNM Robotics Society</h1>
-                    <p class="hero__desc">Currently in beta version</p>
-                    <a href="#" class="hero__cta">Learn More</a>
-                </div>
-                <nav class="hero__tabs" aria-label="Explore sections">
-                    <a href="/eventspage.html" class="hero__tab">
-                        <span class="hero__tab-label">Explore</span>
-                        <span class="hero__tab-title">Events</span>
-                    </a>
-                    <a href="#about" class="hero__tab">
-                        <span class="hero__tab-label">Discover</span>
-                        <span class="hero__tab-title">About</span>
-                    </a>
-                    <a href="https://www.github.com/unm-rs" target="_blank" rel="noopener noreferrer" class="hero__tab">
-                        <span class="hero__tab-label">See</span>
-                        <span class="hero__tab-title">Recent Projects</span>
-                    </a>
-                </nav>
-            </div>
-        </section>
-
+    <main id="main" class="st-main">
+        <div id="js-settings-root">
+            <p class="pf-loading">Loading…</p>
+        </div>
     </main>
-
-    <section class="events" id="news">
-        <div class="events__inner">
-            <h2 class="events__heading">Upcoming Events</h2>
-        </div>
-        <div class="events__carousel">
-            <button class="events__btn events__btn--prev" aria-label="Previous event" disabled></button>
-            <div class="events__slider">
-            <div class="events__track">
-            </div>
-            </div>
-            <button class="events__btn events__btn--next" aria-label="Next event" disabled></button>
-        </div>
-    </section>
-
-    <section class="values">
-        <p class="values__label">Our Core Values</p>
-        <div class="values__grid">
-
-            <div class="values__item values__item--r">
-                <span class="values__pillar">R</span>
-                <h3 class="values__word"><span class="values__drop">R</span>espect</h3>
-                <p class="values__desc">All members are treated with dignity and respect.</p>
-            </div>
-
-            <div class="values__item values__item--o">
-                <span class="values__pillar">O</span>
-                <h3 class="values__word"><span class="values__drop">O</span>penness</h3>
-                <p class="values__desc">We welcome all ideas and backgrounds, creating space for everyone to contribute.</p>
-            </div>
-
-            <div class="values__item values__item--b">
-                <span class="values__pillar">B</span>
-                <h3 class="values__word"><span class="values__drop">B</span>oldness</h3>
-                <p class="values__desc">We tackle hard problems head-on, unafraid to experiment and learn from failure.</p>
-            </div>
-
-            <div class="values__item values__item--o2">
-                <span class="values__pillar">O</span>
-                <h3 class="values__word"><span class="values__drop">O</span>rganised</h3>
-                <p class="values__desc">We plan with intention and act with structure so our ideas become reality.</p>
-            </div>
-
-            <div class="values__item values__item--t">
-                <span class="values__pillar">T</span>
-                <h3 class="values__word"><span class="values__drop">T</span>rust</h3>
-                <p class="values__desc">We build honest, dependable relationships that hold our community together.</p>
-            </div>
-
-        </div>
-    </section>
 
     <footer class="footer">
         <h2 class="visually-hidden">Footer</h2>
@@ -252,8 +140,14 @@
         </div>
 
     </footer>
-    
-    
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="/supabase-client.js" defer></script>
+    <script src="/role-utils.js" defer></script>
+    <script src="/cart-utils.js" defer></script>
+    <script src="/user-auth.js" defer></script>
+    <script src="/settings.js" defer></script>
+
 </body>
 
 </html>

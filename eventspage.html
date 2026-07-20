@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Committee</title>
+    <title>Events</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/admin-bar.css">
 
@@ -26,10 +26,10 @@
             </a>
             <nav>
                 <ul class="topnav__links">
-                    <li class="topnav__item"><a href="/eventspage.html" class="topnav__link">Events</a></li>
+                    <li class="topnav__item"><a href="/eventspage.html" class="topnav__link topnav__link--active">Events</a></li>
                     <li class="topnav__item"><a href="/forum.html"     class="topnav__link">Forum</a></li>
                     <li class="topnav__item"><a href="/products.html"  class="topnav__link">Products</a></li>
-                    <li class="topnav__item"><a href="/committee.html" class="topnav__link topnav__link--active">Committee</a></li>
+                    <li class="topnav__item"><a href="/committee.html" class="topnav__link">Committee</a></li>
                     <li class="topnav__item"><a href="" class="topnav__link">About</a></li>
                 </ul>
             </nav>
@@ -38,25 +38,35 @@
 
     <main id="main">
 
-        <section class="committee-hero">
+        <section class="ep-hero">
             <div class="hero-img-bg" id="js-hero-bg"></div>
-            <div class="committee-hero__grid" aria-hidden="true"></div>
             <div class="hero-img-overlay"></div>
             <label class="hero-img-btn" id="js-img-btn" hidden>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 Change Image
                 <input type="file" id="js-img-input" accept="image/*" hidden>
             </label>
-            <div class="committee-hero__content">
-                <p class="committee-hero__eyebrow">UNM Robotics Society</p>
-                <h1 class="committee-hero__title">Meet the<br>Committee</h1>
-                <p class="committee-hero__sub">beta</p>
+            <div class="ep-hero__content wrapper">
+                <h1 class="ep-hero__title">Events</h1>
+                <p class="ep-hero__sub">beta</p>
             </div>
         </section>
 
-        <section class="committee-section">
-            <div class="committee-grid" id="js-committee-grid">
-                <p class="committee-loading" id="js-committee-loading">Loading…</p>
+        <div class="ep-years-outer" id="js-years-outer">
+            <div class="ep-years-bar wrapper">
+                <div class="ep-years-tabs" id="js-years-tabs" role="tablist" aria-label="Filter events by year">
+                    <div class="ep-years-skeleton" aria-hidden="true">
+                        <span></span><span></span><span></span><span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <section class="ep-section">
+            <div class="wrapper">
+                <div class="ep-events-grid" id="js-events-grid">
+                    <p class="ep-loading" id="js-ep-loading">Loading events…</p>
+                </div>
             </div>
         </section>
 
@@ -79,10 +89,10 @@
                 <div class="footer__col">
                     <h3 class="footer__col-heading">Explore</h3>
                     <ul class="footer__links">
-                        <li><a href="/#news"         class="footer__link">Events</a></li>
-                        <li><a href="/#about"         class="footer__link">About</a></li>
-                        <li><a href="/committee.html" class="footer__link">Committee</a></li>
-                        <li><a href="#"               class="footer__link">Projects</a></li>
+                        <li><a href="/eventspage.html"  class="footer__link">Events</a></li>
+                        <li><a href="/#about"           class="footer__link">About</a></li>
+                        <li><a href="/committee.html"   class="footer__link">Committee</a></li>
+                        <li><a href="#"                 class="footer__link">Projects</a></li>
                     </ul>
                 </div>
                 <div class="footer__col">
@@ -149,7 +159,7 @@
     <script src="/hero-image.js" defer></script>
     <script src="/cart-utils.js" defer></script>
     <script src="/user-auth.js" defer></script>
-    <script src="/committee.js" defer></script>
+    <script src="/eventspage.js" defer></script>
     <script src="/admin-bar.js" defer></script>
 
 </body>

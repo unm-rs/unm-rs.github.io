@@ -1,95 +1,17 @@
 (async function () {
     if (typeof db === 'undefined') return;
 
-    const { data: { session } } = await db.auth.getSession();
+    const { isAdmin } = await window.roleReady;
 
-    if (!session) {
-        injectLoginTrigger();
-        return;
-    }
+    if (!isAdmin) return;
 
     activateAdminMode();
-
-    // =========================================================
-    // LOGIN TRIGGER  (subtle footer button for non-admins)
-    // =========================================================
-
-    function injectLoginTrigger() {
-        const legal = document.querySelector('.footer__legal');
-        if (!legal) return;
-        const btn = document.createElement('button');
-        btn.className   = 'ab-login-trigger';
-        btn.textContent = 'Editor Access';
-        btn.addEventListener('click', openLoginModal);
-        legal.appendChild(btn);
-    }
-
-    function openLoginModal() {
-        const overlay = makeOverlay();
-        overlay.innerHTML = `
-            <div class="ab-modal" style="max-width:360px">
-                <div class="ab-modal__head">
-                    <h2 class="ab-modal__title">Admin Login</h2>
-                    <button class="ab-modal__close" id="ab-lc">✕</button>
-                </div>
-                <form class="ab-form" id="ab-login-form">
-                    <div class="ab-field">
-                        <label class="ab-label">Super Secret Email</label>
-                        <input class="ab-input" id="ab-lemail" type="email" autocomplete="email" required>
-                    </div>
-                    <div class="ab-field">
-                        <label class="ab-label">Super Secret Password</label>
-                        <input class="ab-input" id="ab-lpw" type="password" autocomplete="current-password" required>
-                    </div>
-                    <div id="ab-lerr" class="ab-error" hidden></div>
-                    <div class="ab-form-actions">
-                        <button type="submit" class="ab-form-btn ab-form-btn--primary" id="ab-lsubmit">Enter Super Secret Mode!</button>
-                    </div>
-                </form>
-            </div>`;
-
-        document.body.appendChild(overlay);
-        document.getElementById('ab-lemail').focus();
-        document.getElementById('ab-lc').addEventListener('click', () => overlay.remove());
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-
-        document.getElementById('ab-login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const errEl  = document.getElementById('ab-lerr');
-            const submit = document.getElementById('ab-lsubmit');
-            errEl.hidden = true;
-            submit.disabled    = true;
-            submit.textContent = 'Signing in…';
-
-            const { error } = await db.auth.signInWithPassword({
-                email:    document.getElementById('ab-lemail').value,
-                password: document.getElementById('ab-lpw').value,
-            });
-
-            if (error) {
-                errEl.textContent = error.message;
-                errEl.hidden      = false;
-                submit.disabled    = false;
-                submit.textContent = 'Sign in';
-            } else {
-                overlay.remove();
-                activateAdminMode();
-            }
-        });
-    }
-
-    // =========================================================
-    // ADMIN MODE
-    // =========================================================
 
     function activateAdminMode() {
         document.body.style.paddingTop = '44px';
         injectAdminBar();
-        watchForCards();
         injectEventModal();
     }
-
-    // ---- Admin bar -----------------------------------------
 
     function injectAdminBar() {
         const bar = document.createElement('div');
@@ -113,8 +35,6 @@
             location.reload();
         });
     }
-
-    // ---- Quick-add (title only → redirect to event page) ---
 
     function openQuickAdd() {
         const overlay = makeOverlay();
@@ -167,58 +87,6 @@
         });
     }
 
-    // ---- Watch for event cards -----------------------------
-
-    function watchForCards() {
-        const track = document.querySelector('.events__track');
-        if (!track) return;
-
-        // Attach to any cards already in DOM
-        track.querySelectorAll('.event-card').forEach(attachCardControls);
-
-        // Watch for dynamically added cards
-        new MutationObserver(() => {
-            track.querySelectorAll('.event-card:not([data-admin-ready])').forEach(attachCardControls);
-        }).observe(track, { childList: true, subtree: true });
-    }
-
-    function attachCardControls(card) {
-        card.setAttribute('data-admin-ready', '1');
-        const id    = card.dataset.eventId;
-        const title = card.querySelector('.event-card__title')?.textContent || 'this event';
-
-        const controls = document.createElement('div');
-        controls.className = 'card-admin-controls';
-        controls.innerHTML = `
-            <button class="card-admin-btn card-admin-btn--edit">Edit</button>
-            <button class="card-admin-btn card-admin-btn--delete">Delete</button>`;
-
-        controls.querySelector('.card-admin-btn--edit').addEventListener('click', (e) => {
-            e.preventDefault(); e.stopPropagation();
-            openEventModal(id);
-        });
-        controls.querySelector('.card-admin-btn--delete').addEventListener('click', (e) => {
-            e.preventDefault(); e.stopPropagation();
-            deleteEvent(id, title);
-        });
-
-        const body = card.querySelector('.event-card__body');
-        if (body) body.prepend(controls);
-    }
-
-    // ---- Delete --------------------------------------------
-
-    async function deleteEvent(id, title) {
-        if (!confirm(`Delete "${title}"?\n\nThis cannot be undone.`)) return;
-        const { error } = await db.from('events').delete().eq('id', id);
-        if (error) { alert('Delete failed: ' + error.message); return; }
-        location.reload();
-    }
-
-    // =========================================================
-    // ADD / EDIT MODAL
-    // =========================================================
-
     let _overlay = null;
     let _editId  = null;
     let _currentImageUrl = null;
@@ -270,7 +138,7 @@
                         <input type="file" class="ab-file-input" id="ab-fimage" accept="image/*">
                         <div id="ab-imgpreview" class="ab-img-preview" ${_currentImageUrl ? '' : 'hidden'}>
                             <img id="ab-previewimg" src="${_currentImageUrl || ''}" alt="Preview">
-                            <button type="button" class="ab-form-btn ab-form-btn--ghost" id="ab-removeimg" style="font-size:12px;padding:5px 12px">Remove image</button>
+                            <button type="button" class="ab-form-btn ab-form-btn--ghost" id="ab-removeimg" style="font-size:13px;padding:5px 12px">Remove image</button>
                         </div>
                     </div>
                     <div id="ab-ferr" class="ab-error" hidden></div>
@@ -287,12 +155,10 @@
         const slugInput  = document.getElementById('ab-fslug');
         titleInput.focus();
 
-        // Close handlers
         document.getElementById('ab-ec').addEventListener('click', closeEventModal);
         document.getElementById('ab-fcancel').addEventListener('click', closeEventModal);
         overlay.addEventListener('click', (e) => { if (e.target === overlay) closeEventModal(); });
 
-        // Auto-slug from title (add mode only)
         if (!editId) {
             titleInput.addEventListener('input', () => {
                 slugInput.value = titleInput.value
@@ -303,7 +169,6 @@
             });
         }
 
-        // Image preview
         document.getElementById('ab-fimage').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -317,7 +182,6 @@
             document.getElementById('ab-imgpreview').hidden = true;
         });
 
-        // Submit
         document.getElementById('ab-event-form').addEventListener('submit', submitEventForm);
     }
 
@@ -398,10 +262,6 @@
             }
         }
     }
-
-    // =========================================================
-    // HELPERS
-    // =========================================================
 
     function makeOverlay() {
         const el = document.createElement('div');

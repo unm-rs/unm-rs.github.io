@@ -1,13 +1,26 @@
 (async function () {
+    window.initHeroImage?.('committee');
+
     const grid = document.getElementById('js-committee-grid');
     if (!grid) return;
 
-    const [{ data: members, error }, { data: { session } }] = await Promise.all([
-        db.from('committee_members').select('*').order('created_at', { ascending: true }),
-        db.auth.getSession(),
-    ]);
+    const POSITIONS = [
+        'President', 'Vice President', 'Secretary', 'Treasurer', 'Event Manager',
+        'Head of Technical', 'Head of Public Relations', 'Head of Marketing',
+        'Technical Executive', 'Marketing Executive', 'Public Relations Executive',
+        'Junior Secretary', 'Junior Events', 'Junior Technical', 'Junior Marketing',
+    ];
 
-    const isAdmin = !!session;
+    function positionOptions(current) {
+        const opts = POSITIONS.includes(current) || !current ? POSITIONS : [current, ...POSITIONS];
+        return `<option value="" disabled${current ? '' : ' selected'}>Select position…</option>` +
+            opts.map(p => `<option value="${esc(p)}"${p === current ? ' selected' : ''}>${esc(p)}</option>`).join('');
+    }
+
+    const [{ data: members, error }, { isAdmin }] = await Promise.all([
+        db.from('committee_members').select('*').order('created_at', { ascending: true }),
+        window.roleReady,
+    ]);
 
     document.getElementById('js-committee-loading')?.remove();
 
@@ -17,36 +30,57 @@
     }
 
     const list = members || [];
+    list.sort((a, b) => {
+        const ai = POSITIONS.indexOf(a.position);
+        const bi = POSITIONS.indexOf(b.position);
+        return (ai === -1 ? POSITIONS.length : ai) - (bi === -1 ? POSITIONS.length : bi);
+    });
+
+    // Live profile data for committee members linked to a real account
+    let profileMap = {};
+    const linkedIds = [...new Set(list.map(m => m.user_id).filter(Boolean))];
+    if (linkedIds.length) {
+        const { data: profiles } = await db
+            .from('user_profiles').select('id, full_name, nickname, avatar_url').in('id', linkedIds);
+        if (profiles) profileMap = Object.fromEntries(profiles.map(p => [p.id, p]));
+    }
+
+    function linkedProfile(member) { return member.user_id ? profileMap[member.user_id] : null; }
+    function displayName(member) {
+        // Committee is a formal listing — always show the real name, never the nickname
+        const p = linkedProfile(member);
+        return (p ? p.full_name : member.name) || 'Unnamed';
+    }
+    function displayPhoto(member) {
+        const p = linkedProfile(member);
+        return p ? p.avatar_url : member.image_url;
+    }
 
     list.forEach(m => grid.appendChild(buildCard(m)));
     if (isAdmin) grid.appendChild(buildAddCard());
 
-    // =========================================================
-    // VIEW CARD
-    // =========================================================
-
     function buildCard(member) {
         const card = document.createElement('article');
-        card.className = 'committee-card';
+        card.className = 'committee-card' + (member.position === 'President' ? ' committee-card--president' : '');
         card.dataset.id = member.id;
 
-        const initials = member.name
-            .split(' ')
-            .map(w => w[0] || '')
-            .slice(0, 2)
-            .join('')
-            .toUpperCase();
+        const name  = displayName(member);
+        const photo = displayPhoto(member);
+        const initials = name.split(' ').map(w => w[0] || '').slice(0, 2).join('').toUpperCase();
+        const profileUrl = member.user_id ? `/profile.html?id=${esc(member.user_id)}` : null;
+        const photoTag = profileUrl ? 'a' : 'div';
+        const nameTag  = profileUrl ? 'a' : 'p';
 
         card.innerHTML = `
-            <div class="committee-card__photo-wrap">
-                ${member.image_url
-                    ? `<img class="committee-card__photo" src="${esc(member.image_url)}" alt="${esc(member.name)}">`
+            <${photoTag} class="committee-card__photo-wrap"${profileUrl ? ` href="${profileUrl}"` : ''}>
+                ${photo
+                    ? `<img class="committee-card__photo" src="${esc(photo)}" alt="${esc(name)}">`
                     : `<span class="committee-card__initials" aria-hidden="true">${initials}</span>`
                 }
-            </div>
+            </${photoTag}>
             <div class="committee-card__body">
-                <p class="committee-card__name">${esc(member.name)}</p>
-                <p class="committee-card__role">${esc(member.position)}</p>
+                <${nameTag} class="committee-card__name"${profileUrl ? ` href="${profileUrl}"` : ''}>${esc(name)}</${nameTag}>
+                ${member.position ? `<span class="cm-pos-badge">${esc(member.position)}</span>` : ''}
                 ${member.bio ? `<p class="committee-card__bio">${esc(member.bio)}</p>` : ''}
             </div>`;
 
@@ -66,10 +100,6 @@
         return card;
     }
 
-    // =========================================================
-    // ADD CARD
-    // =========================================================
-
     function buildAddCard() {
         const card = document.createElement('div');
         card.className = 'committee-card committee-card--add';
@@ -80,7 +110,7 @@
             <span class="committee-card__add-plus">+</span>
             <span class="committee-card__add-label">Add Member</span>`;
 
-        const activate = () => openInlineAdd(card);
+        const activate = () => openMemberPicker();
         card.addEventListener('click', activate);
         card.addEventListener('keydown', e => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
@@ -89,9 +119,155 @@
         return card;
     }
 
-    // =========================================================
-    // SHARED: editable card HTML + photo wiring
-    // =========================================================
+    function openMemberPicker() {
+        const overlay = makeOverlay();
+        overlay.innerHTML = `
+            <div class="ab-modal" style="max-width:420px">
+                <div class="ab-modal__head">
+                    <h2 class="ab-modal__title">Add Committee Member</h2>
+                    <button class="ab-modal__close" id="cm-pc">✕</button>
+                </div>
+                <div class="ab-field">
+                    <label class="ab-label">Search members</label>
+                    <input class="ab-input" id="cm-pick-search" type="text"
+                           placeholder="Search by name or student ID…" autocomplete="off">
+                </div>
+                <div id="cm-pick-results" class="st-mods-results" style="margin-block-start:12px"></div>
+            </div>`;
+
+        document.body.appendChild(overlay);
+        const searchEl  = overlay.querySelector('#cm-pick-search');
+        const resultsEl = overlay.querySelector('#cm-pick-results');
+        searchEl.focus();
+
+        const close = () => overlay.remove();
+        overlay.querySelector('#cm-pc').addEventListener('click', close);
+        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+        const alreadyLinked = new Set(list.map(m => m.user_id).filter(Boolean));
+
+        let debounce;
+        searchEl.addEventListener('input', () => {
+            clearTimeout(debounce);
+            const q = searchEl.value.trim();
+            if (q.length < 2) { resultsEl.innerHTML = ''; return; }
+            debounce = setTimeout(() => search(q), 250);
+        });
+
+        async function search(q) {
+            const safeQ = q.replace(/[,().%*]/g, '');
+            const { data: found } = await db
+                .from('user_profiles')
+                .select('id, full_name, nickname, student_id, avatar_url')
+                .or(`full_name.ilike.%${safeQ}%,nickname.ilike.%${safeQ}%,student_id.ilike.%${safeQ}%`)
+                .limit(8);
+
+            const results = (found || []).filter(p => !alreadyLinked.has(p.id));
+
+            if (results.length === 0) {
+                resultsEl.innerHTML = '<p class="st-mods-empty">No matching members.</p>';
+                return;
+            }
+
+            resultsEl.innerHTML = results.map(p => {
+                const name     = esc(p.nickname || p.full_name || 'Unnamed');
+                const initials = esc((p.full_name || '?').split(' ').map(w => w[0] || '').slice(0, 2).join('').toUpperCase());
+                const avatar   = p.avatar_url
+                    ? `<img class="st-mods-avatar" src="${esc(p.avatar_url)}" alt="">`
+                    : `<span class="st-mods-avatar st-mods-avatar--initials">${initials}</span>`;
+                return `
+                    <div class="st-mods-row">
+                        ${avatar}
+                        <span class="st-mods-row__name">${name}</span>
+                        <button class="st-mods-row__btn st-mods-row__btn--promote" data-pick="${esc(p.id)}">Select</button>
+                    </div>`;
+            }).join('');
+
+            resultsEl.querySelectorAll('[data-pick]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const profile = results.find(p => p.id === btn.dataset.pick);
+                    close();
+                    openMemberDetails(profile);
+                });
+            });
+        }
+    }
+
+    function openMemberDetails(profile) {
+        const overlay = makeOverlay();
+        const name     = profile.nickname || profile.full_name || 'Unnamed';
+        const initials = (profile.full_name || '?').split(' ').map(w => w[0] || '').slice(0, 2).join('').toUpperCase();
+        const avatar   = profile.avatar_url
+            ? `<img class="st-mods-avatar" style="width:44px;height:44px" src="${esc(profile.avatar_url)}" alt="">`
+            : `<span class="st-mods-avatar st-mods-avatar--initials" style="width:44px;height:44px;font-size:15px">${esc(initials)}</span>`;
+
+        overlay.innerHTML = `
+            <div class="ab-modal" style="max-width:420px">
+                <div class="ab-modal__head">
+                    <h2 class="ab-modal__title">Add Committee Member</h2>
+                    <button class="ab-modal__close" id="cm-dc">✕</button>
+                </div>
+                <div class="st-mods-row" style="margin-block-end:16px">
+                    ${avatar}
+                    <span class="st-mods-row__name">${esc(name)}</span>
+                </div>
+                <form class="ab-form" id="cm-details-form">
+                    <div class="ab-field">
+                        <label class="ab-label">Position</label>
+                        <select class="ab-input" id="cm-d-position" required>${positionOptions('')}</select>
+                    </div>
+                    <div class="ab-field">
+                        <label class="ab-label">Bio <span style="font-weight:400;color:hsl(0 0% 50%)">(optional)</span></label>
+                        <textarea class="ab-textarea" id="cm-d-bio" rows="3" placeholder="Short bio for the committee page"></textarea>
+                    </div>
+                    <div id="cm-d-err" class="ab-error" hidden></div>
+                    <div class="ab-form-actions">
+                        <button type="submit" class="ab-form-btn ab-form-btn--primary" id="cm-d-save">Add to Committee</button>
+                    </div>
+                </form>
+            </div>`;
+
+        document.body.appendChild(overlay);
+        overlay.querySelector('#cm-d-position').focus();
+
+        const close = () => overlay.remove();
+        overlay.querySelector('#cm-dc').addEventListener('click', close);
+        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+        overlay.querySelector('#cm-details-form').addEventListener('submit', async e => {
+            e.preventDefault();
+            const errEl = overlay.querySelector('#cm-d-err');
+            const btn   = overlay.querySelector('#cm-d-save');
+            const position = overlay.querySelector('#cm-d-position').value.trim();
+            const bio      = overlay.querySelector('#cm-d-bio').value.trim();
+
+            if (!position) return;
+
+            errEl.hidden    = true;
+            btn.disabled    = true;
+            btn.textContent = 'Adding…';
+
+            const { data: newMember, error: insertErr } = await db
+                .from('committee_members')
+                .insert({ user_id: profile.id, position, bio: bio || null })
+                .select()
+                .single();
+
+            if (insertErr) {
+                errEl.textContent = insertErr.message;
+                errEl.hidden      = false;
+                btn.disabled      = false;
+                btn.textContent   = 'Add to Committee';
+                return;
+            }
+
+            list.push(newMember);
+            profileMap[profile.id] = profile;
+            const addCard = document.getElementById('js-add-card');
+            grid.insertBefore(buildCard(newMember), addCard || null);
+            close();
+        });
+    }
 
     function buildEditableHTML(member) {
         const hasPhoto = !!member.image_url;
@@ -122,9 +298,7 @@
                 <div class="committee-card__name committee-card__name--edit"
                      contenteditable="true" data-placeholder="Full Name"
                      role="textbox" aria-label="Full Name">${esc(member.name || '')}</div>
-                <div class="committee-card__role committee-card__role--edit"
-                     contenteditable="true" data-placeholder="Position / Role"
-                     role="textbox" aria-label="Position">${esc(member.position || '')}</div>
+                <select class="cm-pos-select" id="ec-position-select">${positionOptions(member.position || '')}</select>
                 <div class="committee-card__bio committee-card__bio--edit"
                      contenteditable="true" data-placeholder="Add a short bio…"
                      role="textbox" aria-label="Bio">${esc(member.bio || '')}</div>
@@ -167,29 +341,40 @@
         return { getPending: () => pendingFile };
     }
 
-    // =========================================================
-    // INLINE ADD
-    // =========================================================
-
-    function openInlineAdd(addCard) {
-        const blank = document.createElement('article');
-        blank.className = 'committee-card committee-card--new';
-        blank.innerHTML = buildEditableHTML({});
-        grid.insertBefore(blank, addCard);
-
-        const { getPending } = wirePhoto(blank);
-
-        blank.querySelector('#ec-cancel').addEventListener('click', () => blank.remove());
-        blank.querySelector('#ec-save').addEventListener('click', () => saveEditable(blank, null, getPending));
-        blank.querySelector('.committee-card__name--edit').focus();
-    }
-
-    // =========================================================
-    // INLINE EDIT  (no modal — card transforms in place)
-    // =========================================================
-
     function enterEditMode(member, card) {
         card.classList.add('committee-card--new');
+
+        if (member.user_id) {
+            // Linked to a real profile — name/photo come from their account, only position/bio are ours to edit
+            const name  = displayName(member);
+            const photo = displayPhoto(member);
+            const initials = name.split(' ').map(w => w[0] || '').slice(0, 2).join('').toUpperCase();
+
+            card.innerHTML = `
+                <div class="committee-card__photo-wrap">
+                    ${photo
+                        ? `<img class="committee-card__photo" src="${esc(photo)}" alt="${esc(name)}">`
+                        : `<span class="committee-card__initials" aria-hidden="true">${initials}</span>`
+                    }
+                </div>
+                <div class="committee-card__body">
+                    <p class="committee-card__name">${esc(name)}</p>
+                    <select class="cm-pos-select" id="ec-position-select">${positionOptions(member.position || '')}</select>
+                    <div class="committee-card__bio committee-card__bio--edit"
+                         contenteditable="true" data-placeholder="Add a short bio…"
+                         role="textbox" aria-label="Bio">${esc(member.bio || '')}</div>
+                </div>
+                <div class="committee-card__new-actions">
+                    <button class="cm-new-btn cm-new-btn--save" id="ec-save">Save</button>
+                    <button class="cm-new-btn cm-new-btn--cancel" id="ec-cancel">Cancel</button>
+                </div>`;
+
+            card.querySelector('#ec-cancel').addEventListener('click', () => card.replaceWith(buildCard(member)));
+            card.querySelector('#ec-save').addEventListener('click', () => saveLinkedEditable(card, member));
+            return;
+        }
+
+        // Legacy member (added before profile-linking existed) — full manual editing
         card.innerHTML = buildEditableHTML(member);
 
         const { getPending } = wirePhoto(card);
@@ -202,17 +387,37 @@
         card.querySelector('#ec-save').addEventListener('click', () => saveEditable(card, member, getPending));
     }
 
-    // =========================================================
-    // SHARED SAVE
-    // =========================================================
+    async function saveLinkedEditable(card, member) {
+        const position = card.querySelector('#ec-position-select').value;
+        const bio      = card.querySelector('.committee-card__bio--edit').textContent.trim();
+
+        if (!position) { card.querySelector('#ec-position-select').focus(); return; }
+
+        const saveBtn = card.querySelector('#ec-save');
+        saveBtn.disabled    = true;
+        saveBtn.textContent = 'Saving…';
+
+        const payload = { position, bio: bio || null };
+        const { error: updateErr } = await db.from('committee_members').update(payload).eq('id', member.id);
+
+        if (updateErr) {
+            alert('Save failed: ' + updateErr.message);
+            saveBtn.disabled    = false;
+            saveBtn.textContent = 'Save';
+            return;
+        }
+
+        Object.assign(member, payload);
+        card.replaceWith(buildCard(member));
+    }
 
     async function saveEditable(card, member, getPending) {
         const name     = card.querySelector('.committee-card__name--edit').textContent.trim();
-        const position = card.querySelector('.committee-card__role--edit').textContent.trim();
+        const position = card.querySelector('#ec-position-select').value;
         const bio      = card.querySelector('.committee-card__bio--edit').textContent.trim();
 
         if (!name) { card.querySelector('.committee-card__name--edit').focus(); return; }
-        if (!position) { card.querySelector('.committee-card__role--edit').focus(); return; }
+        if (!position) { card.querySelector('#ec-position-select').focus(); return; }
 
         const saveBtn = card.querySelector('#ec-save');
         saveBtn.disabled    = true;
@@ -240,48 +445,23 @@
 
         const payload = { name, position, bio: bio || null, image_url: imageUrl };
 
-        if (member) {
-            // Update existing
-            const { error: updateErr } = await db
-                .from('committee_members')
-                .update(payload)
-                .eq('id', member.id);
+        const { error: updateErr } = await db
+            .from('committee_members')
+            .update(payload)
+            .eq('id', member.id);
 
-            if (updateErr) {
-                alert('Save failed: ' + updateErr.message);
-                saveBtn.disabled    = false;
-                saveBtn.textContent = 'Save';
-                return;
-            }
-            Object.assign(member, payload);
-            card.replaceWith(buildCard(member));
-        } else {
-            // Insert new
-            const { data: newMember, error: insertErr } = await db
-                .from('committee_members')
-                .insert(payload)
-                .select()
-                .single();
-
-            if (insertErr) {
-                alert('Save failed: ' + insertErr.message);
-                saveBtn.disabled    = false;
-                saveBtn.textContent = 'Save';
-                return;
-            }
-            list.push(newMember);
-            const addCard = document.getElementById('js-add-card');
-            grid.insertBefore(buildCard(newMember), addCard || null);
-            card.remove();
+        if (updateErr) {
+            alert('Save failed: ' + updateErr.message);
+            saveBtn.disabled    = false;
+            saveBtn.textContent = 'Save';
+            return;
         }
+        Object.assign(member, payload);
+        card.replaceWith(buildCard(member));
     }
 
-    // =========================================================
-    // DELETE
-    // =========================================================
-
     async function deleteMember(member, card) {
-        if (!confirm(`Remove "${member.name}" from the committee?\n\nThis cannot be undone.`)) return;
+        if (!confirm(`Remove "${displayName(member)}" from the committee?\n\nThis cannot be undone.`)) return;
         const { error: deleteErr } = await db.from('committee_members').delete().eq('id', member.id);
         if (deleteErr) { alert('Delete failed: ' + deleteErr.message); return; }
         const idx = list.findIndex(m => m.id === member.id);
@@ -289,16 +469,18 @@
         card.remove();
     }
 
-    // =========================================================
-    // HELPERS
-    // =========================================================
-
     function esc(str) {
         return String(str || '')
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    function makeOverlay() {
+        const el = document.createElement('div');
+        el.className = 'ab-overlay';
+        return el;
     }
 
 })();
