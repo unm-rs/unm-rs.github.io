@@ -7,7 +7,7 @@
     const POSITIONS = [
         'President', 'Vice President', 'Secretary', 'Treasurer', 'Event Manager',
         'Head of Technical', 'Head of Public Relations', 'Head of Marketing',
-        'Technical Executive', 'Marketing Executive', 'Public Relations Executive',
+        'Events Executive', 'Technical Executive', 'Marketing Executive', 'Public Relations Executive',
         'Junior Secretary', 'Junior Events', 'Junior Technical', 'Junior Marketing',
     ];
 
