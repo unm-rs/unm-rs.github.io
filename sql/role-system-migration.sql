@@ -599,3 +599,33 @@ DROP TRIGGER IF EXISTS trg_cleanup_profile_images ON public.user_profiles;
 CREATE TRIGGER trg_cleanup_profile_images
   BEFORE DELETE ON public.user_profiles
   FOR EACH ROW EXECUTE FUNCTION public.cleanup_profile_images();
+
+-- ============================================================
+-- 28. The event-images bucket accepted literally any file type at
+--     any size — client-side <input accept="image/*"> is just a UI
+--     hint and was never actually enforced anywhere, so members have
+--     already uploaded non-image files (zip, txt, etc). New JS-side
+--     checks (image/png|jpeg|webp|gif, 5MB cap) now reject bad files
+--     before upload, but that alone doesn't stop someone bypassing
+--     the UI and calling the Storage API directly — the bucket
+--     itself needs to enforce this so it holds regardless of client.
+-- ============================================================
+UPDATE storage.buckets
+SET allowed_mime_types = ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
+    file_size_limit     = 5242880 -- 5MB, in bytes
+WHERE id = 'event-images';
+
+-- Find what's already in there that shouldn't be, so you can review
+-- and delete it (run this to see the list first):
+--
+-- SELECT name, metadata->>'mimetype' AS mimetype,
+--        (metadata->>'size')::bigint AS size_bytes, created_at
+-- FROM storage.objects
+-- WHERE bucket_id = 'event-images'
+--   AND (metadata->>'mimetype' IS NULL OR metadata->>'mimetype' NOT LIKE 'image/%')
+-- ORDER BY created_at DESC;
+--
+-- Delete the flagged files through the Storage tab in the dashboard
+-- (select each one, Delete) rather than a raw SQL DELETE on this
+-- table — deleting the storage.objects row directly does not
+-- reliably free the underlying file, same reasoning as step 27.

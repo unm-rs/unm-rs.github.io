@@ -484,6 +484,22 @@
 
     function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
 
+    const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+    const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+    function validateImageFile(file, inputEl) {
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+            alert('Please choose a PNG, JPEG, WEBP, or GIF image.');
+            inputEl.value = '';
+            return false;
+        }
+        if (file.size > MAX_IMAGE_BYTES) {
+            alert('Image must be under 5MB.');
+            inputEl.value = '';
+            return false;
+        }
+        return true;
+    }
+
     const RICH_TEXT_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'UL', 'OL', 'LI', 'BR', 'P', 'DIV', 'SPAN']);
     function sanitizeHtml(html) {
         const tpl = document.createElement('template');
@@ -574,7 +590,7 @@
 
     document.getElementById('js-img-input').addEventListener('change', e => {
         const file = e.target.files[0];
-        if (!file) return;
+        if (!file || !validateImageFile(file, e.target)) return;
         pendingImgFile = file;
         bgEl.style.backgroundImage = `url('${URL.createObjectURL(file)}')`;
         markDirty();

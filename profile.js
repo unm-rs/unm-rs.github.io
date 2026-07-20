@@ -185,14 +185,14 @@
 
         document.getElementById('pf-avatar-input')?.addEventListener('change', e => {
             const file = e.target.files[0];
-            if (!file) return;
+            if (!file || !validateImageFile(file, e.target)) return;
             pendingAvatar = file;
             swapImagePreview('pf-avatar-img', file, 'pf-avatar');
         });
 
         document.getElementById('pf-banner-input')?.addEventListener('change', e => {
             const file = e.target.files[0];
-            if (!file) return;
+            if (!file || !validateImageFile(file, e.target)) return;
             pendingBanner = file;
             swapImagePreview('pf-banner-img', file, 'pf-banner__img');
         });
@@ -282,6 +282,22 @@
         const path = decodeURIComponent(publicUrl.slice(idx + marker.length));
         const { error } = await db.storage.from('event-images').remove([path]);
         if (error) console.error('Failed to clean up old image:', error.message);
+    }
+
+    const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+    const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+    function validateImageFile(file, inputEl) {
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+            alert('Please choose a PNG, JPEG, WEBP, or GIF image.');
+            inputEl.value = '';
+            return false;
+        }
+        if (file.size > MAX_IMAGE_BYTES) {
+            alert('Image must be under 5MB.');
+            inputEl.value = '';
+            return false;
+        }
+        return true;
     }
 
     async function uploadFile(file, pathPrefix) {

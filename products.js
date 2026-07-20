@@ -140,7 +140,7 @@
 
         overlay.querySelector('#pr-fimage').addEventListener('change', e => {
             const file = e.target.files[0];
-            if (!file) return;
+            if (!file || !validateImageFile(file, e.target)) return;
             let preview = overlay.querySelector('#pr-img-preview');
             if (!preview) {
                 preview = document.createElement('img');
@@ -238,6 +238,22 @@
         return String(str || '')
             .replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+    const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+    function validateImageFile(file, inputEl) {
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+            alert('Please choose a PNG, JPEG, WEBP, or GIF image.');
+            inputEl.value = '';
+            return false;
+        }
+        if (file.size > MAX_IMAGE_BYTES) {
+            alert('Image must be under 5MB.');
+            inputEl.value = '';
+            return false;
+        }
+        return true;
     }
 
 })();

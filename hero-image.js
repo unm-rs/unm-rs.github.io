@@ -25,6 +25,18 @@
             const file = e.target.files[0];
             if (!file) return;
 
+            const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+            if (!allowed.includes(file.type)) {
+                alert('Please choose a PNG, JPEG, WEBP, or GIF image.');
+                e.target.value = '';
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Image must be under 5MB.');
+                e.target.value = '';
+                return;
+            }
+
             bgEl.style.backgroundImage = `url('${URL.createObjectURL(file)}')`;
 
             const ext  = file.name.split('.').pop().toLowerCase();
