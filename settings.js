@@ -8,7 +8,7 @@
         return;
     }
 
-    document.title = 'Settings — UNM Robotics';
+    document.title = 'Settings';
     const root = document.getElementById('js-settings-root');
 
     root.innerHTML = `
