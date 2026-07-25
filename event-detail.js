@@ -10,6 +10,32 @@
 
     const isLoggedIn = !!session && !isAdmin;
 
+    const RICH_TEXT_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'UL', 'OL', 'LI', 'BR', 'P', 'DIV', 'SPAN']);
+    function sanitizeHtml(html) {
+        const tpl = document.createElement('template');
+        tpl.innerHTML = html;
+
+        // Iterative (not recursive) — contenteditable output can nest arbitrarily
+        // deep (Chrome quirk with repeated Enter/list toggles), and a recursive
+        // walk here previously blew the call stack on that content, silently
+        // killing the rest of the page render.
+        const stack = [tpl.content];
+        while (stack.length) {
+            const node = stack.pop();
+            [...node.childNodes].forEach(child => {
+                if (child.nodeType !== Node.ELEMENT_NODE) return;
+                if (!RICH_TEXT_TAGS.has(child.tagName)) {
+                    child.replaceWith(...child.childNodes);
+                    stack.push(node); // re-scan: its children just changed
+                    return;
+                }
+                [...child.attributes].forEach(attr => child.removeAttribute(attr.name));
+                stack.push(child);
+            });
+        }
+        return tpl.innerHTML;
+    }
+
     const titleEl    = document.getElementById('js-title');
     const descEl     = document.getElementById('js-desc');
     const outcomesEl = document.getElementById('js-outcomes');
@@ -504,32 +530,6 @@
             return false;
         }
         return true;
-    }
-
-    const RICH_TEXT_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'UL', 'OL', 'LI', 'BR', 'P', 'DIV', 'SPAN']);
-    function sanitizeHtml(html) {
-        const tpl = document.createElement('template');
-        tpl.innerHTML = html;
-
-        // Iterative (not recursive) — contenteditable output can nest arbitrarily
-        // deep (Chrome quirk with repeated Enter/list toggles), and a recursive
-        // walk here previously blew the call stack on that content, silently
-        // killing the rest of the page render.
-        const stack = [tpl.content];
-        while (stack.length) {
-            const node = stack.pop();
-            [...node.childNodes].forEach(child => {
-                if (child.nodeType !== Node.ELEMENT_NODE) return;
-                if (!RICH_TEXT_TAGS.has(child.tagName)) {
-                    child.replaceWith(...child.childNodes);
-                    stack.push(node); // re-scan: its children just changed
-                    return;
-                }
-                [...child.attributes].forEach(attr => child.removeAttribute(attr.name));
-                stack.push(child);
-            });
-        }
-        return tpl.innerHTML;
     }
 
     function esc(str) {
