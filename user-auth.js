@@ -150,11 +150,36 @@
                             <label class="ab-label">Password</label>
                             <input class="ab-input" id="ua-lpw" type="password" autocomplete="current-password" required>
                         </div>
+                        <button type="button" class="ua-forgot-link" id="ua-forgot-link">
+                            Forgot password?
+                        </button>
                         <div id="ua-lerr" class="ab-error" hidden></div>
                         <div class="ab-form-actions" style="flex-direction:column;gap:10px">
                             <button type="submit" class="ab-form-btn ab-form-btn--primary" id="ua-lsubmit">Sign In</button>
                             <button type="button" class="ab-form-btn ab-form-btn--ghost" id="ua-to-register">
                                 Create account
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="ua-step-forgot" hidden>
+                    <p style="font-size:13px;color:hsl(0 0% 55%);margin-block-end:18px">
+                        Enter your account email and we'll send you a link to reset your password.
+                    </p>
+                    <form class="ab-form" id="ua-forgot-form">
+                        <div class="ab-field">
+                            <label class="ab-label">Email</label>
+                            <input class="ab-input" id="ua-femail" type="email" autocomplete="email" required>
+                        </div>
+                        <div id="ua-ferr" class="ab-error" hidden></div>
+                        <p id="ua-fsuccess" style="font-size:13px;color:hsl(140,45%,55%);margin-block-end:4px" hidden>
+                            Check your email for a reset link.
+                        </p>
+                        <div class="ab-form-actions" style="flex-direction:column;gap:10px">
+                            <button type="submit" class="ab-form-btn ab-form-btn--primary" id="ua-fsubmit">Send Reset Link</button>
+                            <button type="button" class="ab-form-btn ab-form-btn--ghost" id="ua-forgot-back">
+                                Back to sign in
                             </button>
                         </div>
                     </form>
@@ -187,6 +212,44 @@
 
         overlay.querySelector('#ua-to-register').addEventListener('click', () => {
             close(); openRegisterModal();
+        });
+
+        overlay.querySelector('#ua-forgot-link').addEventListener('click', () => {
+            overlay.querySelector('#ua-step-pw').hidden     = true;
+            overlay.querySelector('#ua-step-forgot').hidden = false;
+            const femail = overlay.querySelector('#ua-femail');
+            femail.value = overlay.querySelector('#ua-lemail').value;
+            femail.focus();
+        });
+
+        overlay.querySelector('#ua-forgot-back').addEventListener('click', () => {
+            overlay.querySelector('#ua-step-forgot').hidden = true;
+            overlay.querySelector('#ua-step-pw').hidden     = false;
+        });
+
+        overlay.querySelector('#ua-forgot-form').addEventListener('submit', async e => {
+            e.preventDefault();
+            const errEl     = overlay.querySelector('#ua-ferr');
+            const successEl = overlay.querySelector('#ua-fsuccess');
+            const submit    = overlay.querySelector('#ua-fsubmit');
+            errEl.hidden     = true;
+            submit.disabled  = true;
+            submit.textContent = 'Sending…';
+
+            const email = overlay.querySelector('#ua-femail').value.trim();
+            const { error } = await db.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/reset-password.html`,
+            });
+
+            submit.disabled    = false;
+            submit.textContent = 'Send Reset Link';
+
+            if (error) {
+                errEl.textContent = error.message;
+                errEl.hidden      = false;
+                return;
+            }
+            successEl.hidden = false;
         });
 
         overlay.querySelector('#ua-login-form').addEventListener('submit', async e => {
@@ -293,6 +356,11 @@
                         <input class="ab-input" id="ua-rpw" type="password" autocomplete="new-password"
                                required placeholder="make sure it's the same as your google password 😋">
                     </div>
+                    <div class="ab-field">
+                        <label class="ab-label">Confirm Password</label>
+                        <input class="ab-input" id="ua-rpw2" type="password" autocomplete="new-password"
+                               required placeholder="Retype your password">
+                    </div>
                     <div id="ua-rerr" class="ab-error" hidden></div>
                     <div class="ab-form-actions" style="flex-direction:column;gap:10px">
                         <button type="submit" class="ab-form-btn ab-form-btn--primary" id="ua-rsubmit">
@@ -327,12 +395,22 @@
             const year   = overlay.querySelector('#ua-ryear').value;
             const course = overlay.querySelector('#ua-rcourse').value.trim();
             const pw     = overlay.querySelector('#ua-rpw').value;
+            const pw2    = overlay.querySelector('#ua-rpw2').value;
 
-            if (!fname || !email || !sid || !year || !course || !pw) {
+            if (!fname || !email || !sid || !year || !course || !pw || !pw2) {
                 errEl.textContent  = 'Please fill in all fields.';
                 errEl.hidden       = false;
                 submit.disabled    = false;
                 submit.textContent = 'Create Account';
+                return;
+            }
+
+            if (pw !== pw2) {
+                errEl.textContent  = 'Passwords do not match.';
+                errEl.hidden       = false;
+                submit.disabled    = false;
+                submit.textContent = 'Create Account';
+                overlay.querySelector('#ua-rpw2').focus();
                 return;
             }
 

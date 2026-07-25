@@ -218,6 +218,20 @@
     gap: 6px;
 }
 
+.ua-forgot-link {
+    align-self: flex-end;
+    margin-block-start: -8px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: hsl(0 0% 62%);
+    text-decoration: underline;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+.ua-forgot-link:hover { color: hsl(45, 95%, 60%); }
+
 .ab-label {
     font-size: 13px;
     font-weight: 700;

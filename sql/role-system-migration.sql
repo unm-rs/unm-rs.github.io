@@ -819,3 +819,28 @@ CREATE POLICY "Owner updates role labels"
   ON public.role_labels FOR UPDATE TO authenticated
   USING (public.is_owner())
   WITH CHECK (public.is_owner());
+
+-- ============================================================
+-- 34. S-CPD points shown on each event card, admin-editable inline.
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS scpd_points integer NOT NULL DEFAULT 0;
+
+-- ============================================================
+-- 35. Let a member delete their OWN thread or reply, not just
+--     admins. Both forum_threads and forum_replies DELETE were
+--     only ever granted via their is_admin()-gated "manage"
+--     policies — the client already shows a Delete button to the
+--     post's own author (canDelete in thread.js), but clicking it
+--     had no matching RLS policy and silently failed. Same bug
+--     class as step 25/32.
+-- ============================================================
+DROP POLICY IF EXISTS "Authors delete own thread" ON public.forum_threads;
+CREATE POLICY "Authors delete own thread"
+  ON public.forum_threads FOR DELETE TO authenticated
+  USING (auth.uid() = author_id);
+
+DROP POLICY IF EXISTS "Authors delete own reply" ON public.forum_replies;
+CREATE POLICY "Authors delete own reply"
+  ON public.forum_replies FOR DELETE TO authenticated
+  USING (auth.uid() = author_id);

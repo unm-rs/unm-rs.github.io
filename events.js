@@ -11,7 +11,7 @@
 
     const { data: events, error } = await db
         .from('events')
-        .select('id, title, slug, image_url, event_date')
+        .select('id, title, slug, image_url, event_date, scpd_points')
         .or(`event_date.is.null,event_date.gte.${todayStr}`)
         .order('event_date', { ascending: true });
 
@@ -39,6 +39,9 @@
                     <div class="event-card__body">
                         <h3 class="event-card__title">${esc(ev.title)}</h3>
                     </div>
+                    <span class="ep-card__scpd">
+                        <span class="ep-card__scpd-label">S-CPD points</span><span class="ep-card__scpd-value">${ev.scpd_points ?? 0}</span>
+                    </span>
                 </div>
             </a>
         </article>

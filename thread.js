@@ -280,7 +280,7 @@
                     ${canDelete && !isOp ? `
                     <button class="fr-admin-btn fr-admin-btn--del" style="margin-inline-start:auto"
                             data-del="reply" data-id="${esc(post.id)}">Delete</button>` : ''}
-                    ${isOp && isAdmin ? `
+                    ${isOp && canDelete ? `
                     <button class="fr-admin-btn fr-admin-btn--del" style="margin-inline-start:auto"
                             data-del="thread" data-id="${esc(post.id)}">Delete Thread</button>` : ''}
                 </div>

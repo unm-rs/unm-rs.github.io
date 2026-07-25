@@ -292,7 +292,10 @@
                     <h2 class="ep-card__title">${esc(ev.title)}</h2>
                     ${dateStr ? `<p class="ep-card__date">${dateStr}</p>` : ''}
                 </div>
-            </a>`;
+            </a>
+            <span class="ep-card__scpd"${isAdmin ? ' tabindex="0" role="button"' : ''}>
+                <span class="ep-card__scpd-label">S-CPD points</span><span class="ep-card__scpd-value">${ev.scpd_points ?? 0}</span>
+            </span>`;
 
         if (isAdmin) {
             const ctrl = document.createElement('div');
@@ -346,6 +349,36 @@
             });
 
             card.appendChild(ctrl);
+
+            const scpdEl = card.querySelector('.ep-card__scpd');
+            const editScpd = () => {
+                const input = document.createElement('input');
+                input.type  = 'number';
+                input.min   = '0';
+                input.className = 'ep-card__scpd-input';
+                input.value = ev.scpd_points ?? 0;
+                scpdEl.replaceWith(input);
+                input.focus();
+                input.select();
+
+                let done = false;
+                const commit = async () => {
+                    if (done) return;
+                    done = true;
+                    const points = Math.max(0, parseInt(input.value, 10) || 0);
+                    const { error } = await db.from('events').update({ scpd_points: points }).eq('id', ev.id);
+                    if (error) { alert(error.message); card.replaceWith(buildCard(ev)); return; }
+                    const idx = events.findIndex(e => e.id === ev.id);
+                    if (idx !== -1) events[idx].scpd_points = points;
+                    card.replaceWith(buildCard({ ...ev, scpd_points: points }));
+                };
+                input.addEventListener('blur', commit, { once: true });
+                input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
+            };
+            scpdEl.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); editScpd(); });
+            scpdEl.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); editScpd(); }
+            });
         }
 
         return card;

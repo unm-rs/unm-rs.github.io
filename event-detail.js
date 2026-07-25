@@ -25,8 +25,14 @@
 
     document.title      = `${event.title}`;
     titleEl.textContent = event.title;
-    descEl.innerHTML     = sanitizeHtml(event.description       || '');
-    outcomesEl.innerHTML = sanitizeHtml(event.learning_outcomes || '');
+    try {
+        descEl.innerHTML     = sanitizeHtml(event.description       || '');
+        outcomesEl.innerHTML = sanitizeHtml(event.learning_outcomes || '');
+    } catch (err) {
+        console.error('Failed to render formatted event text, falling back to plain text:', err);
+        descEl.textContent     = event.description       || '';
+        outcomesEl.textContent = event.learning_outcomes || '';
+    }
 
     if (event.image_url) bgEl.style.backgroundImage = `url('${event.image_url.replace(/'/g, '%27')}')`;
 
@@ -504,14 +510,25 @@
     function sanitizeHtml(html) {
         const tpl = document.createElement('template');
         tpl.innerHTML = html;
-        (function clean(node) {
+
+        // Iterative (not recursive) — contenteditable output can nest arbitrarily
+        // deep (Chrome quirk with repeated Enter/list toggles), and a recursive
+        // walk here previously blew the call stack on that content, silently
+        // killing the rest of the page render.
+        const stack = [tpl.content];
+        while (stack.length) {
+            const node = stack.pop();
             [...node.childNodes].forEach(child => {
                 if (child.nodeType !== Node.ELEMENT_NODE) return;
-                if (!RICH_TEXT_TAGS.has(child.tagName)) { child.replaceWith(...child.childNodes); return; }
+                if (!RICH_TEXT_TAGS.has(child.tagName)) {
+                    child.replaceWith(...child.childNodes);
+                    stack.push(node); // re-scan: its children just changed
+                    return;
+                }
                 [...child.attributes].forEach(attr => child.removeAttribute(attr.name));
-                clean(child);
+                stack.push(child);
             });
-        })(tpl.content);
+        }
         return tpl.innerHTML;
     }
 
