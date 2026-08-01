@@ -10,7 +10,7 @@
     const ALLOWED_ATTRS = {
         A:   new Set(['href', 'target', 'rel']),
         IMG: new Set(['src', 'alt', 'style']),
-        '*': new Set(['style']),
+        '*': new Set(['style', 'class']),
     };
 
     // Iterative (not recursive) DOM walk — a recursive version of this exact
@@ -52,6 +52,31 @@
         return true;
     }
 
+    // Native CSS `resize` and execCommand('justify*') both behave unreliably on
+    // a contenteditable=false island nested inside a contenteditable=true
+    // region (browsers treat these atomic islands specially for drag/selection),
+    // so resize + alignment are done here with plain pointer events and direct
+    // style writes instead of relying on either.
+    function setAlignment(frame, align) {
+        frame.style.float          = '';
+        frame.style.display        = '';
+        frame.style.marginInline   = '';
+        frame.style.marginInlineEnd   = '';
+        frame.style.marginInlineStart = '';
+        if (align === 'left') {
+            frame.style.float = 'left';
+            frame.style.marginInlineEnd = '14px';
+        } else if (align === 'right') {
+            frame.style.float = 'right';
+            frame.style.marginInlineStart = '14px';
+        } else if (align === 'center') {
+            frame.style.display      = 'block';
+            frame.style.marginInline = 'auto';
+        } else {
+            frame.style.display = 'inline-block';
+        }
+    }
+
     function wrapImageForResize(img) {
         if (img.parentElement?.classList.contains('about-img-frame')) return;
         const frame = document.createElement('span');
@@ -63,6 +88,49 @@
         img.style.height = '100%';
         img.style.display = 'block';
         img.style.objectFit = 'cover';
+
+        const align = document.createElement('span');
+        align.className = 'about-img-align';
+        align.innerHTML = `
+            <button type="button" data-align="left"   title="Float left">◧</button>
+            <button type="button" data-align="center" title="Center">▣</button>
+            <button type="button" data-align="right"  title="Float right">◨</button>
+            <button type="button" data-align="inline"  title="Inline with text">≡</button>`;
+        frame.appendChild(align);
+        align.querySelectorAll('[data-align]').forEach(btn => {
+            btn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                setAlignment(frame, btn.dataset.align);
+                markDirty();
+            });
+        });
+
+        const handle = document.createElement('span');
+        handle.className = 'about-img-handle';
+        frame.appendChild(handle);
+
+        let resizing = false, startX, startY, startW, startH;
+        handle.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            resizing = true;
+            startX = e.clientX; startY = e.clientY;
+            startW = frame.offsetWidth; startH = frame.offsetHeight;
+            handle.setPointerCapture(e.pointerId);
+        });
+        handle.addEventListener('pointermove', e => {
+            if (!resizing) return;
+            frame.style.width  = `${Math.max(40, startW + (e.clientX - startX))}px`;
+            frame.style.height = `${Math.max(40, startH + (e.clientY - startY))}px`;
+        });
+        handle.addEventListener('pointerup', () => {
+            if (!resizing) return;
+            resizing = false;
+            markDirty();
+        });
+        handle.addEventListener('pointercancel', () => { resizing = false; });
 
         const applySize = () => {
             const maxW = 420;
@@ -200,7 +268,9 @@
         saveBtn.disabled    = true;
         saveBtn.textContent = 'Saving…';
 
-        const { error } = await db.from('about_page').update({ content: canvas.innerHTML }).eq('id', true);
+        const clone = canvas.cloneNode(true);
+        clone.querySelectorAll('.about-img-handle, .about-img-align').forEach(el => el.remove());
+        const { error } = await db.from('about_page').update({ content: clone.innerHTML }).eq('id', true);
 
         if (error) {
             alert('Save failed: ' + error.message);

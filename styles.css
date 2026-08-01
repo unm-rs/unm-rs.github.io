@@ -1050,6 +1050,7 @@ svg {
     }
 
     .about-img-frame {
+        position: relative;
         display: inline-block;
         overflow: hidden;
         max-width: 100%;
@@ -1059,8 +1060,55 @@ svg {
     }
 
     .about-canvas--editing .about-img-frame {
-        resize: both;
         box-shadow: 0 0 0 2px hsl(45, 95%, 55%);
+    }
+
+    .about-img-handle {
+        display: none;
+        position: absolute;
+        right: 3px;
+        bottom: 3px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: hsl(45, 95%, 55%);
+        border: 2px solid #fff;
+        cursor: nwse-resize;
+        touch-action: none;
+        z-index: 2;
+    }
+
+    .about-canvas--editing .about-img-frame:hover .about-img-handle {
+        display: block;
+    }
+
+    .about-img-align {
+        display: none;
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        z-index: 2;
+        gap: 2px;
+        background: hsl(0 0% 0% / 0.65);
+        border-radius: 5px;
+        padding: 2px;
+
+        button {
+            font-size: 11px;
+            line-height: 1;
+            padding: 4px 5px;
+            border: none;
+            border-radius: 3px;
+            background: transparent;
+            color: #fff;
+            cursor: pointer;
+
+            &:hover { background: hsl(0 0% 100% / 0.25); }
+        }
+    }
+
+    .about-canvas--editing .about-img-frame:hover .about-img-align {
+        display: flex;
     }
 
     .values {
