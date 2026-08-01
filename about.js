@@ -78,69 +78,86 @@
     }
 
     function wrapImageForResize(img) {
-        if (img.parentElement?.classList.contains('about-img-frame')) return;
-        const frame = document.createElement('span');
-        frame.className = 'about-img-frame';
+        // A frame can already exist around this image (loaded from saved
+        // content) but be missing its handle/align controls, since those
+        // are deliberately stripped out before saving — don't bail out just
+        // because the frame itself survived, or the controls never come back.
+        let frame = img.parentElement?.classList.contains('about-img-frame') ? img.parentElement : null;
+        const hadFrame = !!frame;
+        if (!frame) {
+            frame = document.createElement('span');
+            frame.className = 'about-img-frame';
+            img.replaceWith(frame);
+            frame.appendChild(img);
+        }
         frame.contentEditable = 'false';
-        img.replaceWith(frame);
-        frame.appendChild(img);
         img.style.width  = '100%';
         img.style.height = '100%';
         img.style.display = 'block';
         img.style.objectFit = 'cover';
 
-        const align = document.createElement('span');
-        align.className = 'about-img-align';
-        align.innerHTML = `
-            <button type="button" data-align="left"   title="Float left">◧</button>
-            <button type="button" data-align="center" title="Center">▣</button>
-            <button type="button" data-align="right"  title="Float right">◨</button>
-            <button type="button" data-align="inline"  title="Inline with text">≡</button>`;
-        frame.appendChild(align);
-        align.querySelectorAll('[data-align]').forEach(btn => {
-            btn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
-            btn.addEventListener('click', e => {
+        if (!frame.querySelector('.about-img-align')) {
+            const align = document.createElement('span');
+            align.className = 'about-img-align';
+            align.innerHTML = `
+                <button type="button" data-align="left"   title="Float left">◧</button>
+                <button type="button" data-align="center" title="Center">▣</button>
+                <button type="button" data-align="right"  title="Float right">◨</button>
+                <button type="button" data-align="inline"  title="Inline with text">≡</button>`;
+            frame.appendChild(align);
+            align.querySelectorAll('[data-align]').forEach(btn => {
+                btn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+                btn.addEventListener('click', e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setAlignment(frame, btn.dataset.align);
+                    markDirty();
+                });
+            });
+        }
+
+        if (!frame.querySelector('.about-img-handle')) {
+            const handle = document.createElement('span');
+            handle.className = 'about-img-handle';
+            frame.appendChild(handle);
+
+            let resizing = false, startX, startY, startW, startH;
+            handle.addEventListener('pointerdown', e => {
                 e.preventDefault();
                 e.stopPropagation();
-                setAlignment(frame, btn.dataset.align);
+                resizing = true;
+                startX = e.clientX; startY = e.clientY;
+                startW = frame.offsetWidth; startH = frame.offsetHeight;
+                handle.setPointerCapture(e.pointerId);
+            });
+            handle.addEventListener('pointermove', e => {
+                if (!resizing) return;
+                frame.style.width  = `${Math.max(40, startW + (e.clientX - startX))}px`;
+                frame.style.height = `${Math.max(40, startH + (e.clientY - startY))}px`;
+            });
+            handle.addEventListener('pointerup', () => {
+                if (!resizing) return;
+                resizing = false;
                 markDirty();
             });
-        });
+            handle.addEventListener('pointercancel', () => { resizing = false; });
+        }
 
-        const handle = document.createElement('span');
-        handle.className = 'about-img-handle';
-        frame.appendChild(handle);
-
-        let resizing = false, startX, startY, startW, startH;
-        handle.addEventListener('pointerdown', e => {
-            e.preventDefault();
-            e.stopPropagation();
-            resizing = true;
-            startX = e.clientX; startY = e.clientY;
-            startW = frame.offsetWidth; startH = frame.offsetHeight;
-            handle.setPointerCapture(e.pointerId);
-        });
-        handle.addEventListener('pointermove', e => {
-            if (!resizing) return;
-            frame.style.width  = `${Math.max(40, startW + (e.clientX - startX))}px`;
-            frame.style.height = `${Math.max(40, startH + (e.clientY - startY))}px`;
-        });
-        handle.addEventListener('pointerup', () => {
-            if (!resizing) return;
-            resizing = false;
-            markDirty();
-        });
-        handle.addEventListener('pointercancel', () => { resizing = false; });
-
-        const applySize = () => {
-            const maxW = 420;
-            const w = Math.min(img.naturalWidth || maxW, maxW);
-            const h = img.naturalWidth ? w * (img.naturalHeight / img.naturalWidth) : w * 0.6;
-            frame.style.width  = `${w}px`;
-            frame.style.height = `${h}px`;
-        };
-        if (img.complete && img.naturalWidth) applySize();
-        else img.addEventListener('load', applySize, { once: true });
+        // Only auto-size a brand new image — a frame loaded from saved
+        // content already has its previously-chosen size and re-applying
+        // the natural-size default here would silently undo every resize
+        // as soon as the page is reloaded.
+        if (!hadFrame) {
+            const applySize = () => {
+                const maxW = 420;
+                const w = Math.min(img.naturalWidth || maxW, maxW);
+                const h = img.naturalWidth ? w * (img.naturalHeight / img.naturalWidth) : w * 0.6;
+                frame.style.width  = `${w}px`;
+                frame.style.height = `${h}px`;
+            };
+            if (img.complete && img.naturalWidth) applySize();
+            else img.addEventListener('load', applySize, { once: true });
+        }
     }
 
     const root = document.getElementById('js-about-root');
