@@ -3,35 +3,16 @@
 
     window.initHeroImage?.('events');
 
-    const [yearsRes, eventsRes, { isAdmin }] = await Promise.all([
-        db.from('event_years').select('*').order('sort_order'),
+    const [groupsRes, eventsRes, { isAdmin }] = await Promise.all([
+        db.from('event_groups').select('*').order('sort_order'),
         db.from('events').select('*').order('event_date', { ascending: false, nullsFirst: false }),
         window.roleReady,
     ]);
 
-    let years     = yearsRes.data  || [];
-    let events    = eventsRes.data || [];
+    let groups = groupsRes.data || [];
+    let events = eventsRes.data || [];
 
-    // Ensure every year present in events has a tab, even if missing from event_years
-    // (handles: event_years has some rows but not all, or RLS hides the table from members)
-    const dbYearSet = new Set(years.map(y => y.year));
-    const eventDerivedYears = [...new Set(
-        events
-            .map(e => e.year ?? (e.event_date ? new Date(e.event_date).getFullYear() : null))
-            .filter(Boolean)
-    )];
-    eventDerivedYears.forEach(y => {
-        if (!dbYearSet.has(y)) years.push({ id: null, year: y, sort_order: years.length });
-    });
-    if (!years.length) {
-        [2023, 2024, 2025, 2026].forEach((y, i) => years.push({ id: null, year: y, sort_order: i }));
-    }
-    years.sort((a, b) => a.year - b.year);
-
-    const currentYear    = new Date().getFullYear();
-    let selectedYear     = years.find(y => y.year === currentYear)?.year
-                        || years[years.length - 1]?.year
-                        || currentYear;
+    let selectedGroupId = groups[0]?.id ?? null;
 
     const STATUS_LABEL      = { upcoming: 'Upcoming', coming_soon: 'Coming Soon', completed: 'Completed' };
     const STATUS_NEXT       = { upcoming: 'coming_soon', coming_soon: 'completed', completed: 'upcoming' };
@@ -39,20 +20,19 @@
 
     document.getElementById('js-ep-loading')?.remove();
 
-    renderYearTabs();
+    renderGroupTabs();
     renderEvents();
 
-    function renderYearTabs() {
+    function renderGroupTabs() {
         const tabsEl = document.getElementById('js-years-tabs');
         tabsEl.innerHTML = '';
 
-        years.forEach((yr, idx) => {
+        groups.forEach((grp, idx) => {
             const tab = document.createElement('button');
-            tab.className    = 'ep-year-tab' + (yr.year === selectedYear ? ' ep-year-tab--active' : '');
-            tab.role         = 'tab';
-            tab.setAttribute('aria-selected', yr.year === selectedYear);
-            tab.dataset.year = yr.year;
-            tab.dataset.idx  = idx;
+            tab.className   = 'ep-year-tab' + (grp.id === selectedGroupId ? ' ep-year-tab--active' : '');
+            tab.role        = 'tab';
+            tab.setAttribute('aria-selected', grp.id === selectedGroupId);
+            tab.dataset.idx = idx;
 
             if (isAdmin) {
                 tab.draggable = true;
@@ -64,23 +44,27 @@
                             <circle cx="3" cy="12" r="1.5"/><circle cx="7" cy="12" r="1.5"/>
                         </svg>
                     </span>
-                    <span class="ep-year-tab__label">${yr.year}</span>
-                    <button class="ep-year-tab__del" data-year="${yr.year}" aria-label="Remove year ${yr.year}">×</button>`;
+                    <span class="ep-year-tab__label" data-role="label">${esc(grp.name)}</span>
+                    <button class="ep-year-tab__del" aria-label="Remove ${esc(grp.name)}">×</button>`;
 
+                tab.querySelector('.ep-year-tab__label').addEventListener('dblclick', e => {
+                    e.stopPropagation();
+                    renameGroup(grp, tab);
+                });
                 tab.querySelector('.ep-year-tab__del').addEventListener('click', e => {
                     e.stopPropagation();
-                    removeYear(yr);
+                    removeGroup(grp);
                 });
 
                 setupDrag(tab, idx);
             } else {
-                tab.textContent = yr.year;
+                tab.textContent = grp.name;
             }
 
             tab.addEventListener('click', e => {
-                if (e.target.classList.contains('ep-year-tab__del')) return;
-                selectedYear = yr.year;
-                renderYearTabs();
+                if (e.target.closest('.ep-year-tab__del')) return;
+                selectedGroupId = grp.id;
+                renderGroupTabs();
                 renderEvents();
             });
 
@@ -90,9 +74,14 @@
         if (isAdmin) {
             const addBtn = document.createElement('button');
             addBtn.className   = 'ep-year-tab ep-year-tab--add';
-            addBtn.textContent = '+ Year';
-            addBtn.addEventListener('click', openAddYear);
+            addBtn.textContent = '+ Group';
+            addBtn.addEventListener('click', openAddGroup);
             tabsEl.appendChild(addBtn);
+        }
+
+        if (!groups.length) {
+            tabsEl.insertAdjacentHTML('beforeend',
+                '<p class="ep-catalogue-empty" style="padding-block:8px">No groups yet — create one to start organizing events.</p>');
         }
     }
 
@@ -124,43 +113,41 @@
             tab.classList.remove('ep-year-tab--dragover');
             if (dragSrcIdx === null || dragSrcIdx === idx) return;
 
-            const [moved] = years.splice(dragSrcIdx, 1);
-            years.splice(idx, 0, moved);
+            const [moved] = groups.splice(dragSrcIdx, 1);
+            groups.splice(idx, 0, moved);
             dragSrcIdx = null;
 
-            renderYearTabs();
+            renderGroupTabs();
 
             await Promise.all(
-                years.filter(y => y.id).map((y, i) =>
-                    db.from('event_years').update({ sort_order: i }).eq('id', y.id)
-                )
+                groups.map((g, i) => db.from('event_groups').update({ sort_order: i }).eq('id', g.id))
             );
         });
     }
 
-    function openAddYear() {
+    function openAddGroup() {
         const overlay = makeOverlay();
         overlay.innerHTML = `
-            <div class="ab-modal" style="max-width:300px">
+            <div class="ab-modal" style="max-width:340px">
                 <div class="ab-modal__head">
-                    <h2 class="ab-modal__title">Add Year</h2>
+                    <h2 class="ab-modal__title">Add Group</h2>
                     <button class="ab-modal__close" id="ep-ayclose">✕</button>
                 </div>
                 <form class="ab-form" id="ep-ay-form">
                     <div class="ab-field">
-                        <label class="ab-label">Year</label>
-                        <input class="ab-input" id="ep-ayyear" type="number"
-                               min="2000" max="2099" value="${new Date().getFullYear() + 1}" required>
+                        <label class="ab-label">Name</label>
+                        <input class="ab-input" id="ep-ayname" type="text"
+                               placeholder="e.g. Semester 1 2026" maxlength="60" required>
                     </div>
                     <div id="ep-ayerr" class="ab-error" hidden></div>
                     <div class="ab-form-actions">
-                        <button type="submit" class="ab-form-btn ab-form-btn--primary">Add Year</button>
+                        <button type="submit" class="ab-form-btn ab-form-btn--primary">Add Group</button>
                     </div>
                 </form>
             </div>`;
 
         document.body.appendChild(overlay);
-        overlay.querySelector('#ep-ayyear').focus();
+        overlay.querySelector('#ep-ayname').focus();
 
         const close = () => overlay.remove();
         overlay.querySelector('#ep-ayclose').addEventListener('click', close);
@@ -168,18 +155,13 @@
 
         overlay.querySelector('#ep-ay-form').addEventListener('submit', async e => {
             e.preventDefault();
-            const yr    = parseInt(overlay.querySelector('#ep-ayyear').value);
+            const name  = overlay.querySelector('#ep-ayname').value.trim();
             const errEl = overlay.querySelector('#ep-ayerr');
+            if (!name) return;
 
-            if (years.find(y => y.year === yr)) {
-                errEl.textContent = 'That year already exists.';
-                errEl.hidden = false;
-                return;
-            }
-
-            const { data: newYear, error } = await db
-                .from('event_years')
-                .insert({ year: yr, sort_order: years.length })
+            const { data: newGroup, error } = await db
+                .from('event_groups')
+                .insert({ name, sort_order: groups.length })
                 .select()
                 .single();
 
@@ -189,43 +171,68 @@
                 return;
             }
 
-            years.push(newYear);
-            selectedYear = yr;
+            groups.push(newGroup);
+            selectedGroupId = newGroup.id;
             close();
-            renderYearTabs();
+            renderGroupTabs();
             renderEvents();
         });
     }
 
-    async function removeYear(yr) {
-        const count = getYearEvents(yr.year).length;
+    function renameGroup(grp, tab) {
+        const labelEl = tab.querySelector('[data-role="label"]');
+        const input = document.createElement('input');
+        input.type  = 'text';
+        input.className = 'ep-year-tab__rename';
+        input.value = grp.name;
+        input.maxLength = 60;
+        labelEl.replaceWith(input);
+        input.focus();
+        input.select();
+
+        let done = false;
+        const commit = async () => {
+            if (done) return;
+            done = true;
+            const name = input.value.trim() || grp.name;
+            grp.name = name;
+            const { error } = await db.from('event_groups').update({ name }).eq('id', grp.id);
+            if (error) alert(error.message);
+            renderGroupTabs();
+        };
+        input.addEventListener('blur', commit, { once: true });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') input.blur();
+            if (e.key === 'Escape') { done = true; renderGroupTabs(); }
+        });
+        input.addEventListener('click', e => e.stopPropagation());
+    }
+
+    async function removeGroup(grp) {
+        const count = getGroupEvents(grp.id).length;
         const msg   = count
-            ? `Remove year ${yr.year}?\n\n${count} event(s) will become unassigned but won't be deleted.`
-            : `Remove year ${yr.year}?`;
+            ? `Remove "${grp.name}"?\n\n${count} event(s) will become unassigned but won't be deleted.`
+            : `Remove "${grp.name}"?`;
 
         if (!confirm(msg)) return;
 
-        if (yr.id) {
-            const { error } = await db.from('event_years').delete().eq('id', yr.id);
-            if (error) { alert(error.message); return; }
-        }
+        const { error } = await db.from('event_groups').delete().eq('id', grp.id);
+        if (error) { alert(error.message); return; }
 
-        years = years.filter(y => y.year !== yr.year);
-        if (selectedYear === yr.year) selectedYear = years[years.length - 1]?.year;
-        renderYearTabs();
+        groups = groups.filter(g => g.id !== grp.id);
+        events.forEach(ev => { if (ev.group_id === grp.id) ev.group_id = null; });
+        if (selectedGroupId === grp.id) selectedGroupId = groups[0]?.id ?? null;
+        renderGroupTabs();
         renderEvents();
     }
 
-    function getYearEvents(yr) {
-        return events.filter(ev => {
-            const evYear = ev.year ?? (ev.event_date ? new Date(ev.event_date).getFullYear() : null);
-            return evYear === yr;
-        });
+    function getGroupEvents(groupId) {
+        return events.filter(ev => ev.group_id === groupId);
     }
 
     function renderEvents() {
         const grid  = document.getElementById('js-events-grid');
-        const items = getYearEvents(selectedYear);
+        const items = selectedGroupId ? getGroupEvents(selectedGroupId) : [];
 
         const sorted = [...items].sort((a, b) => {
             if (a.event_date && b.event_date) return new Date(a.event_date) - new Date(b.event_date);
@@ -240,7 +247,7 @@
             grid.style.display = 'block';
             grid.innerHTML = `
                 <div class="ep-empty-state">
-                    <p class="ep-empty">No events for ${selectedYear} yet.</p>
+                    <p class="ep-empty">No events here yet.</p>
                 </div>`;
             return;
         }
@@ -248,7 +255,7 @@
         grid.style.display = '';
         sorted.forEach(ev => grid.appendChild(buildCard(ev)));
 
-        if (isAdmin) {
+        if (isAdmin && selectedGroupId) {
             const addCard = document.createElement('button');
             addCard.className = 'ep-add-card';
             addCard.innerHTML = `
@@ -272,8 +279,6 @@
                 ? `${fmtDate(ev.event_date)} - ${fmtDate(ev.event_end_date)}`
                 : fmtDate(ev.event_date))
             : null;
-
-        const evYear = ev.year ?? (ev.event_date ? new Date(ev.event_date).getFullYear() : null);
 
         const card = document.createElement('article');
         card.className  = `ep-card ep-card--${status}`;
@@ -304,10 +309,10 @@
                 <button class="ep-card__ctrl ep-card__ctrl--status">
                     ${STATUS_NEXT_LABEL[status]}
                 </button>
-                <select class="ep-card__ctrl ep-card__ctrl--year" aria-label="Move to year">
+                <select class="ep-card__ctrl ep-card__ctrl--year" aria-label="Move to group">
                     <option value="">— unassign —</option>
-                    ${years.map(y =>
-                        `<option value="${y.year}"${y.year === evYear ? ' selected' : ''}>${y.year}</option>`
+                    ${groups.map(g =>
+                        `<option value="${esc(g.id)}"${g.id === ev.group_id ? ' selected' : ''}>${esc(g.name)}</option>`
                     ).join('')}
                 </select>
                 <button class="ep-card__ctrl ep-card__ctrl--del">Delete</button>`;
@@ -322,20 +327,17 @@
             });
 
             ctrl.querySelector('.ep-card__ctrl--year').addEventListener('change', async e => {
-                const val     = e.target.value;
-                const newYear = val === '' ? null : parseInt(val);
-                const { error } = await db.from('events').update({ year: newYear }).eq('id', ev.id);
-                if (error) { alert(error.message); e.target.value = evYear ?? ''; return; }
-                if (newYear !== selectedYear) {
+                const val        = e.target.value;
+                const newGroupId = val === '' ? null : val;
+                const { error } = await db.from('events').update({ group_id: newGroupId }).eq('id', ev.id);
+                if (error) { alert(error.message); e.target.value = ev.group_id ?? ''; return; }
+                const idx = events.findIndex(e => e.id === ev.id);
+                if (idx !== -1) events[idx].group_id = newGroupId;
+                if (newGroupId !== selectedGroupId) {
                     card.remove();
                     const grid = document.getElementById('js-events-grid');
                     if (!grid.querySelector('.ep-card')) renderEvents();
                 }
-                const { data: fresh } = await db
-                    .from('events')
-                    .select('*')
-                    .order('event_date', { ascending: false, nullsFirst: false });
-                if (fresh) events = fresh;
             });
 
             ctrl.querySelector('.ep-card__ctrl--del').addEventListener('click', async () => {
@@ -406,7 +408,7 @@
         const { data: catItems, error } = await db
             .from('events')
             .select('*')
-            .is('year', null)
+            .is('group_id', null)
             .order('title');
 
         const catGrid = overlay.querySelector('#ep-cat-grid');
@@ -447,27 +449,26 @@
                 btn.classList.add('ep-cat-item--loading');
 
                 const { data: updated, error } = await db.from('events')
-                    .update({ year: selectedYear })
+                    .update({ group_id: selectedGroupId })
                     .eq('id', evId)
-                    .select('id, year')
+                    .select('id, group_id')
                     .single();
 
-                if (error || !updated || updated.year !== selectedYear) {
-                    alert(error ? error.message : `Assignment failed — the event year did not update. Check your Supabase RLS policy for the events table (UPDATE permission).`);
+                if (error || !updated || updated.group_id !== selectedGroupId) {
+                    alert(error ? error.message : `Assignment failed — the event group did not update. Check your Supabase RLS policy for the events table (UPDATE permission).`);
                     btn.disabled = false;
                     btn.classList.remove('ep-cat-item--loading');
                     return;
                 }
 
-                // Use String() so integer IDs from the DB match the string from dataset
                 const idStr = String(evId);
                 const catEv = catItems.find(e => String(e.id) === idStr);
                 if (catEv) {
                     const existingIdx = events.findIndex(e => String(e.id) === idStr);
                     if (existingIdx !== -1) {
-                        events[existingIdx].year = selectedYear;
+                        events[existingIdx].group_id = selectedGroupId;
                     } else {
-                        events.push({ ...catEv, year: selectedYear });
+                        events.push({ ...catEv, group_id: selectedGroupId });
                     }
                 }
 

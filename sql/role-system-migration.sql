@@ -871,3 +871,36 @@ CREATE POLICY "Admins update about page"
   ON public.about_page FOR UPDATE TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
+
+-- ============================================================
+-- 37. Events page: replace year-number tabs with mod-named groups.
+--     Renaming the table/column preserves its existing RLS policies
+--     and data automatically. events.year (int, matched by value)
+--     becomes events.group_id (uuid FK, matched by id) — safer once
+--     names are freeform and mods can rename them, since a value-
+--     match would silently break every event's grouping on rename.
+--
+--     This assumes event_years.id is uuid, matching every other
+--     table in this schema — if this step errors on a type mismatch,
+--     tell me the actual column type and I'll adjust it.
+-- ============================================================
+ALTER TABLE public.event_years RENAME TO event_groups;
+ALTER TABLE public.event_groups RENAME COLUMN year TO name;
+ALTER TABLE public.event_groups ALTER COLUMN name TYPE text USING name::text;
+
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS group_id uuid REFERENCES public.event_groups(id) ON DELETE SET NULL;
+
+-- make sure every legacy year value has a matching named group (covers
+-- events whose year was never in event_years to begin with)
+INSERT INTO public.event_groups (name, sort_order)
+SELECT DISTINCT year::text, 999
+FROM public.events
+WHERE year IS NOT NULL
+  AND year::text NOT IN (SELECT name FROM public.event_groups);
+
+UPDATE public.events e
+SET group_id = g.id
+FROM public.event_groups g
+WHERE e.year IS NOT NULL AND g.name = e.year::text AND e.group_id IS NULL;
+
+ALTER TABLE public.events DROP COLUMN IF EXISTS year;
