@@ -994,9 +994,8 @@ svg {
     .ab-page-main { min-height: 60vh; }
 
     .about-wrap {
-        max-width: calc(900 / 16 * 1rem);
-        margin-inline: auto;
-        padding: 100px 24px 80px;
+        max-width: none;
+        padding: 100px clamp(24px, 5vw, 80px) 80px;
     }
 
     .about-toolbar {
@@ -1020,7 +1019,7 @@ svg {
     .about-block-select { cursor: pointer; }
 
     .about-canvas {
-        min-height: 50vh;
+        min-height: calc(100vh - 260px);
         font-size: var(--fs-16);
         line-height: 1.7;
         color: hsl(0, 0%, 12%);
@@ -1043,9 +1042,6 @@ svg {
 
     .about-canvas--editing {
         outline: none;
-        border: 1px dashed hsl(0, 0%, 82%);
-        border-radius: 10px;
-        padding: 24px;
         cursor: text;
     }
 
