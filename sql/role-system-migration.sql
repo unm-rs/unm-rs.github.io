@@ -844,3 +844,30 @@ DROP POLICY IF EXISTS "Authors delete own reply" ON public.forum_replies;
 CREATE POLICY "Authors delete own reply"
   ON public.forum_replies FOR DELETE TO authenticated
   USING (auth.uid() = author_id);
+
+-- ============================================================
+-- 36. About page: a single free-form rich-content canvas mods can
+--     edit (images, full text formatting, no fixed fields) — a
+--     singleton row rather than a normal table since there's only
+--     ever one About page.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.about_page (
+  id      boolean PRIMARY KEY DEFAULT true CHECK (id),
+  content text
+);
+
+INSERT INTO public.about_page (id, content) VALUES (true, null)
+  ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE public.about_page ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read about page" ON public.about_page;
+CREATE POLICY "Public read about page"
+  ON public.about_page FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Admins update about page" ON public.about_page;
+CREATE POLICY "Admins update about page"
+  ON public.about_page FOR UPDATE TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());

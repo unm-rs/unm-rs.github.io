@@ -991,6 +991,78 @@ svg {
         }
     }
 
+    .ab-page-main { min-height: 60vh; }
+
+    .about-wrap {
+        max-width: calc(900 / 16 * 1rem);
+        margin-inline: auto;
+        padding: 100px 24px 80px;
+    }
+
+    .about-toolbar {
+        position: sticky;
+        top: 70px;
+        z-index: 500;
+        flex-wrap: wrap;
+        margin-block-end: 20px;
+    }
+
+    .about-color-input {
+        width: 28px;
+        height: 28px;
+        padding: 2px;
+        border: none;
+        border-radius: 5px;
+        background: none;
+        cursor: pointer;
+    }
+
+    .about-block-select { cursor: pointer; }
+
+    .about-canvas {
+        min-height: 50vh;
+        font-size: var(--fs-16);
+        line-height: 1.7;
+        color: hsl(0, 0%, 12%);
+
+        h1, h2, h3, h4 { font-weight: 800; margin-block: 0.6em 0.3em; line-height: 1.2; }
+        h1 { font-size: 2.2rem; }
+        h2 { font-size: 1.8rem; }
+        h3 { font-size: 1.4rem; }
+        p  { margin-block-end: 1em; }
+        ul, ol { margin-block-end: 1em; padding-inline-start: 1.4em; }
+        blockquote {
+            border-left: 3px solid hsl(45, 95%, 55%);
+            padding-inline-start: 16px;
+            color: hsl(0, 0%, 40%);
+            margin-block: 1em;
+        }
+        a   { color: hsl(220, 80%, 45%); text-decoration: underline; }
+        img { max-width: 100%; }
+    }
+
+    .about-canvas--editing {
+        outline: none;
+        border: 1px dashed hsl(0, 0%, 82%);
+        border-radius: 10px;
+        padding: 24px;
+        cursor: text;
+    }
+
+    .about-img-frame {
+        display: inline-block;
+        overflow: hidden;
+        max-width: 100%;
+        vertical-align: bottom;
+        border-radius: 6px;
+        margin: 4px;
+    }
+
+    .about-canvas--editing .about-img-frame {
+        resize: both;
+        box-shadow: 0 0 0 2px hsl(45, 95%, 55%);
+    }
+
     .values {
         background-color: hsl(233, 20%, 10%);
         padding-block: 130px;
