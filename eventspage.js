@@ -81,7 +81,7 @@
 
         if (!groups.length) {
             tabsEl.insertAdjacentHTML('beforeend',
-                '<p class="ep-catalogue-empty" style="padding-block:8px">No groups yet — create one to start organizing events.</p>');
+                '<p class="ep-catalogue-empty" style="padding-block:8px">Nothing here. Add a year to start organizing events.</p>');
         }
     }
 
