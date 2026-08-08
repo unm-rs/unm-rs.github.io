@@ -18,7 +18,7 @@
 
     // Let other scripts trigger the login modal or profile page
     document.addEventListener('ua:open-login',   () => openLoginModal());
-    document.addEventListener('ua:open-account', () => { window.location.href = '/profile.html'; });
+    document.addEventListener('ua:open-account', () => { window.location.href = '/profile/'; });
 
     function injectNavItem(session, profile) {
         const nav = document.querySelector('.topnav__links');
@@ -64,8 +64,8 @@
                 trigger.setAttribute('aria-expanded', opening);
                 trigger.classList.toggle('ua-profile-btn--open', opening);
             });
-            li.querySelector('#ua-dd-account').addEventListener('click',  () => { window.location.href = '/profile.html'; });
-            li.querySelector('#ua-dd-settings').addEventListener('click', () => { window.location.href = '/settings.html'; });
+            li.querySelector('#ua-dd-account').addEventListener('click',  () => { window.location.href = '/profile/'; });
+            li.querySelector('#ua-dd-settings').addEventListener('click', () => { window.location.href = '/settings/'; });
             li.querySelector('#ua-dd-signout').addEventListener('click', async () => {
                 await db.auth.signOut();
                 location.reload();
@@ -109,11 +109,11 @@
             });
 
             li.querySelector('#ua-dd-account').addEventListener('click', () => {
-                window.location.href = '/profile.html';
+                window.location.href = '/profile/';
             });
 
             li.querySelector('#ua-dd-settings').addEventListener('click', () => {
-                window.location.href = '/settings.html';
+                window.location.href = '/settings/';
             });
 
             li.querySelector('#ua-dd-signout').addEventListener('click', async () => {
@@ -238,7 +238,7 @@
 
             const email = overlay.querySelector('#ua-femail').value.trim();
             const { error } = await db.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/reset-password.html`,
+                redirectTo: `${window.location.origin}/reset-password/`,
             });
 
             submit.disabled    = false;
@@ -747,18 +747,18 @@
                 <button class="mnd-close" aria-label="Close menu">✕</button>
             </div>
             <ul class="mnd-links">
-                <li><a class="mnd-link" href="/eventspage.html">Events</a></li>
-                <li><a class="mnd-link" href="/forum.html">Forum</a></li>
-                <li><a class="mnd-link" href="/products.html">Products</a></li>
-                <li><a class="mnd-link" href="/committee.html">Committee</a></li>
-                <li><a class="mnd-link" href="/about.html">About</a></li>
+                <li><a class="mnd-link" href="/eventspage/">Events</a></li>
+                <li><a class="mnd-link" href="/forum/">Forum</a></li>
+                <li><a class="mnd-link" href="/products/">Products</a></li>
+                <li><a class="mnd-link" href="/committee/">Committee</a></li>
+                <li><a class="mnd-link" href="/about/">About</a></li>
             </ul>
             <div class="mnd-auth">
                 ${!session
                     ? `<button class="mnd-auth-btn mnd-auth-btn--signin" id="mnd-signin">Sign In</button>`
                     : `<p class="mnd-auth-name">${displayName}</p>
-                       <a class="mnd-auth-link" href="/profile.html">My Account</a>
-                       <a class="mnd-auth-link" href="/settings.html">Settings</a>
+                       <a class="mnd-auth-link" href="/profile/">My Account</a>
+                       <a class="mnd-auth-link" href="/settings/">Settings</a>
                        <button class="mnd-auth-btn mnd-auth-btn--signout" id="mnd-signout">Sign Out</button>`}
             </div>`;
         document.body.appendChild(drawer);

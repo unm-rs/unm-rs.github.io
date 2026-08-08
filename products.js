@@ -1,7 +1,10 @@
 (async function () {
     if (typeof db === 'undefined') return;
 
-    window.initHeroImage?.('products');
+    window.initHeroImage?.('products', {
+        top:    { aspect: 16 / 4.5, outputWidth: 1920, outputHeight: 540,  label: 'Desktop (16:4.5)' },
+        bottom: { aspect: 1,        outputWidth: 1080, outputHeight: 1080, label: 'Mobile (Square)' },
+    });
 
     const { isAdmin } = await window.roleReady;
 

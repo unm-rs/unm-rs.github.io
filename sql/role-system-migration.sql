@@ -961,3 +961,74 @@ CREATE POLICY "Admins update home feature sections"
 --     (whatever already lets admins UPDATE events covers this too).
 -- ============================================================
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS is_major boolean NOT NULL DEFAULT false;
+
+-- ============================================================
+-- 42. An unlisted "/step" event page — a normal events row, editable
+--     by admins exactly like any other event (hero image, rich-text
+--     description, S-CPD points, etc.) via /event.html?slug=step, and
+--     also reachable at the bare URL /step (see step/index.html).
+--     Deliberately left ungrouped (group_id null) so it never shows up
+--     in any eventspage tab, and dated in the past so the home page's
+--     "upcoming events" query skips it too — nothing links to it, it
+--     only surfaces if you already know the URL.
+-- ============================================================
+INSERT INTO public.events (title, slug, event_date, description, group_id)
+SELECT 'Step', 'step', '2000-01-01', 'This page is empty for now — edit it however you like.', NULL
+WHERE NOT EXISTS (SELECT 1 FROM public.events WHERE slug = 'step');
+
+-- ============================================================
+-- 43. Application confirmation screen + optional/mandatory file
+--     attachment (PDF or media) on the "Join Now" form.
+--
+--     application_file_required is per-event, admin-toggleable: the
+--     attachment field always shows on the apply form, this only
+--     controls whether it's optional or required for that event.
+--
+--     Files go in a new private bucket (not public like event-images,
+--     since these can be personal documents) — only the uploader can
+--     write, only admins can read/delete, matching who can already
+--     see applications at all (see "Admins view applications" step 25).
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS application_file_required boolean NOT NULL DEFAULT false;
+
+ALTER TABLE public.applications
+  ADD COLUMN IF NOT EXISTS attachment_path text,
+  ADD COLUMN IF NOT EXISTS attachment_name text;
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'application-files',
+  'application-files',
+  false,
+  20971520, -- 20MB
+  ARRAY['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif',
+        'video/mp4', 'video/quicktime', 'video/webm']
+)
+ON CONFLICT (id) DO UPDATE SET
+  file_size_limit    = EXCLUDED.file_size_limit,
+  allowed_mime_types  = EXCLUDED.allowed_mime_types;
+
+DROP POLICY IF EXISTS "Anyone can upload application files" ON storage.objects;
+CREATE POLICY "Anyone can upload application files"
+  ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'application-files');
+
+DROP POLICY IF EXISTS "Admins read application files" ON storage.objects;
+CREATE POLICY "Admins read application files"
+  ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'application-files' AND public.is_admin());
+
+DROP POLICY IF EXISTS "Admins delete application files" ON storage.objects;
+CREATE POLICY "Admins delete application files"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'application-files' AND public.is_admin());
+
+-- ============================================================
+-- 44. New events no longer get an auto-slugified-from-title slug.
+--     They're reachable right away at a "temporary" URL keyed off
+--     their id (/event/?id=…), which always works and never
+--     collides. slug becomes an optional, mod-set upgrade to a
+--     nicer URL (/event/?slug=…) — see event-detail.js's URL editor.
+-- ============================================================
+ALTER TABLE public.events ALTER COLUMN slug DROP NOT NULL;

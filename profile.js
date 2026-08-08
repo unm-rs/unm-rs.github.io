@@ -10,7 +10,7 @@
 
     if (viewUserId) {
         if (session && viewUserId === session.user.id) {
-            window.history.replaceState({}, '', '/profile.html');
+            window.history.replaceState({}, '', '/profile/');
         } else {
             await renderPublicProfile(viewUserId, isOwner);
             return;
@@ -485,7 +485,7 @@
                     ${threads.map(t => {
                         const isPending = showStatus && t.status !== 'approved';
                         return `
-                        <a href="/thread.html?id=${esc(t.id)}" class="pf-thread-row">
+                        <a href="/thread/?id=${esc(t.id)}" class="pf-thread-row">
                             <div class="pf-thread-row__main">
                                 <span class="pf-thread-row__title">${esc(t.title)}</span>
                                 <span class="pf-thread-row__meta">

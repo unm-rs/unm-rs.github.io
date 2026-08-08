@@ -3,7 +3,7 @@
 
     const params   = new URLSearchParams(window.location.search);
     const threadId = params.get('id');
-    if (!threadId) { window.location.href = '/forum.html'; return; }
+    if (!threadId) { window.location.href = '/forum/'; return; }
 
     const root = document.getElementById('js-thread-root');
 
@@ -18,7 +18,7 @@
     ]);
 
     if (threadErr || !thread) {
-        root.innerHTML = `<div class="fr-thread-detail"><a class="fr-back-link" href="/forum.html">Forum</a><p style="color:hsl(0,0%,45%);margin-top:32px">Thread not found.</p></div>`;
+        root.innerHTML = `<div class="fr-thread-detail"><a class="fr-back-link" href="/forum/">Forum</a><p style="color:hsl(0,0%,45%);margin-top:32px">Thread not found.</p></div>`;
         return;
     }
 
@@ -95,7 +95,7 @@
 
         root.innerHTML = `
             <div class="fr-thread-detail">
-                <a class="fr-back-link" href="/forum.html">Back to Forum</a>
+                <a class="fr-back-link" href="/forum/">Back to Forum</a>
 
                 <div class="fr-thread-detail__meta">
                     ${thread.forum_categories ? `<span class="fr-cat-chip" style="${catChipStyle(thread.forum_categories.name)}">${esc(thread.forum_categories.name)}</span>` : ''}
@@ -253,7 +253,7 @@
         const canDelete   = isAdmin || (session?.user?.id === post.author_id);
         const avatar      = avatarMap[post.author_id] ?? post.author_avatar;
         const authorRole  = post.author_id in roleMap ? roleMap[post.author_id] : post.author_role;
-        const profUrl     = post.author_id ? `/profile.html?id=${esc(post.author_id)}` : null;
+        const profUrl     = post.author_id ? `/profile/?id=${esc(post.author_id)}` : null;
         const avatarEl    = `<div class="fr-post__avatar">${avatar ? `<img src="${esc(avatar)}" alt="${esc(post.author_name)}">` : `<span>${initials}</span>`}</div>`;
         const isByOp    = !!post.author_id && post.author_id === thread.author_id;
 
@@ -400,7 +400,7 @@
     async function deleteThread() {
         if (!confirm('Delete this entire thread?\n\nThis cannot be undone.')) return;
         await db.from('forum_threads').delete().eq('id', threadId);
-        window.location.href = '/forum.html';
+        window.location.href = '/forum/';
     }
 
     async function toggleLike(targetType, targetId) {

@@ -4,7 +4,7 @@
     const { session, isAdmin, isOwner } = await window.roleReady;
 
     if (!session) {
-        window.location.href = '/forum.html';
+        window.location.href = '/forum/';
         return;
     }
 
@@ -48,7 +48,7 @@
                 <p class="nt-error" id="nt-error" hidden></p>
 
                 <div class="nt-form-footer">
-                    <a href="/forum.html" class="nt-cancel">Cancel</a>
+                    <a href="/forum/" class="nt-cancel">Cancel</a>
                     <button type="submit" class="nt-submit" id="nt-submit">Submit Thread</button>
                 </div>
             </form>`;
@@ -109,7 +109,7 @@
 
     function showSuccess(thread, status) {
         if (status === 'approved') {
-            window.location.href = `/thread.html?id=${thread.id}`;
+            window.location.href = `/thread/?id=${thread.id}`;
             return;
         }
 
@@ -121,7 +121,7 @@
                     Your thread is pending review. An admin will approve it before it appears publicly.
                     You'll be able to see it once it's approved.
                 </p>
-                <a href="/forum.html" class="nt-success__back">Back to Forum</a>
+                <a href="/forum/" class="nt-success__back">Back to Forum</a>
             </div>`;
     }
 

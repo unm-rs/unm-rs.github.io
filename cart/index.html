@@ -6,7 +6,7 @@
     <link rel="preload" href="/fonts/source-sans-3-v19-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/fonts/source-sans-3-v19-latin-700.woff2" as="font" type="font/woff2" crossorigin>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Forum</title>
+    <title>Cart</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/admin-bar.css">
 
@@ -17,7 +17,7 @@
     <link rel="manifest" href="/site.webmanifest" />
 </head>
 
-<body>
+<body class="has-overlay-nav">
     <a class="visually-hidden skip" href="#main">Skip to main content</a>
 
     <header class="topnav">
@@ -28,22 +28,39 @@
             </a>
             <nav>
                 <ul class="topnav__links">
-                    <li class="topnav__item"><a href="/eventspage.html" class="topnav__link">Events</a></li>
-                    <li class="topnav__item"><a href="/forum.html"      class="topnav__link topnav__link--active">Forum</a></li>
-                    <li class="topnav__item"><a href="/products.html"   class="topnav__link">Products</a></li>
-                    <li class="topnav__item"><a href="/committee.html"  class="topnav__link">Committee</a></li>
-                    <li class="topnav__item"><a href="/about.html"      class="topnav__link">About</a></li>
+                    <li class="topnav__item"><a href="/eventspage/" class="topnav__link">Events</a></li>
+                    <li class="topnav__item"><a href="/forum/"      class="topnav__link">Forum</a></li>
+                    <li class="topnav__item"><a href="/products/"   class="topnav__link">Products</a></li>
+                    <li class="topnav__item"><a href="/committee/"  class="topnav__link">Committee</a></li>
+                    <li class="topnav__item"><a href="/about/"      class="topnav__link">About</a></li>
                 </ul>
             </nav>
         </div>
     </header>
 
-    <main id="main" class="fr-main">
-        <div id="js-thread-root">
-            <div class="fr-thread-detail">
-                <p style="color:hsl(0,0%,50%);font-size:16px">Loading thread…</p>
+    <main id="main">
+
+        <section class="pr-hero">
+            <div class="hero-img-bg" id="js-hero-bg"></div>
+            <div class="hero-img-overlay"></div>
+            <label class="hero-img-btn" id="js-img-btn" hidden>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Change Image
+                <input type="file" id="js-img-input" accept="image/*" hidden>
+            </label>
+            <div class="wrapper pr-hero__inner">
+                <h1 class="pr-hero__title">Your Cart</h1>
+                <p class="pr-hero__sub">Review your items before checkout</p>
             </div>
-        </div>
+        </section>
+
+        <section class="ct-section">
+            <div class="wrapper ct-layout">
+                <div id="js-ct-items" class="ct-items"></div>
+                <aside class="ct-summary" id="js-ct-summary"></aside>
+            </div>
+        </section>
+
     </main>
 
     <footer class="footer">
@@ -149,11 +166,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="/supabase-client.js" defer></script>
     <script src="/role-utils.js" defer></script>
+    <script src="/image-crop.js" defer></script>
+    <script src="/hero-image.js" defer></script>
     <script src="/cart-utils.js" defer></script>
     <script src="/user-auth.js" defer></script>
-    <script src="/tags-ui.js" defer></script>
-    <script src="/thread.js" defer></script>
-    <script src="/admin-bar.js" defer></script>
+    <script src="/cart.js" defer></script>
 
 </body>
 

@@ -1,5 +1,8 @@
 (function () {
-    window.initHeroImage?.('cart');
+    window.initHeroImage?.('cart', {
+        top:    { aspect: 16 / 4.5, outputWidth: 1920, outputHeight: 540,  label: 'Desktop (16:4.5)' },
+        bottom: { aspect: 1,        outputWidth: 1080, outputHeight: 1080, label: 'Mobile (Square)' },
+    });
 
     function esc(str) {
         return String(str || '')
@@ -27,7 +30,7 @@
                         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
                     </svg>
                     <p class="ct-empty__msg">Your cart is empty.</p>
-                    <a href="/products.html" class="ct-empty__link">Browse Products</a>
+                    <a href="/products/" class="ct-empty__link">Browse Products</a>
                 </div>`;
             return;
         }

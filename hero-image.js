@@ -31,17 +31,25 @@
 
         btnEl.hidden = false;
 
-        // On pages with the overlay topnav (e.g. the home hero) the nav
-        // floats on top of the hero, so this button needs to sit below it
-        // instead of at its normal fixed offset from the hero's own top edge.
-        if (document.body.classList.contains('has-overlay-nav')) {
-            const positionBtn = () => {
-                const nav = document.querySelector('.topnav');
-                if (nav) btnEl.style.top = `${nav.getBoundingClientRect().height + 12}px`;
-            };
-            positionBtn();
-            window.addEventListener('resize', positionBtn);
-        }
+        // The topnav is `position: fixed` on every page now, so it's not
+        // guaranteed to actually be clear of the hero's own top edge —
+        // e.g. right after load, before its real height has been measured
+        // into --topnav-height, or on pages with the overlay topnav (e.g.
+        // the home hero) where it floats over the hero on purpose. Rather
+        // than trust CSS to have reserved exactly enough space, measure
+        // the actual overlap live and only push the button down if the
+        // nav is genuinely covering it.
+        const positionBtn = () => {
+            const nav = document.querySelector('.topnav');
+            if (!nav) return;
+            const navBottom = nav.getBoundingClientRect().bottom;
+            const heroTop   = bgEl.parentElement.getBoundingClientRect().top;
+            const overlap   = navBottom - heroTop;
+            btnEl.style.top = overlap > 0 ? `${overlap + 12}px` : '';
+        };
+        positionBtn();
+        window.addEventListener('resize', positionBtn);
+        window.addEventListener('scroll', positionBtn, { passive: true });
 
         inputEl.addEventListener('change', async e => {
             const file = e.target.files[0];

@@ -1,7 +1,10 @@
 (async function () {
     if (typeof db === 'undefined') return;
 
-    window.initHeroImage?.('forum');
+    window.initHeroImage?.('forum', {
+        top:    { aspect: 16 / 4.5, outputWidth: 1920, outputHeight: 540,  label: 'Desktop (16:4.5)' },
+        bottom: { aspect: 1,        outputWidth: 1080, outputHeight: 1080, label: 'Mobile (Square)' },
+    });
 
     // Session must resolve before we know the role
     const { session, isAdmin } = await window.roleReady;
@@ -85,12 +88,12 @@
         pendingEl.querySelectorAll('.fr-thread-row').forEach(row => {
             row.addEventListener('click', e => {
                 if (e.target.closest('.fr-author-link')) return;
-                window.location.href = `/thread.html?id=${row.dataset.id}`;
+                window.location.href = `/thread/?id=${row.dataset.id}`;
             });
             row.addEventListener('keydown', e => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    window.location.href = `/thread.html?id=${row.dataset.id}`;
+                    window.location.href = `/thread/?id=${row.dataset.id}`;
                 }
             });
         });
@@ -101,7 +104,7 @@
         const initials   = getInitials(t.author_name || '?');
         const dateStr    = relativeTime(t.created_at);
         const avatar     = avatarMap[t.author_id] ?? t.author_avatar;
-        const profUrl    = t.author_id ? `/profile.html?id=${esc(t.author_id)}` : null;
+        const profUrl    = t.author_id ? `/profile/?id=${esc(t.author_id)}` : null;
         const avatarEl   = `<div class="fr-thread-avatar">${avatar ? `<img src="${esc(avatar)}" alt="${esc(t.author_name)}">` : `<span>${initials}</span>`}</div>`;
         const isRejected = t.status === 'rejected';
 
@@ -194,7 +197,7 @@
     function renderActions() {
         if (!session) { actionsEl.innerHTML = ''; return; }
         actionsEl.innerHTML = `
-            <a href="/new-thread.html" class="fr-new-btn">New Thread</a>`;
+            <a href="/new-thread/" class="fr-new-btn">New Thread</a>`;
     }
 
     function renderThreads() {
@@ -207,7 +210,7 @@
                 <div class="fr-thread-list">
                     <p class="fr-empty">No threads yet${selectedCat !== 'all' ? ' in this category' : ''}.
                         ${session
-                            ? `<a class="fr-inline-link" href="/new-thread.html"> Start one.</a>`
+                            ? `<a class="fr-inline-link" href="/new-thread/"> Start one.</a>`
                             : `<button class="fr-inline-link" id="fr-empty-login"> Sign in</button> to start one.`}
                     </p>
                 </div>`;
@@ -237,12 +240,12 @@
         threadsEl.querySelectorAll('.fr-thread-row').forEach(row => {
             row.addEventListener('click', e => {
                 if (e.target.closest('.fr-author-link')) return;
-                window.location.href = `/thread.html?id=${row.dataset.id}`;
+                window.location.href = `/thread/?id=${row.dataset.id}`;
             });
             row.addEventListener('keydown', e => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    window.location.href = `/thread.html?id=${row.dataset.id}`;
+                    window.location.href = `/thread/?id=${row.dataset.id}`;
                 }
             });
         });
@@ -253,7 +256,7 @@
         const initials = getInitials(t.author_name || '?');
         const dateStr  = relativeTime(t.last_reply_at || t.created_at);
         const avatar   = avatarMap[t.author_id] ?? t.author_avatar;
-        const profUrl  = t.author_id ? `/profile.html?id=${esc(t.author_id)}` : null;
+        const profUrl  = t.author_id ? `/profile/?id=${esc(t.author_id)}` : null;
         const avatarEl = `<div class="fr-thread-avatar">${avatar ? `<img src="${esc(avatar)}" alt="${esc(t.author_name)}">` : `<span>${initials}</span>`}</div>`;
         const excerpt  = (t.body || '').slice(0, 160).trim() + ((t.body || '').length > 160 ? '…' : '');
 

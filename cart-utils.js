@@ -60,7 +60,7 @@
         const li = document.createElement('li');
         li.className = 'topnav__item';
         li.innerHTML = `
-            <a href="/cart.html" class="topnav__link topnav__cart-link">
+            <a href="/cart/" class="topnav__link topnav__cart-link">
                 Cart
                 <span class="topnav__cart-badge" id="cart-badge" hidden>0</span>
             </a>`;

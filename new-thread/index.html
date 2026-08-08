@@ -6,7 +6,7 @@
     <link rel="preload" href="/fonts/source-sans-3-v19-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/fonts/source-sans-3-v19-latin-700.woff2" as="font" type="font/woff2" crossorigin>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Forum</title>
+    <title>New Thread</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/admin-bar.css">
 
@@ -28,56 +28,29 @@
             </a>
             <nav>
                 <ul class="topnav__links">
-                    <li class="topnav__item"><a href="/eventspage.html" class="topnav__link">Events</a></li>
-                    <li class="topnav__item"><a href="/forum.html"      class="topnav__link topnav__link--active">Forum</a></li>
-                    <li class="topnav__item"><a href="/products.html"   class="topnav__link">Products</a></li>
-                    <li class="topnav__item"><a href="/committee.html"  class="topnav__link">Committee</a></li>
-                    <li class="topnav__item"><a href="/about.html"      class="topnav__link">About</a></li>
+                    <li class="topnav__item"><a href="/eventspage/" class="topnav__link">Events</a></li>
+                    <li class="topnav__item"><a href="/forum/"      class="topnav__link topnav__link--active">Forum</a></li>
+                    <li class="topnav__item"><a href="/products/"   class="topnav__link">Products</a></li>
+                    <li class="topnav__item"><a href="/committee/"  class="topnav__link">Committee</a></li>
+                    <li class="topnav__item"><a href="/about/"      class="topnav__link">About</a></li>
                 </ul>
             </nav>
         </div>
     </header>
 
-    <main id="main" class="fr-main">
+    <main id="main" class="nt-main">
 
-        <section class="fr-hero">
-            <div class="hero-img-bg" id="js-hero-bg"></div>
-            <div class="hero-img-overlay"></div>
-            <label class="hero-img-btn" id="js-img-btn" hidden>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Change Image
-                <input type="file" id="js-img-input" accept="image/*" hidden>
-            </label>
-            <div class="fr-hero__inner wrapper">
-                <h1 class="fr-hero__title">Forum</h1>
-                <p class="fr-hero__sub">beta</p>
-            </div>
-        </section>
-
-        <div id="js-fr-pending"></div>
-
-        <div class="fr-cats-outer" id="js-fr-cats-outer">
-            <div class="fr-cats-bar wrapper">
-                <div class="fr-cats-tabs" id="js-fr-cats" role="tablist" aria-label="Filter by category">
-                    <div class="fr-cats-skeleton" aria-hidden="true">
-                        <span></span><span></span><span></span><span></span>
-                    </div>
-                </div>
-                <div class="fr-cats-actions" id="js-fr-actions"></div>
-            </div>
+        <div class="wrapper nt-simple-header">
+            <a href="/forum/" class="fr-back-link">Back to Forum</a>
+            <h1 class="nt-simple-title">New Thread</h1>
+            <p class="nt-simple-sub">Your post will be reviewed by an admin before it appears publicly</p>
         </div>
 
-        <section class="fr-section">
-            <div class="wrapper fr-wrapper">
-                <div id="js-fr-threads">
-                    <div class="fr-thread-list">
-                        <div class="fr-skeleton-row"><div class="fr-skel" style="width:42px;height:42px;border-radius:50%"></div><div style="flex:1"><div class="fr-skel" style="width:60%;height:14px;margin-block-end:8px"></div><div class="fr-skel" style="width:30%;height:12px"></div></div></div>
-                        <div class="fr-skeleton-row"><div class="fr-skel" style="width:42px;height:42px;border-radius:50%"></div><div style="flex:1"><div class="fr-skel" style="width:75%;height:14px;margin-block-end:8px"></div><div class="fr-skel" style="width:25%;height:12px"></div></div></div>
-                        <div class="fr-skeleton-row"><div class="fr-skel" style="width:42px;height:42px;border-radius:50%"></div><div style="flex:1"><div class="fr-skel" style="width:50%;height:14px;margin-block-end:8px"></div><div class="fr-skel" style="width:35%;height:12px"></div></div></div>
-                    </div>
-                </div>
+        <div class="wrapper nt-body">
+            <div id="js-nt-root">
+                <p class="pf-loading">Loading…</p>
             </div>
-        </section>
+        </div>
 
     </main>
 
@@ -184,11 +157,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="/supabase-client.js" defer></script>
     <script src="/role-utils.js" defer></script>
-    <script src="/hero-image.js" defer></script>
     <script src="/cart-utils.js" defer></script>
     <script src="/user-auth.js" defer></script>
-    <script src="/forum.js" defer></script>
-    <script src="/admin-bar.js" defer></script>
+    <script src="/new-thread.js" defer></script>
 
 </body>
 

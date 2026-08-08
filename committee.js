@@ -1,5 +1,8 @@
 (async function () {
-    window.initHeroImage?.('committee');
+    window.initHeroImage?.('committee', {
+        top:    { aspect: 16 / 4.5, outputWidth: 1920, outputHeight: 540,  label: 'Desktop (16:4.5)' },
+        bottom: { aspect: 1,        outputWidth: 1080, outputHeight: 1080, label: 'Mobile (Square)' },
+    });
 
     const grid = document.getElementById('js-committee-grid');
     if (!grid) return;
@@ -69,7 +72,7 @@
         const name  = displayName(member);
         const photo = displayPhoto(member);
         const initials = name.split(' ').map(w => w[0] || '').slice(0, 2).join('').toUpperCase();
-        const profileUrl = member.user_id ? `/profile.html?id=${esc(member.user_id)}` : null;
+        const profileUrl = member.user_id ? `/profile/?id=${esc(member.user_id)}` : null;
         const photoTag = profileUrl ? 'a' : 'div';
         const nameTag  = profileUrl ? 'a' : 'p';
         const isOwnCard = !!(member.user_id && session?.user?.id === member.user_id);

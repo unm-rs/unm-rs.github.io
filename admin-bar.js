@@ -72,14 +72,16 @@
             e.preventDefault();
             const title  = document.getElementById('ab-qtitle').value.trim();
             if (!title) return;
-            const slug   = title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-');
             const errEl  = document.getElementById('ab-qerr');
             const submit = document.getElementById('ab-qsubmit');
             errEl.hidden      = true;
             submit.disabled   = true;
             submit.textContent = 'Creating…';
 
-            const { error } = await db.from('events').insert({ title, slug });
+            // No auto-slug from the title — the event is reachable right
+            // away at its temporary id-based URL, and gets a nicer one
+            // only once a mod deliberately sets one from the event page.
+            const { data: created, error } = await db.from('events').insert({ title }).select('id').single();
 
             if (error) {
                 errEl.textContent  = error.message;
@@ -87,7 +89,7 @@
                 submit.disabled    = false;
                 submit.textContent = 'Create & Edit';
             } else {
-                window.location.href = `/event.html?slug=${encodeURIComponent(slug)}`;
+                window.location.href = `/event/?id=${encodeURIComponent(created.id)}`;
             }
         });
     }
@@ -263,7 +265,7 @@
             if (_editId) {
                 location.reload();
             } else {
-                window.location.href = `/event.html?slug=${encodeURIComponent(payload.slug)}`;
+                window.location.href = `/event/?slug=${encodeURIComponent(payload.slug)}`;
             }
         }
     }

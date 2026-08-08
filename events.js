@@ -13,6 +13,12 @@
     const { data: events, error } = await db
         .from('events')
         .select('id, title, slug, image_url, image_url_mobile, event_date, scpd_points, is_major')
+        // Ungrouped events (the eventspage "catalogue") are never shown on
+        // any public tab — the home page collage shouldn't surface them
+        // either, regardless of their date. This is also what keeps
+        // unlisted pages like /step out of "upcoming events" for good,
+        // even if their date is ever changed to something in the future.
+        .not('group_id', 'is', null)
         .or(`event_date.is.null,event_date.gte.${todayStr}`)
         .order('event_date', { ascending: true });
 
@@ -73,8 +79,9 @@
     function tile(ev, size) {
         const isBig = size === 'big';
         const img = isBig ? ev.image_url : (ev.image_url_mobile || ev.image_url);
+        const href = ev.slug ? `/event/?slug=${encodeURIComponent(ev.slug)}` : `/event/?id=${encodeURIComponent(ev.id)}`;
         return `
-            <a href="/event.html?slug=${encodeURIComponent(ev.slug)}" class="collage-tile collage-tile--${size}" data-event-id="${esc(ev.id)}">
+            <a href="${href}" class="collage-tile collage-tile--${size}" data-event-id="${esc(ev.id)}">
                 <div class="collage-tile__img-wrap">
                     ${img ? `<img src="${esc(img)}" alt="" class="collage-tile__img" loading="lazy">`
                           : `<div class="collage-tile__img-placeholder" aria-hidden="true"></div>`}

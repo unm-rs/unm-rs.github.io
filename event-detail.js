@@ -4,11 +4,26 @@
     });
 
     const params = new URLSearchParams(window.location.search);
-    const slug   = params.get('slug');
-    if (!slug) { window.location.href = '/'; return; }
+    // Every event has a stable "temporary" URL keyed off its id
+    // (/event/?id=…) that always works from the moment it's created.
+    // A page can also hardcode its slug via <body data-slug="…"> instead
+    // of a ?slug= query param — used for unlisted event pages (e.g. /step)
+    // that aren't linked from anywhere and shouldn't need a query string.
+    // Precedence: hardcoded slug > ?slug= > ?id= (the id fallback only
+    // applies once no slug is in play at all).
+    const bodySlug  = document.body.dataset.slug || null;
+    const paramSlug = params.get('slug');
+    const paramId   = params.get('id');
+
+    let lookupCol, lookupVal;
+    if (bodySlug)       { lookupCol = 'slug'; lookupVal = bodySlug; }
+    else if (paramSlug) { lookupCol = 'slug'; lookupVal = paramSlug; }
+    else if (paramId)   { lookupCol = 'id';   lookupVal = paramId; }
+
+    if (!lookupVal) { window.location.href = '/'; return; }
 
     const [{ data: event }, { session, isAdmin }] = await Promise.all([
-        db.from('events').select('*').eq('slug', slug).single(),
+        db.from('events').select('*').eq(lookupCol, lookupVal).maybeSingle(),
         window.roleReady,
     ]);
 
@@ -226,6 +241,51 @@
         const successEl  = document.getElementById('af-success');
         if (!applyForm) return;
 
+        // Mods control optional-vs-mandatory per event; the field itself
+        // always shows.
+        const fileRequired = !!event.application_file_required;
+        const fileLabelEl  = document.getElementById('af-file-label');
+        const staticFileEl = document.getElementById('af-file');
+        if (fileLabelEl)  fileLabelEl.textContent = fileRequired ? 'Attachment (required)' : 'Attachment (optional)';
+        if (staticFileEl) staticFileEl.required = fileRequired;
+
+        const MAX_ATTACHMENT_BYTES     = 20 * 1024 * 1024;
+        const ALLOWED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif',
+                                           'video/mp4', 'video/quicktime', 'video/webm'];
+
+        function validateAttachment(file) {
+            if (!file) return null;
+            if (!ALLOWED_ATTACHMENT_TYPES.includes(file.type)) return 'Please attach a PDF, image, or video file.';
+            if (file.size > MAX_ATTACHMENT_BYTES) return 'Attachment must be under 20MB.';
+            return null;
+        }
+
+        async function uploadAttachment(file) {
+            const ext  = (file.name.split('.').pop() || 'bin').toLowerCase();
+            const path = `applications/${event.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+            const { error } = await db.storage.from('application-files').upload(path, file);
+            if (error) throw error;
+            return { path, name: file.name };
+        }
+
+        function renderConfirmation(details) {
+            const summaryEl = document.getElementById('af-summary');
+            if (!summaryEl) return;
+            const rows = [
+                ['Name', details.name],
+                ['Student ID', details.studentId],
+                ['OWA', details.owa],
+                ['Year', details.year],
+                ['Course', details.course],
+            ];
+            if (details.attachmentName) rows.push(['Attachment', details.attachmentName]);
+            summaryEl.innerHTML = rows.map(([k, v]) => `
+                <div class="apply-success__row">
+                    <span class="apply-success__k">${esc(k)}</span>
+                    <span class="apply-success__v">${esc(v)}</span>
+                </div>`).join('');
+        }
+
         if (isLoggedIn) {
             const { data: profile } = await db
                 .from('user_profiles')
@@ -244,7 +304,7 @@
                 .from('applications')
                 .select('id, status, reviewed_by, rejection_reason')
                 .eq('user_id', session.user.id)
-                .eq('event_slug', slug)
+                .eq('event_id', event.id)
                 .maybeSingle();
 
             if (existing) {
@@ -291,19 +351,47 @@
                         Applying as <strong>${esc(profile.full_name)}</strong>
                         &nbsp;·&nbsp; ${esc(profile.student_id)}
                     </p>
+                    <div class="apply-field">
+                        <label class="apply-label" for="af-oc-file">Attachment${fileRequired ? ' (required)' : ' (optional)'}</label>
+                        <input class="apply-input apply-file-input" type="file" id="af-oc-file" accept="application/pdf,image/*,video/*">
+                        <p class="apply-hint">PDF, image, or video — up to 20MB.</p>
+                    </div>
                     <div id="af-err" class="apply-error" hidden></div>
                     <button class="apply-submit" id="af-btn">Apply as ${esc(profile.full_name)}</button>`;
 
                 oneClick.querySelector('#af-btn').addEventListener('click', async () => {
-                    const btn   = oneClick.querySelector('#af-btn');
-                    const errEl = oneClick.querySelector('#af-err');
-                    errEl.hidden    = true;
+                    const btn    = oneClick.querySelector('#af-btn');
+                    const errEl  = oneClick.querySelector('#af-err');
+                    const file   = oneClick.querySelector('#af-oc-file').files[0] || null;
+                    errEl.hidden = true;
+
+                    if (fileRequired && !file) {
+                        errEl.textContent = 'Please attach a file to apply.';
+                        errEl.hidden      = false;
+                        return;
+                    }
+                    const fileErr = validateAttachment(file);
+                    if (fileErr) { errEl.textContent = fileErr; errEl.hidden = false; return; }
+
                     btn.disabled    = true;
                     btn.textContent = 'Applying…';
 
+                    let attachment = null;
+                    if (file) {
+                        try {
+                            attachment = await uploadAttachment(file);
+                        } catch (uploadErr) {
+                            errEl.textContent = 'File upload failed: ' + uploadErr.message;
+                            errEl.hidden      = false;
+                            btn.disabled      = false;
+                            btn.textContent   = `Apply as ${profile.full_name}`;
+                            return;
+                        }
+                    }
+
                     const { error } = await db.from('applications').insert({
                         event_id:        event.id,
-                        event_slug:      slug,
+                        event_slug:      event.slug || null,
                         full_name:       profile.full_name,
                         student_id:      profile.student_id,
                         owa:             profile.owa,
@@ -311,6 +399,8 @@
                         course_of_study: profile.course_of_study,
                         user_id:         session.user.id,
                         status:          'pending',
+                        attachment_path: attachment?.path || null,
+                        attachment_name: attachment?.name || null,
                     });
 
                     if (error) {
@@ -320,6 +410,11 @@
                         btn.textContent   = `Apply as ${profile.full_name}`;
                     } else {
                         oneClick.hidden  = true;
+                        renderConfirmation({
+                            name: profile.full_name, studentId: profile.student_id, owa: profile.owa,
+                            year: profile.year_of_study, course: profile.course_of_study,
+                            attachmentName: attachment?.name || null,
+                        });
                         successEl.hidden = false;
                     }
                 });
@@ -352,18 +447,33 @@
             const owa    = document.getElementById('af-owa').value.trim();
             const year   = document.getElementById('af-year').value;
             const course = document.getElementById('af-course').value.trim();
+            const file   = document.getElementById('af-file').files[0] || null;
 
-            if (!name || !sid || !owa || !year || !course) {
-                errEl.textContent  = 'Please fill in all fields.';
+            const fail = msg => {
+                errEl.textContent  = msg;
                 errEl.hidden       = false;
                 submit.disabled    = false;
                 submit.textContent = 'Submit Application';
-                return;
+            };
+
+            if (!name || !sid || !owa || !year || !course) { fail('Please fill in all fields.'); return; }
+            if (fileRequired && !file) { fail('Please attach a file to apply.'); return; }
+            const fileErr = validateAttachment(file);
+            if (fileErr) { fail(fileErr); return; }
+
+            let attachment = null;
+            if (file) {
+                try {
+                    attachment = await uploadAttachment(file);
+                } catch (uploadErr) {
+                    fail('File upload failed: ' + uploadErr.message);
+                    return;
+                }
             }
 
             const { error: submitErr } = await db.from('applications').insert({
                 event_id:        event.id,
-                event_slug:      slug,
+                event_slug:      event.slug || null,
                 full_name:       name,
                 student_id:      sid,
                 owa,
@@ -371,16 +481,16 @@
                 course_of_study: course,
                 user_id:         null,
                 status:          'pending',
+                attachment_path: attachment?.path || null,
+                attachment_name: attachment?.name || null,
             });
 
             if (submitErr) {
-                errEl.textContent  = submitErr.message;
-                errEl.hidden       = false;
-                submit.disabled    = false;
-                submit.textContent = 'Submit Application';
+                fail(submitErr.message);
             } else {
                 applyForm.hidden = true;
                 banner.remove();
+                renderConfirmation({ name, studentId: sid, owa, year, course, attachmentName: attachment?.name || null });
                 successEl.hidden = false;
             }
         });
@@ -394,6 +504,10 @@
             <div class="approvals-panel__inner">
                 <div class="approvals-panel__head">
                     <h2 class="approvals-panel__title">Applications</h2>
+                    <label class="ap-file-toggle">
+                        <input type="checkbox" id="ap-file-required"${event.application_file_required ? ' checked' : ''}>
+                        Require an attachment to apply
+                    </label>
                     <div class="approvals-panel__counts" id="ap-counts"></div>
                 </div>
                 <div id="ap-list" class="ap-list">Loading…</div>
@@ -401,10 +515,18 @@
 
         document.querySelector('.event-detail')?.after(panel);
 
+        panel.querySelector('#ap-file-required').addEventListener('change', async e => {
+            const checked = e.target.checked;
+            const { error } = await db.from('events').update({ application_file_required: checked }).eq('id', event.id);
+            if (error) { alert(error.message); e.target.checked = !checked; return; }
+            event.application_file_required = checked;
+        });
+
         window.__apAdmin = {
-            remove:  (id) => removeApplication(id, panel),
-            approve: (id) => setStatus(id, 'approved', panel, null),
-            reject:  (id) => rejectWithReason(id, panel),
+            remove:     (id) => removeApplication(id, panel),
+            approve:    (id) => setStatus(id, 'approved', panel, null),
+            reject:     (id) => rejectWithReason(id, panel),
+            viewAttach: (id) => viewAttachment(id),
         };
 
         await refreshApprovals(panel);
@@ -418,7 +540,7 @@
             if (!confirm(`Delete "${event.title}"?\n\nThis cannot be undone.`)) return;
             const { error } = await db.from('events').delete().eq('id', event.id);
             if (error) { alert('Delete failed: ' + error.message); return; }
-            window.location.href = '/eventspage.html';
+            window.location.href = '/eventspage/';
         });
     }
 
@@ -429,7 +551,7 @@
         const { data: apps, error } = await db
             .from('applications')
             .select('*')
-            .eq('event_slug', slug)
+            .eq('event_id', event.id)
             .order('submitted_at', { ascending: false });
 
         if (error) { list.textContent = 'Failed to load applications.'; return; }
@@ -476,6 +598,10 @@
                     <span class="ap-card__meta">${esc(app.student_id)}</span>
                     <span class="ap-card__meta">${esc(app.owa)}</span>
                     <span class="ap-card__meta">${esc(app.year_of_study)} · ${esc(app.course_of_study)}</span>
+                    ${app.attachment_path ? `
+                        <button type="button" class="ap-card__attachment" data-id="${esc(String(app.id))}" onclick="window.__apAdmin.viewAttach(this.dataset.id)">
+                            📎 ${esc(app.attachment_name || 'Attachment')}
+                        </button>` : ''}
                     <div class="ap-card__actions">
                         ${app.status === 'pending' ? `
                             <button class="ap-btn ap-btn--approve" data-id="${esc(String(app.id))}" onclick="window.__apAdmin.approve(this.dataset.id)">Approve</button>
@@ -523,6 +649,17 @@
         await refreshApprovals(panel);
     }
 
+    async function viewAttachment(id) {
+        const { data: app, error: fetchErr } = await db
+            .from('applications').select('attachment_path').eq('id', id).single();
+        if (fetchErr || !app?.attachment_path) { alert('Could not find that attachment.'); return; }
+
+        const { data, error } = await db.storage
+            .from('application-files').createSignedUrl(app.attachment_path, 60);
+        if (error) { alert('Could not open attachment: ' + error.message); return; }
+        window.open(data.signedUrl, '_blank', 'noopener');
+    }
+
     function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
 
     const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
@@ -568,6 +705,65 @@
     }
     positionImgBtn();
     window.addEventListener('resize', positionImgBtn);
+
+    // Let mods change the event's slug — which is what actually forms the
+    // page's URL (/event/?slug=…) — right from the hero. Not offered on the
+    // unlisted /step page (no #js-slug there): that page's URL is a
+    // hardcoded folder, not a query param, so renaming the underlying row's
+    // slug would just break its own lookup.
+    let currentSlug = event.slug || '';
+    const slugEl = document.getElementById('js-slug');
+
+    function slugify(str) {
+        return String(str || '').toLowerCase().trim()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+    }
+
+    if (slugEl) {
+        slugEl.hidden = false;
+        renderSlugDisplay();
+    }
+
+    function renderSlugDisplay() {
+        if (currentSlug) {
+            slugEl.innerHTML = `URL: /event/?slug=<span class="event-hero__slug--editable" id="js-slug-edit" title="Click to change this event's URL"></span>`;
+            slugEl.querySelector('#js-slug-edit').textContent = currentSlug;
+        } else {
+            slugEl.innerHTML = `Temporary URL: /event/?id=${esc(event.id)} — <span class="event-hero__slug--editable" id="js-slug-edit" title="Click to set a custom URL">set a custom URL</span>`;
+        }
+        slugEl.querySelector('#js-slug-edit').addEventListener('click', startSlugEdit);
+    }
+
+    function startSlugEdit() {
+        const input = document.createElement('input');
+        input.type      = 'text';
+        input.className = 'event-hero__slug-input';
+        input.value     = currentSlug;
+        slugEl.textContent = 'URL: /event/?slug=';
+        slugEl.appendChild(input);
+        input.focus();
+        input.select();
+
+        let done = false;
+        const commit = () => {
+            if (done) return;
+            done = true;
+            const normalized = slugify(input.value); // '' clears back to the temporary id-based URL
+            if (normalized !== currentSlug) {
+                currentSlug = normalized;
+                markDirty();
+            }
+            renderSlugDisplay();
+        };
+        input.addEventListener('blur', commit, { once: true });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') input.blur();
+            if (e.key === 'Escape') { done = true; renderSlugDisplay(); }
+        });
+    }
 
     const toolbar = document.createElement('div');
     toolbar.className = 'fmt-toolbar';
@@ -649,11 +845,22 @@
         saveBtn.disabled    = true;
         saveBtn.textContent = 'Saving…';
 
+        if (slugEl && currentSlug && currentSlug !== event.slug) {
+            const { data: clash } = await db
+                .from('events').select('id').eq('slug', currentSlug).neq('id', event.id).maybeSingle();
+            if (clash) {
+                alert(`The URL "/event/?slug=${currentSlug}" is already taken by another event. Choose a different one.`);
+                saveBtn.disabled    = false;
+                saveBtn.textContent = 'Save Changes';
+                return;
+            }
+        }
+
         if (pendingImgFiles) {
             const stamp = Date.now();
             const [desktopUp, mobileUp] = await Promise.all([
-                db.storage.from('event-images').upload(`${stamp}-${slug}.jpg`, pendingImgFiles.desktop, { upsert: true }),
-                db.storage.from('event-images').upload(`${stamp}-${slug}-mobile.jpg`, pendingImgFiles.mobile, { upsert: true }),
+                db.storage.from('event-images').upload(`${stamp}-${event.id}.jpg`, pendingImgFiles.desktop, { upsert: true }),
+                db.storage.from('event-images').upload(`${stamp}-${event.id}-mobile.jpg`, pendingImgFiles.mobile, { upsert: true }),
             ]);
 
             if (desktopUp.error || mobileUp.error) {
@@ -669,6 +876,7 @@
 
         const { error } = await db.from('events').update({
             title:             titleEl.textContent.trim(),
+            slug:              currentSlug || null,
             description:       descEl.innerHTML.trim()     || null,
             learning_outcomes: outcomesEl.innerHTML.trim() || null,
             image_url:         currentImgUrl,
@@ -680,22 +888,39 @@
             event_end_time:    currentEventEndTime || null,
         }).eq('id', event.id);
 
+        if (error) {
+            saveBtn.disabled    = false;
+            saveBtn.textContent = 'Save Changes';
+            alert('Save failed: ' + error.message);
+            return;
+        }
+
+        // If the URL this event lives at just changed (slug set, changed,
+        // or cleared back to the temporary id-based one), jump there
+        // instead of showing "Saved" on a page whose own address bar no
+        // longer matches what's actually loaded. Not relevant on /step,
+        // which doesn't offer this editor at all (no slugEl).
+        if (slugEl) {
+            const newUrl = currentSlug
+                ? `/event/?slug=${encodeURIComponent(currentSlug)}`
+                : `/event/?id=${encodeURIComponent(event.id)}`;
+            if (newUrl !== window.location.pathname + window.location.search) {
+                window.location.href = newUrl;
+                return;
+            }
+        }
+
         saveBtn.disabled    = false;
         saveBtn.textContent = 'Save Changes';
-
-        if (error) {
-            alert('Save failed: ' + error.message);
-        } else {
+        isDirty = false;
+        saveBar.querySelector('.edit-savebar__msg').textContent = 'Saved ✓';
+        document.title = `${titleEl.textContent.trim()}`;
+        setTimeout(() => {
+            saveBar.hidden = true;
+            saveBar.querySelector('.edit-savebar__msg').textContent = 'Unsaved changes';
+            document.body.style.paddingBottom = '';
             isDirty = false;
-            saveBar.querySelector('.edit-savebar__msg').textContent = 'Saved ✓';
-            document.title = `${titleEl.textContent.trim()} — UNM Robotics`;
-            setTimeout(() => {
-                saveBar.hidden = true;
-                saveBar.querySelector('.edit-savebar__msg').textContent = 'Unsaved changes';
-                document.body.style.paddingBottom = '';
-                isDirty = false;
-            }, 2000);
-        }
+        }, 2000);
     });
 
 })();

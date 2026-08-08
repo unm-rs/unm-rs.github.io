@@ -6,7 +6,7 @@
     <link rel="preload" href="/fonts/source-sans-3-v19-latin-regular.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/fonts/source-sans-3-v19-latin-700.woff2" as="font" type="font/woff2" crossorigin>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Profile</title>
+    <title>Forum</title>
     <link rel="stylesheet" href="/styles.css">
     <link rel="stylesheet" href="/admin-bar.css">
 
@@ -28,19 +28,21 @@
             </a>
             <nav>
                 <ul class="topnav__links">
-                    <li class="topnav__item"><a href="/eventspage.html" class="topnav__link">Events</a></li>
-                    <li class="topnav__item"><a href="/forum.html"      class="topnav__link">Forum</a></li>
-                    <li class="topnav__item"><a href="/products.html"   class="topnav__link">Products</a></li>
-                    <li class="topnav__item"><a href="/committee.html"  class="topnav__link">Committee</a></li>
-                    <li class="topnav__item"><a href="/about.html"      class="topnav__link">About</a></li>
+                    <li class="topnav__item"><a href="/eventspage/" class="topnav__link">Events</a></li>
+                    <li class="topnav__item"><a href="/forum/"      class="topnav__link topnav__link--active">Forum</a></li>
+                    <li class="topnav__item"><a href="/products/"   class="topnav__link">Products</a></li>
+                    <li class="topnav__item"><a href="/committee/"  class="topnav__link">Committee</a></li>
+                    <li class="topnav__item"><a href="/about/"      class="topnav__link">About</a></li>
                 </ul>
             </nav>
         </div>
     </header>
 
-    <main id="main" class="pf-main">
-        <div id="js-profile-root">
-            <p class="pf-loading">Loading profile…</p>
+    <main id="main" class="fr-main">
+        <div id="js-thread-root">
+            <div class="fr-thread-detail">
+                <p style="color:hsl(0,0%,50%);font-size:16px">Loading thread…</p>
+            </div>
         </div>
     </main>
 
@@ -149,9 +151,9 @@
     <script src="/role-utils.js" defer></script>
     <script src="/cart-utils.js" defer></script>
     <script src="/user-auth.js" defer></script>
-    <script src="/image-crop.js" defer></script>
     <script src="/tags-ui.js" defer></script>
-    <script src="/profile.js" defer></script>
+    <script src="/thread.js" defer></script>
+    <script src="/admin-bar.js" defer></script>
 
 </body>
 

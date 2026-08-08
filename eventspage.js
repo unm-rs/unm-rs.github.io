@@ -1,7 +1,10 @@
 (async function () {
     if (typeof db === 'undefined') return;
 
-    window.initHeroImage?.('events');
+    window.initHeroImage?.('events', {
+        top:    { aspect: 16 / 4.5, outputWidth: 1920, outputHeight: 540,  label: 'Desktop (16:4.5)' },
+        bottom: { aspect: 1,        outputWidth: 1080, outputHeight: 1080, label: 'Mobile (Square)' },
+    });
 
     const [groupsRes, eventsRes, { isAdmin }] = await Promise.all([
         db.from('event_groups').select('*').order('sort_order'),
@@ -12,7 +15,7 @@
     let groups = groupsRes.data || [];
     let events = eventsRes.data || [];
 
-    let selectedGroupId = groups[0]?.id ?? null;
+    let selectedGroupId = groups[groups.length - 1]?.id ?? null;
 
     const STATUS_LABEL      = { upcoming: 'Upcoming', coming_soon: 'Coming Soon', completed: 'Completed' };
     const STATUS_NEXT       = { upcoming: 'coming_soon', coming_soon: 'completed', completed: 'upcoming' };
@@ -221,7 +224,7 @@
 
         groups = groups.filter(g => g.id !== grp.id);
         events.forEach(ev => { if (ev.group_id === grp.id) ev.group_id = null; });
-        if (selectedGroupId === grp.id) selectedGroupId = groups[0]?.id ?? null;
+        if (selectedGroupId === grp.id) selectedGroupId = groups[groups.length - 1]?.id ?? null;
         renderGroupTabs();
         renderEvents();
     }
@@ -284,8 +287,10 @@
         card.className  = `ep-card ep-card--${status}`;
         card.dataset.id = ev.id;
 
+        const eventHref = ev.slug ? `/event/?slug=${encodeURIComponent(ev.slug)}` : `/event/?id=${encodeURIComponent(ev.id)}`;
+
         card.innerHTML = `
-            <a href="/event.html?slug=${encodeURIComponent(ev.slug)}" class="ep-card__link">
+            <a href="${eventHref}" class="ep-card__link">
                 <div class="ep-card__img-wrap">
                     ${ev.image_url
                         ? `<picture>
