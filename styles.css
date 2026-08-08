@@ -80,6 +80,19 @@ body {
     line-height: 1.3;
     color: var(--color-text-dark);
     padding-block-end: 0;
+
+    /* The topnav is fixed on every page now (see .topnav), so it no longer
+       reserves its own space in normal flow — push content down to
+       compensate. Pages with a full-bleed hero (has-overlay-nav) skip this
+       on purpose: the nav is meant to float transparently over the hero
+       instead of sitting above it. --topnav-height is measured live by
+       topnav.js; the fallback just avoids a flash of covered content
+       before that JS runs. */
+    padding-top: calc(var(--admin-bar-height, 0px) + var(--topnav-height, 104px));
+
+    &.has-overlay-nav {
+        padding-top: var(--admin-bar-height, 0px);
+    }
 }
 
 h1, 
@@ -126,21 +139,19 @@ svg {
 
 @layer component {
     .topnav {
-        position: sticky;
-        top: 0;
+        position: fixed;
+        top: var(--admin-bar-height, 0px);
+        left: 0;
+        right: 0;
         z-index: 1000;
-        background-color: var(--color-header-bg);
+        background: linear-gradient(to top, transparent, hsl(0 0% 0% / 0.85) 100%);
+        transition: transform 0.35s ease;
 
-        /* Pages with a full-bleed hero (home, event detail) overlay the
-           nav directly on top of it instead of pushing it down — the
-           image shows through a transparent-to-black gradient instead
-           of the hero having to shrink to make room for the nav. */
-        body.has-overlay-nav & {
-            position: fixed;
-            top: var(--admin-bar-height, 0px);
-            left: 0;
-            right: 0;
-            background: linear-gradient(to top, transparent, hsl(0 0% 0% / 0.85) 100%);
+        /* Hidden/shown by topnav.js based on scroll direction, on every
+           page — SpaceX-style: scroll down and it slides away, scroll up
+           (or reach the top) and it slides back in. */
+        &.topnav--hidden {
+            transform: translateY(-100%);
         }
 
         .topnav__wrapper {
@@ -606,6 +617,12 @@ svg {
             align-items: flex-end;
             justify-content: space-between;
             gap: 14px;
+
+            @media (width < calc(700 / 16 * 1rem)) {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
         }
 
         .collage-tile--small .collage-tile__body {
@@ -3056,6 +3073,10 @@ body:has(.ab-bar) .ep-years-outer {
     border-radius: 7px;
     padding-inline: 12px;
     box-shadow: 0 0 0 1px hsl(0 0% 0% / 0.4), 0 4px 16px hsl(45 90% 45% / 0.35);
+
+    @media (width < calc(700 / 16 * 1rem)) {
+        align-self: flex-start;
+    }
 }
 .ep-card__scpd-label {
     display: inline-flex;
@@ -3089,6 +3110,10 @@ body:has(.ab-bar) .ep-years-outer {
     border: 1px solid hsl(45, 90%, 45%);
     border-radius: 7px;
     padding: 6px 8px;
+
+    @media (width < calc(700 / 16 * 1rem)) {
+        align-self: flex-start;
+    }
 }
 
 .ep-card__body {
@@ -3100,6 +3125,13 @@ body:has(.ab-bar) .ep-years-outer {
     align-items: flex-end;
     justify-content: space-between;
     gap: 16px;
+
+    @media (width < calc(700 / 16 * 1rem)) {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 18px 20px;
+    }
 }
 
 .ep-card__body-text {
@@ -3115,6 +3147,10 @@ body:has(.ab-bar) .ep-years-outer {
     color: hsl(0, 0%, 96%);
     line-height: 1.3;
     text-shadow: 0 1px 6px hsl(0 0% 0% / 0.5);
+
+    @media (width < calc(700 / 16 * 1rem)) {
+        font-size: 22px;
+    }
 }
 
 .ep-card__date {
