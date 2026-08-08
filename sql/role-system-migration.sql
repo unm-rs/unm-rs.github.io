@@ -1032,3 +1032,15 @@ CREATE POLICY "Admins delete application files"
 --     nicer URL (/event/?slug=…) — see event-detail.js's URL editor.
 -- ============================================================
 ALTER TABLE public.events ALTER COLUMN slug DROP NOT NULL;
+
+-- ============================================================
+-- 45. home_feature_sections.cta_href is now admin-editable from the
+--     home page itself (the small "→ /wherever" line under each
+--     button). The two rows seeded in step 40 still point at the old
+--     .html paths from before the extension removal — fix those up
+--     to the current URLs. Only touches rows still holding the exact
+--     seeded values, so it won't clobber a link you've already
+--     customized.
+-- ============================================================
+UPDATE public.home_feature_sections SET cta_href = '/eventspage/' WHERE id = 'feature-1' AND cta_href = '/eventspage.html';
+UPDATE public.home_feature_sections SET cta_href = '/about/'      WHERE id = 'feature-2' AND cta_href = '/about.html';

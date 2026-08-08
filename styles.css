@@ -486,6 +486,33 @@ svg {
                 border-color: hsl(0 0% 100%);
             }
         }
+
+        .feature-hero__cta-url {
+            margin-block-start: 10px;
+            font-family: ui-monospace, "SF Mono", Consolas, monospace;
+            font-size: 13px;
+            color: hsl(0 0% 100% / 0.6);
+            cursor: pointer;
+            border-bottom: 1px dashed hsl(0 0% 100% / 0.4);
+            display: inline-block;
+            transition: border-color 0.15s, color 0.15s;
+
+            &:hover { color: hsl(0 0% 100% / 0.9); border-bottom-color: hsl(45, 95%, 55%); }
+        }
+
+        .feature-hero__cta-url-input {
+            margin-block-start: 10px;
+            display: block;
+            font-family: ui-monospace, "SF Mono", Consolas, monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: hsl(0 0% 100%);
+            background: hsl(0 0% 100% / 0.12);
+            border: 1px solid hsl(0 0% 100% / 0.4);
+            border-radius: 4px;
+            padding: 4px 8px;
+            width: min(320px, 100%);
+        }
     }
 
     .events {

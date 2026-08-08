@@ -46,6 +46,35 @@
         return true;
     }
 
+    function startCtaUrlEdit(ctaUrlEl, id) {
+        const input = document.createElement('input');
+        input.type      = 'text';
+        input.className = 'feature-hero__cta-url-input';
+        input.value     = ctaUrlEl.dataset.href || '';
+        input.placeholder = '/eventspage/, https://example.com, …';
+        ctaUrlEl.replaceWith(input);
+        input.focus();
+        input.select();
+
+        let done = false;
+        const commit = () => {
+            if (done) return;
+            done = true;
+            const next = input.value.trim();
+            if (next !== (ctaUrlEl.dataset.href || '')) {
+                ctaUrlEl.dataset.href = next;
+                markDirty(id);
+            }
+            ctaUrlEl.textContent = `→ ${next || '(no link set)'}`;
+            input.replaceWith(ctaUrlEl);
+        };
+        input.addEventListener('blur', commit, { once: true });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter')  input.blur();
+            if (e.key === 'Escape') { done = true; input.replaceWith(ctaUrlEl); }
+        });
+    }
+
     IDS.forEach(renderSection);
 
     function renderSection(id) {
@@ -67,7 +96,8 @@
                 <h2 class="feature-hero__title" data-role="title"${isAdmin ? ' contenteditable="true"' : ''}>${esc(row.title || '')}</h2>
                 <p class="feature-hero__desc" data-role="desc"${isAdmin ? ' contenteditable="true"' : ''}>${esc(row.description || '')}</p>
                 ${isAdmin
-                    ? `<span class="feature-hero__cta" data-role="cta" contenteditable="true" tabindex="0" role="button">${esc(row.cta_label || '')}</span>`
+                    ? `<span class="feature-hero__cta" data-role="cta" contenteditable="true" tabindex="0" role="button">${esc(row.cta_label || '')}</span>
+                       <p class="feature-hero__cta-url" data-role="ctaurl" data-href="${esc(row.cta_href || '')}" title="Click to change where this button links to">→ ${esc(row.cta_href || '(no link set)')}</p>`
                     : `<a class="feature-hero__cta" data-role="cta" href="${esc(row.cta_href || '#')}">${esc(row.cta_label || '')}</a>`}
             </div>`;
 
@@ -83,6 +113,9 @@
         el.querySelector('[data-role="title"]').addEventListener('input', () => markDirty(id));
         el.querySelector('[data-role="desc"]').addEventListener('input', () => markDirty(id));
         el.querySelector('[data-role="cta"]').addEventListener('input', () => markDirty(id));
+
+        const ctaUrlEl = el.querySelector('[data-role="ctaurl"]');
+        ctaUrlEl.addEventListener('click', () => startCtaUrlEdit(ctaUrlEl, id));
 
         const imgInput = el.querySelector('[data-role="imginput"]');
         imgInput.addEventListener('change', async e => {
@@ -115,6 +148,7 @@
                 title:       el.querySelector('[data-role="title"]').textContent.trim(),
                 description: el.querySelector('[data-role="desc"]').textContent.trim(),
                 cta_label:   el.querySelector('[data-role="cta"]').textContent.trim(),
+                cta_href:    el.querySelector('[data-role="ctaurl"]').dataset.href.trim() || null,
             };
 
             if (pendingImages[id]) {
