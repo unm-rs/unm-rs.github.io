@@ -308,6 +308,17 @@
 .ab-form-btn--ghost   { background: transparent; color: hsl(0 0% 55%); border: 1px solid hsl(220, 14%, 26%); }
 
 .ic-modal { max-width: fit-content; }
+.ic-modal--dual { max-height: 90vh; overflow-y: auto; }
+
+.ic-dual-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: hsl(220, 14%, 55%);
+    margin-block: 14px 8px;
+}
+.ic-dual-label:first-of-type { margin-block-start: 4px; }
 
 .ic-stage {
     position: relative;

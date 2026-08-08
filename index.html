@@ -12,10 +12,12 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="/supabase-client.js" defer></script>
     <script src="/role-utils.js" defer></script>
+    <script src="/image-crop.js" defer></script>
     <script src="/hero-image.js" defer></script>
     <script src="/cart-utils.js" defer></script>
     <script src="/user-auth.js" defer></script>
     <script src="/events.js" defer></script>
+    <script src="/home-sections.js" defer></script>
     <script src="/admin-bar.js" defer></script>
 
     <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
@@ -25,7 +27,7 @@
     <link rel="manifest" href="/site.webmanifest" />
 </head>
 
-<body>
+<body class="has-overlay-nav">
     <a class="visually-hidden skip" href="#main" class="skip-link">Skip to main content</a>
 
     <header class="topnav">  
@@ -103,19 +105,20 @@
             </div>
         </section>
 
+        <section class="feature-hero" id="js-feature-1"></section>
+        <section class="feature-hero" id="js-feature-2"></section>
+
+        <div class="edit-savebar" id="js-feature-savebar" hidden>
+            <span class="edit-savebar__msg">Unsaved changes</span>
+            <button class="edit-savebar__btn" id="js-feature-savebtn">Save Changes</button>
+        </div>
+
     </main>
 
     <section class="events" id="news">
         <div class="events__inner">
             <h2 class="events__heading">Upcoming Events</h2>
-        </div>
-        <div class="events__carousel">
-            <button class="events__btn events__btn--prev" aria-label="Previous event" disabled></button>
-            <div class="events__slider">
-            <div class="events__track">
-            </div>
-            </div>
-            <button class="events__btn events__btn--next" aria-label="Next event" disabled></button>
+            <div class="events__collage" id="js-events-collage"></div>
         </div>
     </section>
 

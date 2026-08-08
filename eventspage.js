@@ -288,19 +288,24 @@
             <a href="/event.html?slug=${encodeURIComponent(ev.slug)}" class="ep-card__link">
                 <div class="ep-card__img-wrap">
                     ${ev.image_url
-                        ? `<img class="ep-card__img" src="${esc(ev.image_url)}" alt="${esc(ev.title)}" loading="lazy">`
+                        ? `<picture>
+                            ${ev.image_url_mobile ? `<source media="(max-width: 700px)" srcset="${esc(ev.image_url_mobile)}">` : ''}
+                            <img class="ep-card__img" src="${esc(ev.image_url)}" alt="${esc(ev.title)}" loading="lazy">
+                           </picture>`
                         : `<div class="ep-card__img-placeholder" aria-hidden="true"></div>`
                     }
                     <span class="ep-card__badge ep-card__badge--${status}">${STATUS_LABEL[status]}</span>
                 </div>
                 <div class="ep-card__body">
-                    <h2 class="ep-card__title">${esc(ev.title)}</h2>
-                    ${dateStr ? `<p class="ep-card__date">${dateStr}</p>` : ''}
+                    <div class="ep-card__body-text">
+                        <h2 class="ep-card__title">${esc(ev.title)}</h2>
+                        ${dateStr ? `<p class="ep-card__date">${dateStr}</p>` : ''}
+                    </div>
+                    <span class="ep-card__scpd"${isAdmin ? ' tabindex="0" role="button"' : ''}>
+                        <span class="ep-card__scpd-label">S-CPD points</span><span class="ep-card__scpd-value">${ev.scpd_points ?? 0}</span>
+                    </span>
                 </div>
-            </a>
-            <span class="ep-card__scpd"${isAdmin ? ' tabindex="0" role="button"' : ''}>
-                <span class="ep-card__scpd-label">S-CPD points</span><span class="ep-card__scpd-value">${ev.scpd_points ?? 0}</span>
-            </span>`;
+            </a>`;
 
         if (isAdmin) {
             const ctrl = document.createElement('div');
@@ -308,6 +313,9 @@
             ctrl.innerHTML = `
                 <button class="ep-card__ctrl ep-card__ctrl--status">
                     ${STATUS_NEXT_LABEL[status]}
+                </button>
+                <button class="ep-card__ctrl ep-card__ctrl--major${ev.is_major ? ' is-active' : ''}" title="Feature this event as a &quot;big&quot; tile in the home page collage">
+                    ${ev.is_major ? '★ Major' : '☆ Major'}
                 </button>
                 <select class="ep-card__ctrl ep-card__ctrl--year" aria-label="Move to group">
                     <option value="">— unassign —</option>
@@ -324,6 +332,15 @@
                 const idx = events.findIndex(e => e.id === ev.id);
                 if (idx !== -1) events[idx].status = next;
                 card.replaceWith(buildCard({ ...ev, status: next }));
+            });
+
+            ctrl.querySelector('.ep-card__ctrl--major').addEventListener('click', async () => {
+                const next = !ev.is_major;
+                const { error } = await db.from('events').update({ is_major: next }).eq('id', ev.id);
+                if (error) { alert(error.message); return; }
+                const idx = events.findIndex(e => e.id === ev.id);
+                if (idx !== -1) events[idx].is_major = next;
+                card.replaceWith(buildCard({ ...ev, is_major: next }));
             });
 
             ctrl.querySelector('.ep-card__ctrl--year').addEventListener('change', async e => {

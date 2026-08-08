@@ -1,4 +1,8 @@
 (async function () {
+    document.getElementById('js-hero-scroll')?.addEventListener('click', () => {
+        document.querySelector('.event-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
     const params = new URLSearchParams(window.location.search);
     const slug   = params.get('slug');
     if (!slug) { window.location.href = '/'; return; }
@@ -60,7 +64,12 @@
         outcomesEl.textContent = event.learning_outcomes || '';
     }
 
-    if (event.image_url) bgEl.style.backgroundImage = `url('${event.image_url.replace(/'/g, '%27')}')`;
+    if (event.image_url) {
+        bgEl.style.setProperty('--hero-bg-desktop', `url('${event.image_url.replace(/'/g, '%27')}')`);
+    }
+    if (event.image_url_mobile) {
+        bgEl.style.setProperty('--hero-bg-mobile', `url('${event.image_url_mobile.replace(/'/g, '%27')}')`);
+    }
 
     const datetimeEl     = document.getElementById('js-datetime');
     const dateLabelEl    = document.getElementById('js-date-label');
@@ -547,7 +556,18 @@
     descEl.dataset.placeholder     = 'Click to add a description…';
     outcomesEl.dataset.placeholder = 'Click to add learning outcomes…';
 
-    document.getElementById('js-img-btn').hidden = false;
+    const imgBtn = document.getElementById('js-img-btn');
+    imgBtn.hidden = false;
+
+    // The overlay topnav floats on top of the hero, so this button needs to
+    // sit below it (plus the admin bar, when present) instead of at a fixed
+    // 16px from the hero's own top edge.
+    function positionImgBtn() {
+        const nav = document.querySelector('.topnav');
+        if (nav) imgBtn.style.top = `${nav.getBoundingClientRect().height + 12}px`;
+    }
+    positionImgBtn();
+    window.addEventListener('resize', positionImgBtn);
 
     const toolbar = document.createElement('div');
     toolbar.className = 'fmt-toolbar';
@@ -590,9 +610,10 @@
 
     const saveBar = document.getElementById('js-savebar');
     const saveBtn = document.getElementById('js-savebtn');
-    let isDirty        = false;
-    let pendingImgFile = null;
-    let currentImgUrl  = event.image_url || null;
+    let isDirty         = false;
+    let pendingImgFiles = null; // { desktop: File, mobile: File } once a new crop is chosen
+    let currentImgUrl       = event.image_url        || null;
+    let currentImgUrlMobile = event.image_url_mobile  || null;
 
     function markDirty() {
         if (isDirty) return;
@@ -605,11 +626,20 @@
     descEl.addEventListener('input',     markDirty);
     outcomesEl.addEventListener('input', markDirty);
 
-    document.getElementById('js-img-input').addEventListener('change', e => {
+    document.getElementById('js-img-input').addEventListener('change', async e => {
         const file = e.target.files[0];
+        e.target.value = '';
         if (!file || !validateImageFile(file, e.target)) return;
-        pendingImgFile = file;
-        bgEl.style.backgroundImage = `url('${URL.createObjectURL(file)}')`;
+
+        const crops = await window.openDualImageCropper(file, {
+            top:    { aspect: 1920 / 1080, outputWidth: 1920, outputHeight: 1080, label: 'Desktop (1920×1080)' },
+            bottom: { aspect: 1,           outputWidth: 1080, outputHeight: 1080, label: 'Mobile (Square)' },
+        });
+        if (!crops) return;
+
+        pendingImgFiles = crops;
+        bgEl.style.setProperty('--hero-bg-desktop', `url('${URL.createObjectURL(crops.desktop)}')`);
+        bgEl.style.setProperty('--hero-bg-mobile',  `url('${URL.createObjectURL(crops.mobile)}')`);
         markDirty();
     });
 
@@ -619,22 +649,22 @@
         saveBtn.disabled    = true;
         saveBtn.textContent = 'Saving…';
 
-        if (pendingImgFile) {
-            const ext  = pendingImgFile.name.split('.').pop().toLowerCase();
-            const path = `${Date.now()}-${slug}.${ext}`;
-            const { data: up, error: upErr } = await db.storage
-                .from('event-images')
-                .upload(path, pendingImgFile, { upsert: true });
+        if (pendingImgFiles) {
+            const stamp = Date.now();
+            const [desktopUp, mobileUp] = await Promise.all([
+                db.storage.from('event-images').upload(`${stamp}-${slug}.jpg`, pendingImgFiles.desktop, { upsert: true }),
+                db.storage.from('event-images').upload(`${stamp}-${slug}-mobile.jpg`, pendingImgFiles.mobile, { upsert: true }),
+            ]);
 
-            if (upErr) {
-                alert('Image upload failed: ' + upErr.message);
+            if (desktopUp.error || mobileUp.error) {
+                alert('Image upload failed: ' + (desktopUp.error || mobileUp.error).message);
                 saveBtn.disabled    = false;
                 saveBtn.textContent = 'Save Changes';
                 return;
             }
-            const { data: { publicUrl } } = db.storage.from('event-images').getPublicUrl(up.path);
-            currentImgUrl  = publicUrl;
-            pendingImgFile = null;
+            currentImgUrl       = db.storage.from('event-images').getPublicUrl(desktopUp.data.path).data.publicUrl;
+            currentImgUrlMobile = db.storage.from('event-images').getPublicUrl(mobileUp.data.path).data.publicUrl;
+            pendingImgFiles = null;
         }
 
         const { error } = await db.from('events').update({
@@ -642,6 +672,7 @@
             description:       descEl.innerHTML.trim()     || null,
             learning_outcomes: outcomesEl.innerHTML.trim() || null,
             image_url:         currentImgUrl,
+            image_url_mobile:  currentImgUrlMobile,
             event_type:        currentEventType || 'single-day',
             event_date:        currentEventDate || null,
             event_end_date:    currentEventType !== 'single-day' ? (currentEventEndDate || null) : null,

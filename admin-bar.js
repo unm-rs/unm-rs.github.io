@@ -9,6 +9,11 @@
 
     function activateAdminMode() {
         document.body.style.paddingTop = '44px';
+        // Pages with the fixed/overlay topnav (has-overlay-nav) ignore body
+        // padding entirely, so they need the admin bar's height pushed
+        // through as a CSS var instead, or the two fixed bars stack on top
+        // of each other.
+        document.documentElement.style.setProperty('--admin-bar-height', '44px');
         injectAdminBar();
         injectEventModal();
     }

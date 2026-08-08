@@ -904,3 +904,60 @@ FROM public.event_groups g
 WHERE e.year IS NOT NULL AND g.name = e.year::text AND e.group_id IS NULL;
 
 ALTER TABLE public.events DROP COLUMN IF EXISTS year;
+
+-- ============================================================
+-- 38. Standardized hero/card image sizes: events.image_url is now
+--     always a 1920x1080 desktop crop, with a separate 1080x1080
+--     square crop for mobile in this new column.
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS image_url_mobile text;
+
+-- ============================================================
+-- 39. Same dual desktop/mobile crop for the generic site_hero_images
+--     table (used by the home page hero, and any other page hero
+--     that isn't tied to its own record).
+-- ============================================================
+ALTER TABLE public.site_hero_images
+  ADD COLUMN IF NOT EXISTS image_url_mobile text;
+
+-- ============================================================
+-- 40. Two more full-screen editable sections below the home hero
+--     (SpaceX-style) — fixed at exactly two, alternating left/right
+--     text alignment, each with its own image + editable title/
+--     description/CTA label.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.home_feature_sections (
+  id               text PRIMARY KEY CHECK (id IN ('feature-1', 'feature-2')),
+  title            text,
+  description      text,
+  cta_label        text,
+  cta_href         text,
+  image_url        text,
+  image_url_mobile text
+);
+
+INSERT INTO public.home_feature_sections (id, title, description, cta_label, cta_href) VALUES
+  ('feature-1', 'Making Life Multiplanetary', 'Add a description for this section by clicking on it.', 'Explore', '/eventspage.html'),
+  ('feature-2', 'Revolutionizing Space Technology', 'Add a description for this section by clicking on it.', 'Learn More', '/about.html')
+ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE public.home_feature_sections ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read home feature sections" ON public.home_feature_sections;
+CREATE POLICY "Public read home feature sections"
+  ON public.home_feature_sections FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Admins update home feature sections" ON public.home_feature_sections;
+CREATE POLICY "Admins update home feature sections"
+  ON public.home_feature_sections FOR UPDATE TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+-- ============================================================
+-- 41. Mark an event "major" so the home page collage can give it
+--     a big tile. Reuses the existing "Mods manage events" policy
+--     (whatever already lets admins UPDATE events covers this too).
+-- ============================================================
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS is_major boolean NOT NULL DEFAULT false;

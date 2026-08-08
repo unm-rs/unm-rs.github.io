@@ -17,7 +17,7 @@
     <link rel="manifest" href="/site.webmanifest" />
 </head>
 
-<body>
+<body class="has-overlay-nav">
     <a class="visually-hidden skip" href="#main">Skip to main content</a>
 
     <header class="topnav">
@@ -76,6 +76,11 @@
                     <a href="#apply-form" class="event-hero__join-btn">Join Now</a>
                 </div>
             </div>
+            <button type="button" class="event-hero__scroll-btn" id="js-hero-scroll" aria-label="Scroll to event details">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </button>
         </section>
 
         <section class="event-detail">
@@ -227,6 +232,7 @@
     <script src="/role-utils.js" defer></script>
     <script src="/cart-utils.js" defer></script>
     <script src="/user-auth.js" defer></script>
+    <script src="/image-crop.js" defer></script>
     <script src="/event-detail.js" defer></script>
     <script src="/admin-bar.js" defer></script>
 
