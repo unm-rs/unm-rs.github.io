@@ -823,9 +823,10 @@
     const saveBar = document.getElementById('js-savebar');
     const saveBtn = document.getElementById('js-savebtn');
     let isDirty         = false;
-    let pendingImgFiles = null; // { desktop: File, mobile: File } once a new crop is chosen
-    let currentImgUrl       = event.image_url        || null;
-    let currentImgUrlMobile = event.image_url_mobile  || null;
+    let pendingImgFiles = null; // [desktop, square, portrait] Files once a new crop is chosen
+    let currentImgUrl         = event.image_url          || null;
+    let currentImgUrlMobile   = event.image_url_mobile    || null;
+    let currentImgUrlPortrait = event.image_url_portrait  || null;
 
     function markDirty() {
         if (isDirty) return;
@@ -843,15 +844,22 @@
         e.target.value = '';
         if (!file || !validateImageFile(file, e.target)) return;
 
-        const crops = await window.openDualImageCropper(file, {
-            top:    { aspect: 1920 / 1080, outputWidth: 1920, outputHeight: 1080, label: 'Desktop (1920×1080)' },
-            bottom: { aspect: 1,           outputWidth: 1080, outputHeight: 1080, label: 'Mobile (Square)' },
-        });
+        // Three crops, not two — the event's own hero (desktop 16:9, mobile
+        // square) plus a dedicated portrait crop for wherever this event
+        // shows up 9:16, namely the home page carousel's mobile slides.
+        // That used to just reuse the square crop there, cover-fit into a
+        // much narrower box — cropping further in an unpredictable way the
+        // person setting the image never actually saw or chose.
+        const crops = await window.openMultiImageCropper(file, [
+            { aspect: 1920 / 1080, outputWidth: 1920, outputHeight: 1080, label: 'Desktop (16:9)' },
+            { aspect: 1,           outputWidth: 1080, outputHeight: 1080, label: 'Mobile square (event page)' },
+            { aspect: 9 / 16,      outputWidth: 1080, outputHeight: 1920, label: 'Mobile portrait (home page carousel)' },
+        ]);
         if (!crops) return;
 
         pendingImgFiles = crops;
-        bgEl.style.setProperty('--hero-bg-desktop', `url('${URL.createObjectURL(crops.desktop)}')`);
-        bgEl.style.setProperty('--hero-bg-mobile',  `url('${URL.createObjectURL(crops.mobile)}')`);
+        bgEl.style.setProperty('--hero-bg-desktop', `url('${URL.createObjectURL(crops[0])}')`);
+        bgEl.style.setProperty('--hero-bg-mobile',  `url('${URL.createObjectURL(crops[1])}')`);
         markDirty();
     });
 
@@ -874,19 +882,21 @@
 
         if (pendingImgFiles) {
             const stamp = Date.now();
-            const [desktopUp, mobileUp] = await Promise.all([
-                db.storage.from('event-images').upload(`${stamp}-${event.id}.jpg`, pendingImgFiles.desktop, { upsert: true }),
-                db.storage.from('event-images').upload(`${stamp}-${event.id}-mobile.jpg`, pendingImgFiles.mobile, { upsert: true }),
+            const [desktopUp, squareUp, portraitUp] = await Promise.all([
+                db.storage.from('event-images').upload(`${stamp}-${event.id}.jpg`, pendingImgFiles[0], { upsert: true }),
+                db.storage.from('event-images').upload(`${stamp}-${event.id}-mobile.jpg`, pendingImgFiles[1], { upsert: true }),
+                db.storage.from('event-images').upload(`${stamp}-${event.id}-portrait.jpg`, pendingImgFiles[2], { upsert: true }),
             ]);
 
-            if (desktopUp.error || mobileUp.error) {
-                alert('Image upload failed: ' + (desktopUp.error || mobileUp.error).message);
+            if (desktopUp.error || squareUp.error || portraitUp.error) {
+                alert('Image upload failed: ' + (desktopUp.error || squareUp.error || portraitUp.error).message);
                 saveBtn.disabled    = false;
                 saveBtn.textContent = 'Save Changes';
                 return;
             }
-            currentImgUrl       = db.storage.from('event-images').getPublicUrl(desktopUp.data.path).data.publicUrl;
-            currentImgUrlMobile = db.storage.from('event-images').getPublicUrl(mobileUp.data.path).data.publicUrl;
+            currentImgUrl         = db.storage.from('event-images').getPublicUrl(desktopUp.data.path).data.publicUrl;
+            currentImgUrlMobile   = db.storage.from('event-images').getPublicUrl(squareUp.data.path).data.publicUrl;
+            currentImgUrlPortrait = db.storage.from('event-images').getPublicUrl(portraitUp.data.path).data.publicUrl;
             pendingImgFiles = null;
         }
 
@@ -895,8 +905,9 @@
             slug:              currentSlug || null,
             description:       descEl.innerHTML.trim()     || null,
             learning_outcomes: outcomesEl.innerHTML.trim() || null,
-            image_url:         currentImgUrl,
-            image_url_mobile:  currentImgUrlMobile,
+            image_url:          currentImgUrl,
+            image_url_mobile:   currentImgUrlMobile,
+            image_url_portrait: currentImgUrlPortrait,
             event_type:        currentEventType || 'single-day',
             event_date:        currentEventDate || null,
             event_end_date:    currentEventType !== 'single-day' ? (currentEventEndDate || null) : null,

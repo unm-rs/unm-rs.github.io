@@ -236,12 +236,12 @@
         });
     };
 
-    // Two independently pannable/zoomable crop frames against the SAME
-    // source image in one modal — e.g. a desktop (16:9) crop stacked above
-    // a mobile (1:1) crop. Resolves { desktop: File, mobile: File } | null.
-    window.openDualImageCropper = function (file, opts) {
-        const { top, bottom } = opts; // each: { aspect, outputWidth, outputHeight, label, circle }
-
+    // Any number of independently pannable/zoomable crop frames against the
+    // SAME source image in one modal, stacked top to bottom — e.g. a
+    // desktop (16:9) crop, a square (1:1) crop, and a portrait (9:16) crop
+    // all at once. Resolves an array of File in the same order as `stages`,
+    // or null if cancelled.
+    window.openMultiImageCropper = function (file, stages) {
         return new Promise(resolve => {
             const objectUrl = URL.createObjectURL(file);
 
@@ -253,13 +253,13 @@
                         <h2 class="ab-modal__title">Crop Image</h2>
                         <button class="ab-modal__close" id="ic-close">✕</button>
                     </div>
-                    <p class="ic-dual-label">${esc(top.label)}</p>
-                    <div id="ic-container-top">${stageMarkup(top.circle)}</div>
-                    <p class="ic-dual-label">${esc(bottom.label)}</p>
-                    <div id="ic-container-bottom">${stageMarkup(bottom.circle)}</div>
+                    ${stages.map((s, i) => `
+                        <p class="ic-dual-label">${esc(s.label)}</p>
+                        <div id="ic-container-${i}">${stageMarkup(s.circle)}</div>
+                    `).join('')}
                     <div class="ab-form-actions">
                         <button class="ab-form-btn ab-form-btn--ghost" id="ic-cancel">Cancel</button>
-                        <button class="ab-form-btn ab-form-btn--primary" id="ic-confirm">Use These Crops</button>
+                        <button class="ab-form-btn ab-form-btn--primary" id="ic-confirm">Use ${stages.length > 1 ? 'These Crops' : 'This Crop'}</button>
                     </div>
                 </div>`;
             document.body.appendChild(overlay);
@@ -276,25 +276,32 @@
             overlay.querySelector('#ic-cancel').addEventListener('click', () => finish(null));
             overlay.addEventListener('click', e => { if (e.target === overlay) finish(null); });
 
-            let topApi = null, bottomApi = null;
+            let apis = null;
             const img = new Image();
             img.onload = () => {
                 const modal    = overlay.querySelector('.ic-modal');
-                const stageMax = computeStageMax(overlay, modal, 2);
-                topApi    = initCropStage(overlay.querySelector('#ic-container-top'),    img, top.aspect,    stageMax);
-                bottomApi = initCropStage(overlay.querySelector('#ic-container-bottom'), img, bottom.aspect, stageMax);
+                const stageMax = computeStageMax(overlay, modal, stages.length);
+                apis = stages.map((s, i) =>
+                    initCropStage(overlay.querySelector(`#ic-container-${i}`), img, s.aspect, stageMax));
             };
             img.src = objectUrl;
 
             overlay.querySelector('#ic-confirm').addEventListener('click', async () => {
-                if (!topApi || !bottomApi) return;
-                const [desktop, mobile] = await Promise.all([
-                    cropToFile(img, topApi.getCropRect(),    top.outputWidth,    top.outputHeight),
-                    cropToFile(img, bottomApi.getCropRect(), bottom.outputWidth, bottom.outputHeight),
-                ]);
-                finish(desktop && mobile ? { desktop, mobile } : null);
+                if (!apis) return;
+                const files = await Promise.all(
+                    apis.map((api, i) => cropToFile(img, api.getCropRect(), stages[i].outputWidth, stages[i].outputHeight)));
+                finish(files.every(Boolean) ? files : null);
             });
         });
+    };
+
+    // Two-stage shorthand (desktop/mobile) — kept as its own named function
+    // since it's the common case and returns the friendlier
+    // { desktop, mobile } shape instead of a positional array.
+    window.openDualImageCropper = function (file, opts) {
+        const { top, bottom } = opts; // each: { aspect, outputWidth, outputHeight, label, circle }
+        return window.openMultiImageCropper(file, [top, bottom])
+            .then(files => files ? { desktop: files[0], mobile: files[1] } : null);
     };
 
     function esc(str) {

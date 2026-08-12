@@ -1050,3 +1050,14 @@ UPDATE public.home_feature_sections SET cta_href = '/about/'      WHERE id = 'fe
 --     date/time block exactly like type/date/time already are.
 -- ============================================================
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS venue text;
+
+-- ============================================================
+-- 47. A third crop for events: image_url (16:9) and image_url_mobile
+--     (1:1) already existed, but the home page carousel's mobile
+--     slides are 9:16 — they were reusing the 1:1 crop, cover-fit into
+--     a much narrower box, cropping further in a way whoever set the
+--     image never actually chose. image_url_portrait is a real 9:16
+--     crop for that specific spot; the carousel falls back to
+--     image_url_mobile for events cropped before this existed.
+-- ============================================================
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS image_url_portrait text;

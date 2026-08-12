@@ -15,7 +15,7 @@
 
     const { data: events, error } = await db
         .from('events')
-        .select('id, title, slug, image_url, image_url_mobile, event_date, scpd_points')
+        .select('id, title, slug, image_url, image_url_mobile, image_url_portrait, event_date, scpd_points')
         // Ungrouped events (the eventspage "catalogue") are never shown on
         // any public tab — this carousel shouldn't surface them either.
         .not('group_id', 'is', null)
@@ -47,10 +47,19 @@
             <a href="${href}" class="events__slide" data-real-index="${realIndex}"${isClone ? ' aria-hidden="true" tabindex="-1"' : ''}>
                 <div class="events__slide-img-wrap">
                     ${ev.image_url
-                        ? `<picture>
-                            ${ev.image_url_mobile ? `<source media="(max-width: 700px)" srcset="${esc(ev.image_url_mobile)}">` : ''}
-                            <img class="events__slide-img" src="${esc(ev.image_url)}" alt="">
-                           </picture>`
+                        ? (() => {
+                            // Slides are 9:16 on mobile, not the 1:1 square
+                            // used elsewhere (event page, eventspage
+                            // collage) — image_url_portrait is a crop made
+                            // specifically for that; fall back to the
+                            // square crop for events set up before that
+                            // existed, rather than showing nothing.
+                            const mobileSrc = ev.image_url_portrait || ev.image_url_mobile;
+                            return `<picture>
+                                ${mobileSrc ? `<source media="(max-width: 700px)" srcset="${esc(mobileSrc)}">` : ''}
+                                <img class="events__slide-img" src="${esc(ev.image_url)}" alt="">
+                               </picture>`;
+                        })()
                         : `<div class="events__slide-img-placeholder" aria-hidden="true"></div>`}
                 </div>
                 <div class="events__slide-overlay"></div>
