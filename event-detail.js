@@ -89,11 +89,13 @@
     const datetimeEl     = document.getElementById('js-datetime');
     const dateLabelEl    = document.getElementById('js-date-label');
     const endDateBlockEl = document.getElementById('js-enddate-block');
+    const venueBlockEl   = document.getElementById('js-venue-block');
     let typeValueEl    = document.getElementById('js-type-value');
     let dateValueEl     = document.getElementById('js-date-value');
     let endDateValueEl  = document.getElementById('js-enddate-value');
     let timeValueEl     = document.getElementById('js-time-value');
     let endTimeValueEl  = document.getElementById('js-endtime-value');
+    let venueValueEl    = document.getElementById('js-venue-value');
 
     const TYPE_LABELS = {
         'single-day': 'Single Day',
@@ -110,6 +112,7 @@
     let currentEventEndDate  = event.event_end_date || '';
     let currentEventTime     = event.event_time || '';
     let currentEventEndTime  = event.event_end_time || '';
+    let currentEventVenue    = event.venue || '';
 
     function formatDateDisplay(d) {
         return d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBC';
@@ -124,11 +127,13 @@
 
     function valueFor(kind) {
         if (kind === 'type')    return currentEventType;
+        if (kind === 'venue')   return currentEventVenue;
         if (kind in DATE_KINDS) return kind === 'date' ? currentEventDate : currentEventEndDate;
         return kind === 'time' ? currentEventTime : currentEventEndTime;
     }
     function displayFor(kind) {
         if (kind === 'type')    return TYPE_LABELS[currentEventType] || TYPE_LABELS['single-day'];
+        if (kind === 'venue')   return currentEventVenue || 'Click to add a venue';
         if (kind in DATE_KINDS) return formatDateDisplay(valueFor(kind));
         return formatTimeDisplay(valueFor(kind));
     }
@@ -137,6 +142,7 @@
         if (kind === 'date')    return dateValueEl;
         if (kind === 'enddate') return endDateValueEl;
         if (kind === 'time')    return timeValueEl;
+        if (kind === 'venue')   return venueValueEl;
         return endTimeValueEl;
     }
     function setEl(kind, span) {
@@ -145,6 +151,7 @@
         if (kind === 'enddate') endDateValueEl = span;
         if (kind === 'time')    timeValueEl    = span;
         if (kind === 'endtime') endTimeValueEl = span;
+        if (kind === 'venue')   venueValueEl   = span;
     }
 
     function updateForType() {
@@ -154,18 +161,19 @@
     }
 
     if (datetimeEl) {
-        if (isAdmin || currentEventDate || currentEventTime) datetimeEl.hidden = false;
+        if (isAdmin || currentEventDate || currentEventTime || currentEventVenue) datetimeEl.hidden = false;
 
-        ['type', 'date', 'enddate', 'time', 'endtime'].forEach(kind => {
+        ['type', 'date', 'enddate', 'time', 'endtime', 'venue'].forEach(kind => {
             elFor(kind).textContent = displayFor(kind);
         });
         updateForType();
+        if (venueBlockEl) venueBlockEl.hidden = !isAdmin && !currentEventVenue;
 
         if (isAdmin) {
-            ['type', 'date', 'enddate', 'time', 'endtime'].forEach(kind => {
+            ['type', 'date', 'enddate', 'time', 'endtime', 'venue'].forEach(kind => {
                 const el = elFor(kind);
                 el.classList.add('event-hero__dt-value--editable');
-                el.title = `Click to change ${kind}`;
+                el.title = kind === 'venue' ? 'Click to change the venue' : `Click to change ${kind}`;
                 el.addEventListener('click', () => editField(kind));
             });
         }
@@ -181,6 +189,12 @@
             input.innerHTML = Object.entries(TYPE_LABELS)
                 .map(([val, label]) => `<option value="${val}"${val === currentEventType ? ' selected' : ''}>${label}</option>`)
                 .join('');
+        } else if (kind === 'venue') {
+            input = document.createElement('input');
+            input.type        = 'text';
+            input.value        = currentEventVenue;
+            input.placeholder  = 'e.g. Engineering Building, Room 204';
+            input.className    = 'event-hero__dt-input event-hero__dt-input--venue';
         } else {
             input = document.createElement('input');
             input.type  = kind in DATE_KINDS ? 'date' : 'time';
@@ -202,17 +216,19 @@
             if (kind === 'enddate')  currentEventEndDate = input.value;
             if (kind === 'time')     currentEventTime    = input.value;
             if (kind === 'endtime')  currentEventEndTime = input.value;
+            if (kind === 'venue')    currentEventVenue   = input.value.trim();
 
             const span = document.createElement('span');
             span.className = 'event-hero__dt-value event-hero__dt-value--editable';
             span.id        = input.id;
-            span.title     = `Click to change ${kind}`;
+            span.title     = kind === 'venue' ? 'Click to change the venue' : `Click to change ${kind}`;
             span.textContent = displayFor(kind);
             span.addEventListener('click', () => editField(kind));
             input.replaceWith(span);
             setEl(kind, span);
 
             if (kind === 'type') updateForType();
+            if (kind === 'venue' && venueBlockEl) venueBlockEl.hidden = false; // admin already sees it; stays visible even if cleared, so it's easy to re-add
             markDirty();
         };
         input.addEventListener('blur',   commit, { once: true });
@@ -886,6 +902,7 @@
             event_end_date:    currentEventType !== 'single-day' ? (currentEventEndDate || null) : null,
             event_time:        currentEventTime || null,
             event_end_time:    currentEventEndTime || null,
+            venue:             currentEventVenue || null,
         }).eq('id', event.id);
 
         if (error) {

@@ -250,14 +250,14 @@ svg {
         .hero__bg {
             position: absolute;
             inset: 0;
-            background-image: var(--hero-bg-desktop, url('/img/rs-mascot.png'));
+            background-image: var(--hero-bg-desktop);
             background-size: cover;
             background-position: center top;
             opacity: 0.55;
             scale: 1.04;
 
             @media (width < calc(700 / 16 * 1rem)) {
-                background-image: var(--hero-bg-mobile, var(--hero-bg-desktop, url('/img/rs-mascot.png')));
+                background-image: var(--hero-bg-mobile, var(--hero-bg-desktop));
             }
         }
 
@@ -715,6 +715,7 @@ svg {
 
         @media (width < calc(700 / 16 * 1rem)) {
             aspect-ratio: 1 / 1;
+            min-height: 420px;
             max-height: none;
         }
 
@@ -849,6 +850,8 @@ svg {
             color-scheme: dark;
 
             &:focus { border-bottom-color: hsl(45, 95%, 55%); }
+
+            &.event-hero__dt-input--venue { min-width: 220px; }
         }
 
         .event-hero__join-btn {
@@ -903,10 +906,25 @@ svg {
             }
         }
 
-        @media (width < calc(540 / 16 * 1rem)) {
-            .event-hero__content { flex-direction: column; align-items: flex-start; }
-            .event-hero__actions { flex-direction: column; align-items: flex-start; gap: 16px; }
-            .event-hero__datetime { flex-wrap: wrap; row-gap: 14px; column-gap: 24px; }
+        /* Matches the aspect-ratio breakpoint above — the hero goes square
+           at 700px, so content needs to stack right at that same point
+           instead of staying in a wide desktop row down to 540px, which
+           left a gap where a short, square hero met un-stacked content
+           tall enough to push up into the topnav. */
+        @media (width < calc(700 / 16 * 1rem)) {
+            .event-hero__content { flex-direction: column; align-items: flex-start; gap: 16px; }
+            .event-hero__title   { font-size: clamp(1.9rem, 8vw, 3rem); }
+            .event-hero__actions { flex-direction: column; align-items: flex-start; gap: 12px; }
+
+            .event-hero__datetime {
+                flex-wrap: wrap;
+                gap: 10px 20px;
+            }
+
+            .event-hero__dt-label { font-size: 11px; }
+            .event-hero__dt-value { font-size: 13px; }
+
+            .event-hero__join-btn { padding: 10px 22px; }
         }
     }
 
@@ -1626,16 +1644,20 @@ svg {
     .committee-hero {
         position: relative;
         aspect-ratio: 16 / 4.5;
-        min-height: 240px;
+        min-height: 280px;
         max-height: 100svh;
         background: hsl(233, 22%, 6%);
         display: flex;
-        align-items: center;
+        /* Bottom-anchored (not centered) so growing text fills upward from
+           the bottom instead of expanding equally in both directions —
+           the topnav floats transparently over this hero, so the top edge
+           needs to stay clear of text no matter how tall the content gets. */
+        align-items: flex-end;
         overflow: hidden;
 
         @media (width < calc(700 / 16 * 1rem)) {
             aspect-ratio: 1 / 1;
-            min-height: 0;
+            min-height: 320px;
             max-height: none;
         }
 
@@ -1659,7 +1681,7 @@ svg {
         .committee-hero__content {
             position: relative;
             z-index: 1;
-            padding: clamp(48px, 10vh, 100px) clamp(24px, 7vw, 100px);
+            padding: clamp(24px, 4vh, 40px) clamp(24px, 7vw, 100px) clamp(32px, 5vh, 48px);
         }
 
         .committee-hero__eyebrow {
@@ -1668,16 +1690,16 @@ svg {
             text-transform: uppercase;
             letter-spacing: 0.22em;
             color: hsl(45, 95%, 55%);
-            margin-block-end: 20px;
+            margin-block-end: 14px;
         }
 
         .committee-hero__title {
-            font-size: clamp(3rem, 9vw, 7rem);
+            font-size: clamp(2.4rem, 7vw, 4.5rem);
             font-weight: 700;
             color: hsl(0 0% 97%);
             letter-spacing: -0.035em;
-            line-height: 0.95;
-            margin-block-end: 24px;
+            line-height: 1;
+            margin-block-end: 16px;
         }
 
         .committee-hero__sub {
@@ -2844,10 +2866,10 @@ svg {
     position: relative;
     background: hsl(0, 0%, 8%);
     aspect-ratio: 16 / 4.5;
-    min-height: 240px;
+    min-height: 280px;
     max-height: 100svh;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     overflow: hidden;
 }
 
@@ -2855,15 +2877,19 @@ svg {
 .ep-hero__content {
     position: relative;
     z-index: 1;
+    /* Overrides .wrapper's 60-80px padding-block — this hero is much
+       shorter now (16:4.5), and it's layered after .wrapper (@layer
+       component beats @layer global) so no !important needed. */
+    padding-block: clamp(24px, 4vh, 40px) clamp(32px, 5vh, 48px);
 }
 
 .ep-hero__title {
-    font-size: var(--fs-72);
+    font-size: clamp(2.2rem, 6vw, var(--fs-72));
     font-weight: 900;
     letter-spacing: -0.03em;
     line-height: 1;
     color: hsl(220, 14%, 96%);
-    margin-block-end: 16px;
+    margin-block-end: 12px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -2872,7 +2898,7 @@ svg {
 @media (max-width: 768px) {
     .ep-hero {
         aspect-ratio: 1 / 1;
-        min-height: 0;
+        min-height: 320px;
         max-height: none;
     }
 
@@ -4084,10 +4110,10 @@ body:has(.ab-bar) .ep-years-outer {
     position: relative;
     background: hsl(0, 0%, 0%);
     aspect-ratio: 16 / 4.5;
-    min-height: 240px;
+    min-height: 280px;
     max-height: 100svh;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     overflow: hidden;
 }
 
@@ -4097,10 +4123,14 @@ body:has(.ab-bar) .ep-years-outer {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    /* Overrides .wrapper's 60-80px padding-block — this hero is much
+       shorter now (16:4.5), and it's layered after .wrapper (@layer
+       component beats @layer global) so no !important needed. */
+    padding-block: clamp(24px, 4vh, 40px) clamp(32px, 5vh, 48px);
 }
 
 .fr-hero__title {
-    font-size: var(--font-size-h1, var(--fs-48));
+    font-size: clamp(2rem, 6vw, var(--font-size-h1, var(--fs-48)));
     font-weight: 900;
     color: hsl(0, 0%, 100%);
     letter-spacing: -0.02em;
@@ -4964,7 +4994,7 @@ body:has(.ab-bar) .fr-cats-outer { top: 44px; }
 }
 
 @media (max-width: 600px) {
-    .fr-hero { aspect-ratio: 1 / 1; min-height: 0; max-height: none; }
+    .fr-hero { aspect-ratio: 1 / 1; min-height: 320px; max-height: none; }
 
     .fr-thread-row { grid-template-columns: 36px 1fr; gap: 20px; }
     .fr-thread-avatar { width: 36px; height: 36px; font-size: 13px; }
@@ -5123,15 +5153,15 @@ body:has(.ab-bar) .fr-cats-outer { top: 44px; }
     position: relative;
     background: hsl(0, 0%, 0%);
     aspect-ratio: 16 / 4.5;
-    min-height: 240px;
+    min-height: 280px;
     max-height: 100svh;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     overflow: hidden;
 }
 
 @media (max-width: 600px) {
-    .pr-hero { aspect-ratio: 1 / 1; min-height: 0; max-height: none; }
+    .pr-hero { aspect-ratio: 1 / 1; min-height: 320px; max-height: none; }
 }
 
 .pr-hero__inner {
@@ -5140,10 +5170,14 @@ body:has(.ab-bar) .fr-cats-outer { top: 44px; }
     display: flex;
     flex-direction: column;
     gap: 10px;
+    /* Overrides .wrapper's 60-80px padding-block — this hero is much
+       shorter now (16:4.5), and it's layered after .wrapper (@layer
+       component beats @layer global) so no !important needed. */
+    padding-block: clamp(24px, 4vh, 40px) clamp(32px, 5vh, 48px);
 }
 
 .pr-hero__title {
-    font-size: var(--font-size-h1, var(--fs-48));
+    font-size: clamp(2rem, 6vw, var(--font-size-h1, var(--fs-48)));
     font-weight: 900;
     color: hsl(0, 0%, 100%);
     letter-spacing: -0.02em;

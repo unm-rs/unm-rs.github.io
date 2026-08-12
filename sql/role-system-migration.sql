@@ -1044,3 +1044,9 @@ ALTER TABLE public.events ALTER COLUMN slug DROP NOT NULL;
 -- ============================================================
 UPDATE public.home_feature_sections SET cta_href = '/eventspage/' WHERE id = 'feature-1' AND cta_href = '/eventspage.html';
 UPDATE public.home_feature_sections SET cta_href = '/about/'      WHERE id = 'feature-2' AND cta_href = '/about.html';
+
+-- ============================================================
+-- 46. Optional venue field for events, editable inline in the hero's
+--     date/time block exactly like type/date/time already are.
+-- ============================================================
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS venue text;
