@@ -2888,9 +2888,6 @@ svg {
     line-height: 1;
     color: hsl(220, 14%, 96%);
     margin-block-end: 12px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
 }
 
 @media (max-width: 768px) {
@@ -2912,9 +2909,6 @@ svg {
 .ep-hero__sub {
     font-size: var(--fs-16);
     color: hsl(45,  95%, 65%);
-    display: flex;
-    justify-content: center;
-    align-items: center;
 }
 
 .ep-years-outer {
