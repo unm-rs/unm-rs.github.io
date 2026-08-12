@@ -256,7 +256,45 @@
         }
 
         grid.style.display = '';
-        sorted.forEach(ev => grid.appendChild(buildCard(ev)));
+
+        // Repeating "small, small, big" collage groups, is_major events
+        // given first claim on the big slot — the same layout the home
+        // page's upcoming-events section used to build for itself.
+        const majors = sorted.filter(ev => ev.is_major);
+        const minors = sorted.filter(ev => !ev.is_major);
+        let mi = 0, ni = 0;
+
+        function nextBig()   { return mi < majors.length ? majors[mi++] : (ni < minors.length ? minors[ni++] : null); }
+        function nextSmall()  { return ni < minors.length ? minors[ni++] : (mi < majors.length ? majors[mi++] : null); }
+        function remaining() { return (majors.length - mi) + (minors.length - ni); }
+
+        let groupIndex = 0;
+        while (remaining() >= 3) {
+            const reverse = groupIndex % 2 === 1;
+            const small1  = nextSmall();
+            const small2  = nextSmall();
+            const big     = nextBig();
+
+            const groupEl = document.createElement('div');
+            groupEl.className = `ep-collage__group${reverse ? ' ep-collage__group--reverse' : ''}`;
+
+            const stackEl = document.createElement('div');
+            stackEl.className = 'ep-collage__stack';
+            stackEl.appendChild(buildCard(small1, 'small'));
+            stackEl.appendChild(buildCard(small2, 'small'));
+
+            groupEl.appendChild(stackEl);
+            groupEl.appendChild(buildCard(big, 'big'));
+            grid.appendChild(groupEl);
+            groupIndex++;
+        }
+
+        if (remaining() > 0) {
+            const soloEl = document.createElement('div');
+            soloEl.className = 'ep-collage__solo';
+            while (remaining() > 0) soloEl.appendChild(buildCard(nextSmall(), 'small'));
+            grid.appendChild(soloEl);
+        }
 
         if (isAdmin && selectedGroupId) {
             const addCard = document.createElement('button');
@@ -269,7 +307,7 @@
         }
     }
 
-    function buildCard(ev) {
+    function buildCard(ev, size) {
         const status = ev.status || 'upcoming';
 
         const fmtDate = d => new Date(d).toLocaleDateString('en-GB', {
@@ -284,19 +322,23 @@
             : null;
 
         const card = document.createElement('article');
-        card.className  = `ep-card ep-card--${status}`;
-        card.dataset.id = ev.id;
+        card.className  = `ep-card ep-card--${status} ep-card--${size}`;
+        card.dataset.id   = ev.id;
+        card.dataset.size = size;
 
         const eventHref = ev.slug ? `/event/?slug=${encodeURIComponent(ev.slug)}` : `/event/?id=${encodeURIComponent(ev.id)}`;
+
+        // Small tiles always show the square/mobile crop, big tiles always
+        // show the 16:9/desktop crop — a fixed choice tied to the tile's
+        // role in the collage, not the viewport (same rule the home page's
+        // old collage used).
+        const img = size === 'big' ? ev.image_url : (ev.image_url_mobile || ev.image_url);
 
         card.innerHTML = `
             <a href="${eventHref}" class="ep-card__link">
                 <div class="ep-card__img-wrap">
-                    ${ev.image_url
-                        ? `<picture>
-                            ${ev.image_url_mobile ? `<source media="(max-width: 700px)" srcset="${esc(ev.image_url_mobile)}">` : ''}
-                            <img class="ep-card__img" src="${esc(ev.image_url)}" alt="${esc(ev.title)}" loading="lazy">
-                           </picture>`
+                    ${img
+                        ? `<img class="ep-card__img" src="${esc(img)}" alt="${esc(ev.title)}" loading="lazy">`
                         : `<div class="ep-card__img-placeholder" aria-hidden="true"></div>`
                     }
                     <span class="ep-card__badge ep-card__badge--${status}">${STATUS_LABEL[status]}</span>
@@ -336,7 +378,7 @@
                 if (error) { alert(error.message); return; }
                 const idx = events.findIndex(e => e.id === ev.id);
                 if (idx !== -1) events[idx].status = next;
-                card.replaceWith(buildCard({ ...ev, status: next }));
+                card.replaceWith(buildCard({ ...ev, status: next }, size));
             });
 
             ctrl.querySelector('.ep-card__ctrl--major').addEventListener('click', async () => {
@@ -345,7 +387,9 @@
                 if (error) { alert(error.message); return; }
                 const idx = events.findIndex(e => e.id === ev.id);
                 if (idx !== -1) events[idx].is_major = next;
-                card.replaceWith(buildCard({ ...ev, is_major: next }));
+                // Major status decides small-vs-big slot priority, so the
+                // whole collage grouping (not just this card) can change.
+                renderEvents();
             });
 
             ctrl.querySelector('.ep-card__ctrl--year').addEventListener('change', async e => {
@@ -367,9 +411,9 @@
                 const { error } = await db.from('events').delete().eq('id', ev.id);
                 if (error) { alert(error.message); return; }
                 events = events.filter(e => e.id !== ev.id);
-                card.remove();
-                const grid = document.getElementById('js-events-grid');
-                if (!grid.querySelector('.ep-card')) renderEvents();
+                // One fewer event can reshuffle every small/small/big slot
+                // after it, not just remove this one tile.
+                renderEvents();
             });
 
             card.appendChild(ctrl);
@@ -391,10 +435,10 @@
                     done = true;
                     const points = Math.max(0, parseInt(input.value, 10) || 0);
                     const { error } = await db.from('events').update({ scpd_points: points }).eq('id', ev.id);
-                    if (error) { alert(error.message); card.replaceWith(buildCard(ev)); return; }
+                    if (error) { alert(error.message); card.replaceWith(buildCard(ev, size)); return; }
                     const idx = events.findIndex(e => e.id === ev.id);
                     if (idx !== -1) events[idx].scpd_points = points;
-                    card.replaceWith(buildCard({ ...ev, scpd_points: points }));
+                    card.replaceWith(buildCard({ ...ev, scpd_points: points }, size));
                 };
                 input.addEventListener('blur', commit, { once: true });
                 input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });

@@ -515,185 +515,181 @@ svg {
         }
     }
 
+    /* Apple-style "upcoming events" carousel: one big centered slide with
+       the next/previous slides peeking in at the edges, horizontally
+       scroll-snapped. Deliberately NOT aspect-ratio-boxed — the section
+       itself fills the real viewport height (100svh, same unit the rest
+       of the site's full-screen sections use, so mobile browser chrome
+       showing/hiding never leaves a gap), and each slide's *source image*
+       is what's cropped to 16:9 (desktop) / 9:16 (mobile) via the dual
+       crop tool, then shown with cover-fit — so it always fills the slide
+       exactly regardless of the device's actual screen proportions. */
     .events {
+        position: relative;
         min-height: 100svh;
         display: flex;
         flex-direction: column;
         justify-content: center;
-        background: var(--c-purple);
-        padding-block: 72px;
+        gap: 12px;
+        background: #fff;
+        overflow: hidden;
+        padding-block: 12px;
+    }
 
-        .events__inner {
-            width: 100%;
-            max-width: calc(1200 / 16 * 1rem);
-            padding-inline: 24px;
-            margin-inline: auto;
-        }
+    .events__track {
+        display: flex;
+        align-items: center;
+        gap: clamp(8px, 1.2vw, 16px);
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-block: 6px;
+        /* padding-inline is set from JS (events.js) once the slide's real
+           rendered width is known — see below, height now drives width
+           via aspect-ratio, so it isn't a fixed value CSS can center against. */
 
-        .events__heading {
-            font-size: var(--font-size-h2);
-            font-weight: 700;
-            color: var(--c-dark);
-            margin-block-end: 36px;
-        }
+        &::-webkit-scrollbar { display: none; }
+    }
 
-        .events__collage {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .collage__group {
-            display: grid;
-            grid-template-columns: 1fr 1.6fr;
-            gap: 24px;
-
-            &.collage__group--reverse {
-                grid-template-columns: 1.6fr 1fr;
-
-                .collage__stack { order: 2; }
-                .collage-tile--big { order: 1; }
-            }
-        }
-
-        .collage__stack {
-            display: grid;
-            grid-template-rows: 1fr 1fr;
-            gap: 24px;
-        }
-
-        .collage__solo {
-            display: flex;
-            gap: 24px;
-        }
-
-        .collage-tile {
-            position: relative;
-            display: block;
-            overflow: hidden;
-            border-radius: 6px;
-            background: hsl(233, 18%, 11%);
-            color: inherit;
-
-            &:hover .collage-tile__img { scale: 1.05; }
-        }
-
-        .collage-tile--small {
-            aspect-ratio: 1 / 1;
-        }
-
-        .collage-tile--big {
-            height: 100%;
-            min-height: 220px;
-        }
-
-        .collage__solo .collage-tile--small {
-            flex: 1;
-            max-width: calc(320 / 16 * 1rem);
-        }
-
-        .collage-tile__img-wrap {
-            position: absolute;
-            inset: 0;
-            background: hsl(233, 18%, 16%);
-            background-image: repeating-linear-gradient(
-                -45deg,
-                hsl(233, 18%, 14%) 0,
-                hsl(233, 18%, 14%) 10px,
-                hsl(233, 18%, 18%) 10px,
-                hsl(233, 18%, 18%) 20px
-            );
-
-            &::after {
-                content: '';
-                position: absolute;
-                inset: 0;
-                background: linear-gradient(
-                    to top,
-                    hsl(0, 0%, 0%, 0.88) 0%,
-                    hsl(0, 0%, 0%, 0.5)  40%,
-                    transparent          70%
-                );
-                pointer-events: none;
-            }
-        }
-
-        .collage-tile__img {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: scale 0.4s ease;
-        }
-
-        .collage-tile__img-placeholder {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(135deg, hsl(233, 18%, 18%) 0%, hsl(233, 24%, 26%) 50%, hsl(233, 18%, 18%) 100%);
-        }
-
-        .collage-tile__body {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 20px 20px 18px;
-            z-index: 1;
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            gap: 14px;
-
-            @media (width < calc(700 / 16 * 1rem)) {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
-            }
-        }
-
-        .collage-tile--small .collage-tile__body {
-            padding: 14px 16px 12px;
-        }
-
-        .collage-tile__title {
-            font-size: var(--fs-22);
-            font-weight: 700;
-            color: var(--c-white);
-            line-height: 1.2;
-            text-shadow: 0 1px 8px hsl(0 0% 0% / 0.5);
-            min-width: 0;
-        }
-
-        .collage-tile--small .collage-tile__title {
-            font-size: var(--fs-16);
-        }
-
-        .collage-tile--small .ep-card__scpd {
-            display: none;
-        }
+    .events__slide {
+        position: relative;
+        flex: 0 0 auto;
+        /* The 820px cap was the actual limiter on anything bigger than a
+           1080p-ish window — 82svh alone would already ask for ~1100px+
+           on a 1440p screen. Raised the ceiling well above what 1080p
+           needs (~800px), so 1080p/phones are sized the same as before
+           (svh is still what drives them) while larger screens actually
+           get to use the extra room. */
+        height: min(90svh, 1220px);
+        width: auto;
+        aspect-ratio: 16 / 10;
+        border-radius: 0;
+        overflow: hidden;
+        scroll-snap-align: center;
+        color: inherit;
+        background: hsl(233, 18%, 11%);
 
         @media (width < calc(700 / 16 * 1rem)) {
-            .collage__group {
-                grid-template-columns: 1fr;
+            height: min(86svh, 820px);
+            aspect-ratio: 9 / 16;
+        }
+    }
 
-                &.collage__group--reverse {
-                    grid-template-columns: 1fr;
+    .events__slide-img-wrap {
+        position: absolute;
+        inset: 0;
 
-                    .collage__stack { order: 1; }
-                    .collage-tile--big { order: 2; }
-                }
-            }
+        picture { display: contents; }
+    }
 
-            .collage__stack {
-                grid-template-rows: none;
-                grid-template-columns: 1fr 1fr;
-            }
+    .events__slide-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
 
-            .collage-tile--big { aspect-ratio: 1 / 1; height: auto; min-height: 0; }
+    .events__slide-img-placeholder {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, hsl(233, 18%, 18%) 0%, hsl(233, 24%, 26%) 50%, hsl(233, 18%, 18%) 100%);
+    }
 
-            .collage__solo { flex-direction: row; }
-            .collage__solo .collage-tile--small { max-width: none; }
+    .events__slide-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, hsl(0 0% 0% / 0.85) 0%, hsl(0 0% 0% / 0.15) 45%, transparent 68%);
+    }
+
+    .events__slide-body {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+        padding: clamp(20px, 4vw, 40px);
+    }
+
+    .events__slide-eyebrow {
+        font-size: var(--fs-14);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: hsl(45, 95%, 62%);
+        margin-block-end: 8px;
+        text-shadow: 0 1px 8px hsl(0 0% 0% / 0.5);
+    }
+
+    .events__slide-title {
+        font-size: clamp(1.4rem, 3vw, 2.2rem);
+        font-weight: 800;
+        color: #fff;
+        line-height: 1.1;
+        letter-spacing: -0.01em;
+        margin-block-end: 18px;
+        text-shadow: 0 2px 12px hsl(0 0% 0% / 0.5);
+    }
+
+    .events__slide-cta {
+        display: inline-flex;
+        align-items: center;
+        padding: 10px 24px;
+        background: #fff;
+        color: #000;
+        font-weight: 700;
+        font-size: var(--fs-14);
+        border-radius: 100px;
+    }
+
+    .events__nav {
+        position: absolute;
+        top: 50%;
+        translate: 0 -50%;
+        z-index: 2;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: hsl(0 0% 100% / 0.85);
+        border: 1px solid hsl(0 0% 0% / 0.12);
+        color: hsl(0 0% 10%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        backdrop-filter: blur(6px);
+        box-shadow: 0 2px 12px hsl(0 0% 0% / 0.1);
+        transition: background 0.15s, opacity 0.15s;
+
+        &:hover:not(:disabled) { background: hsl(0 0% 96%); }
+        &:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        @media (width < calc(700 / 16 * 1rem)) { display: none; }
+    }
+
+    .events__nav--prev { left: clamp(12px, 3vw, 36px); }
+    .events__nav--next { right: clamp(12px, 3vw, 36px); }
+
+    .events__dots {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .events__dot {
+        width: 8px;
+        height: 8px;
+        padding: 0;
+        border: none;
+        border-radius: 100px;
+        background: hsl(0 0% 0% / 0.18);
+        cursor: pointer;
+        transition: width 0.25s ease, background 0.25s ease;
+
+        &.is-active {
+            width: 22px;
+            background: hsl(0 0% 8%);
         }
     }
 
@@ -985,12 +981,14 @@ svg {
         @media (width < calc(700 / 16 * 1rem)) {
             .event-detail__inner {
                 grid-template-columns: 1fr;
+                row-gap: 32px;
             }
             .event-detail__divider {
                 height: 1px;
                 width: 70%;
                 min-height: unset;
                 align-self: auto;
+                margin-block: 4px;
             }
         }
     }
@@ -3079,7 +3077,66 @@ body:has(.ab-bar) .ep-years-outer {
 .ep-events-grid {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 24px;
+    /* .wrapper's own 2400px cap is wide enough to almost never kick in, so
+       on a big monitor the small-stack and big tile end up stretched far
+       apart from each other. Pull the whole collage in narrower and
+       center it instead, same as the home page's old events section. */
+    max-width: calc(1200 / 16 * 1rem);
+    margin-inline: auto;
+}
+
+/* Repeating "small, small, big" collage groups — shared layout classes,
+   also used to lay out .ep-card tiles here exactly the way the home page
+   used to arrange its own (now-retired) upcoming-events collage. */
+.ep-collage__group {
+    display: grid;
+    grid-template-columns: 1fr 1.6fr;
+    gap: 24px;
+
+    &.ep-collage__group--reverse {
+        grid-template-columns: 1.6fr 1fr;
+
+        .ep-collage__stack { order: 2; }
+        .ep-card--big { order: 1; }
+    }
+}
+
+.ep-collage__stack {
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    gap: 24px;
+}
+
+.ep-collage__solo {
+    display: flex;
+    gap: 24px;
+}
+
+.ep-collage__solo .ep-card--small {
+    flex: 1;
+    max-width: calc(320 / 16 * 1rem);
+}
+
+@media (width < calc(700 / 16 * 1rem)) {
+    .ep-collage__group {
+        grid-template-columns: 1fr;
+
+        &.ep-collage__group--reverse {
+            grid-template-columns: 1fr;
+
+            .ep-collage__stack { order: 1; }
+            .ep-card--big { order: 2; }
+        }
+    }
+
+    .ep-collage__stack {
+        grid-template-rows: none;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .ep-collage__solo { flex-direction: row; }
+    .ep-collage__solo .ep-card--small { max-width: none; }
 }
 
 .ep-empty-state {
@@ -3120,6 +3177,38 @@ body:has(.ab-bar) .ep-years-outer {
     }
 }
 
+/* Collage roles — override the default aspect-ratio above when a card
+   sits inside a .ep-collage__group (see #js-events-grid rendering). */
+.ep-card--small {
+    aspect-ratio: 1 / 1;
+    min-height: 0;
+}
+
+.ep-card--big {
+    aspect-ratio: auto;
+    height: 100%;
+    min-height: 220px;
+    max-height: none;
+
+    @media (width < calc(700 / 16 * 1rem)) {
+        aspect-ratio: 1 / 1;
+        height: auto;
+        min-height: 0;
+    }
+}
+
+.ep-card--small .ep-card__scpd {
+    display: none;
+}
+
+.ep-card--small .ep-card__title {
+    font-size: var(--fs-16);
+}
+
+.ep-card--small .ep-card__date {
+    display: none;
+}
+
 .ep-card:hover {
     box-shadow: 0 6px 28px hsl(0 0% 0% / 0.22);
 }
@@ -3139,8 +3228,7 @@ body:has(.ab-bar) .ep-years-outer {
     background: hsl(0, 0%, 7%);
 }
 
-.ep-card__img-wrap picture,
-.collage-tile__img-wrap picture {
+.ep-card__img-wrap picture {
     display: contents;
 }
 

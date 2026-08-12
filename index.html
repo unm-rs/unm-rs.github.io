@@ -117,10 +117,15 @@
     </main>
 
     <section class="events" id="news">
-        <div class="events__inner">
-            <h2 class="events__heading">Upcoming Events</h2>
-            <div class="events__collage" id="js-events-collage"></div>
-        </div>
+        <h2 class="visually-hidden">Upcoming Events</h2>
+        <div class="events__track" id="js-events-track"></div>
+        <button type="button" class="events__nav events__nav--prev" id="js-events-prev" aria-label="Previous event" hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <button type="button" class="events__nav events__nav--next" id="js-events-next" aria-label="Next event" hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <div class="events__dots" id="js-events-dots"></div>
     </section>
 
     <section class="values">
