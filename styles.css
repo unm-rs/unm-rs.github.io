@@ -1716,19 +1716,149 @@ svg {
             display: grid;
             grid-template-columns: 1fr 1fr;
             align-items: start;
-            gap: 24px;
+            /* Row spacing has to clear the avatar photo, which deliberately
+               floats up out of the card's own top edge (see
+               .committee-card__photo-wrap's negative top) — 24px was nowhere
+               near enough, so each row's avatar was poking up into the card
+               above it. The president card is isolated in its own tier
+               section now (see .committee-tier below), so this only ever
+               needs to clear the standard 70px/officer 85px avatars.
+            */
+            row-gap: 100px;
+            column-gap: 24px;
             max-width: 900px;
             margin-inline: auto;
+
+            /* A lone leftover card (odd count among cards that actually
+               share this 2-column flow — see .committee-card--solo, set in
+               JS) would otherwise sit stretched across the left column by
+               default — span it across the full row and center it at its
+               normal width instead. */
+            > .committee-card--solo {
+                grid-column: 1 / -1;
+                justify-self: center;
+                width: 100%;
+                max-width: calc(50% - 12px);
+            }
 
             @media (width < calc(580 / 16 * 1rem)) {
                 grid-template-columns: 1fr;
             }
         }
 
+        .committee-tier {
+            position: relative;
+            padding-block-start: 32px;
+
+            /* The divider used to be a border-top on the (non-first) tiers
+               only, which drew it edge-to-edge across the whole page
+               instead of just the content column, and skipped the very
+               first section entirely — every tier gets one now, including
+               above "Leadership", capped and centered to match
+               .committee-grid's own 900px width. */
+            &::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                max-width: 900px;
+                margin-inline: auto;
+                height: 1px;
+                background: hsl(0, 0%, 90%);
+            }
+
+            /* Ahead of the Department Heads/Executives pair specifically,
+               split the line to match the gap between those two columns
+               below it, instead of one solid bar spanning both. */
+            &:has(> .committee-tier-pair)::before {
+                background: linear-gradient(
+                    to right,
+                    hsl(0, 0%, 90%) 0%,
+                    hsl(0, 0%, 90%) calc(50% - 24px),
+                    transparent calc(50% - 24px),
+                    transparent calc(50% + 24px),
+                    hsl(0, 0%, 90%) calc(50% + 24px),
+                    hsl(0, 0%, 90%) 100%
+                );
+            }
+
+            & + .committee-tier {
+                /* This has to clear the PREVIOUS tier's own content (not
+                   just add breathing room) — President in particular has a
+                   220px avatar floating 110px above its own card, so a
+                   small margin here reads as the next section's label/photo
+                   overlapping the card above it. */
+                margin-block-start: 120px;
+                padding-block-start: 64px;
+            }
+        }
+
+        .committee-tier-pair {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            column-gap: 48px;
+            width: 100%;
+            max-width: 900px;
+            margin-inline: auto;
+
+            @media (width < calc(580 / 16 * 1rem)) {
+                grid-template-columns: 1fr;
+                row-gap: 100px;
+            }
+        }
+
+        /* Department Heads/Executives, each in their own half of the row —
+           a dedicated class instead of reusing .committee-grid, which is
+           built around being the full 900px row and would need its
+           max-width/centering fought against in this narrower context. */
+        .committee-tier-pair__list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            column-gap: 16px;
+            row-gap: 100px;
+
+            /* Same .committee-card--solo trick as .committee-grid — a lone
+               leftover card spans and centers instead of sitting stuck in
+               the left column. */
+            > .committee-card--solo {
+                grid-column: 1 / -1;
+                justify-self: center;
+                width: 100%;
+                max-width: calc(50% - 8px);
+            }
+
+            @media (width < calc(580 / 16 * 1rem)) {
+                grid-template-columns: 1fr;
+
+                > .committee-card--solo {
+                    max-width: none;
+                }
+            }
+        }
+
+        .committee-tier__label {
+            max-width: 900px;
+            margin-inline: auto;
+            /* Same reasoning as .committee-grid's row-gap — this needs to
+               clear the NEXT row's floating avatar, not just look like
+               normal text spacing, or the label sits under/behind the
+               photo. Leadership's own label now sits right above the
+               president card, whose avatar is the biggest of all of them
+               (110px), so this has to cover that worst case, not just the
+               85px officer photos everyone else uses. */
+            margin-block-end: 130px;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: hsl(0, 0%, 42%);
+            text-align: center;
+        }
+
         .committee-empty,
         .committee-loading {
             color: hsl(0 0% 45%);
-            grid-column: 1 / -1;
             text-align: center;
             padding-block: 48px;
             font-size: var(--fs-16);
@@ -1880,32 +2010,42 @@ svg {
             line-height: 1.3;
         }
 
-        .committee-card__bio {
-            margin-block-start: 14px;
-            font-size: var(--fs-14);
-            color: hsl(0 0% 50%);
-            line-height: 1.65;
-        }
-
         .cm-pos-badge { margin-block-start: 8px; }
+
+        /* A step below the president, a step above everyone else — Leadership
+           tier (VP/Secretary/Treasurer/Event Manager) gets a modest size
+           bump instead of looking identical to Heads/Executives/Juniors. */
+        &.committee-card--officer {
+            padding-block-start: 100px;
+            border-color: hsl(45, 45%, 24%);
+
+            .committee-card__photo-wrap {
+                top: -80px;
+                width: 160px;
+                height: 160px;
+            }
+
+            .committee-card__name { font-size: 22px; }
+        }
 
         &.committee-card--president {
             grid-column: 1 / -1;
-            max-width: 460px;
+            max-width: 560px;
             margin-inline: auto;
-            padding-block-start: 110px;
+            padding: 130px 40px 64px;
             border-color: hsl(45, 60%, 30%);
+            box-shadow: 0 12px 40px hsl(0 0% 0% / 0.25);
 
             &::before { opacity: 0.7; }
 
             .committee-card__photo-wrap {
-                top: -90px;
-                width: 180px;
-                height: 180px;
+                top: -110px;
+                width: 220px;
+                height: 220px;
+                border-width: 5px;
             }
 
-            .committee-card__name { font-size: 28px; }
-            .committee-card__bio  { font-size: var(--fs-16); max-width: 46ch; margin-inline: auto; }
+            .committee-card__name { font-size: 34px; }
             .cm-pos-badge         { font-size: 16px; }
         }
 
@@ -1964,8 +2104,7 @@ svg {
         border-color: hsl(233, 18%, 28%);
 
         /* Editable text fields */
-        .committee-card__name--edit,
-        .committee-card__bio--edit {
+        .committee-card__name--edit {
             outline: none;
             border-bottom: 1.5px solid hsl(233, 18%, 28%);
             padding-block-end: 3px;
@@ -1983,13 +2122,6 @@ svg {
                 font-style: italic;
                 pointer-events: none;
             }
-        }
-
-        .committee-card__bio--edit {
-            font-size: var(--fs-14);
-            color: hsl(0 0% 50%);
-            line-height: 1.65;
-            margin-block-start: 12px;
         }
 
         .cm-pos-select {

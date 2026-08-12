@@ -8,8 +8,8 @@
     if (!grid) return;
 
     const POSITIONS = [
-        'President', 'Vice President', 'Secretary', 'Treasurer', 'Event Manager',
-        'Head of Technical', 'Head of Public Relations', 'Head of Marketing',
+        'President', 'Vice President', 'Secretary', 'Treasurer', 'Head of Event Management',
+        'Head of Marketing', 'Head of Technical', 'Head of Public Relations',
         'Events Executive', 'Technical Executive', 'Marketing Executive', 'Public Relations Executive',
         'Junior Secretary', 'Junior Events', 'Junior Technical', 'Junior Marketing',
     ];
@@ -61,12 +61,116 @@
         return p ? p.avatar_url : null;
     }
 
-    list.forEach(m => grid.appendChild(buildCard(m)));
-    if (isAdmin) grid.appendChild(buildAddCard());
+    // Grouped into labeled tiers instead of one flat grid — reads as
+    // organizational structure instead of an arbitrary wall of people, and
+    // lets the big vertical gap the floating avatars need (see CSS) read as
+    // deliberate separation BETWEEN tiers rather than awkward empty space
+    // within one.
+    const TIERS = [
+        {
+            key: 'leadership', label: 'Leadership',
+            // 'Event Manager' is the old label for what's now 'Head of
+            // Event Management' — kept as a fallback match so any existing
+            // member still holding the old value doesn't silently fall
+            // through to "Other" until their position gets re-saved.
+            match: p => p === 'President'
+                || ['Vice President', 'Secretary', 'Treasurer', 'Head of Event Management', 'Event Manager'].includes(p),
+            officer: true,
+        },
+        { key: 'heads',   label: 'Department Heads', match: p => p.startsWith('Head of') },
+        { key: 'execs',   label: 'Executives',       match: p => p.endsWith('Executive') },
+        { key: 'juniors', label: 'Junior Committee', match: p => p.startsWith('Junior') },
+        { key: 'other',   label: 'Other',            match: () => true }, // catch-all for anything custom
+    ];
+
+    function tierFor(position) {
+        return TIERS.find(t => position && t.match(position)) || TIERS[TIERS.length - 1];
+    }
+
+    // Whenever a member is added/removed, or a save changes someone's
+    // position, they can move to a different tier's grid entirely — not
+    // something a single card can patch in place, so those paths all
+    // re-render everything from `list` instead. (In-place swaps are still
+    // fine for edits that can't affect tier membership — see buildCard's
+    // other callers below.)
+    function renderAll() {
+        grid.innerHTML = '';
+        const buckets = {};
+        TIERS.forEach(t => { buckets[t.key] = []; });
+        list.forEach(m => buckets[tierFor(m.position).key].push(m));
+
+        // `single` swaps the normal 2-up .committee-grid for a plain
+        // single-column list (.committee-tier-pair__list) — used for
+        // Department Heads/Executives, which each take up only half the
+        // row's width now, so 2-per-row within that half doesn't fit.
+        function tierColumn(key, single) {
+            const tier    = TIERS.find(t => t.key === key);
+            const members = buckets[key];
+            if (!members.length) return null;
+            const col = document.createElement('div');
+            col.innerHTML = tier.label ? `<h3 class="committee-tier__label">${esc(tier.label)}</h3>` : '';
+            const tierGrid = document.createElement('div');
+            tierGrid.className = single ? 'committee-tier-pair__list' : 'committee-grid';
+
+            const cards = members.map(m => buildCard(m));
+            // The president spans the full row on its own — an nth-child(odd)
+            // CSS trick to center a leftover last card would count it like
+            // any other item and get the parity wrong for everyone after it
+            // (that's what knocked Head of Event Management out of the 2x2
+            // grid). Figure out the "lone leftover" explicitly instead,
+            // among only the cards that actually share the 2-column flow.
+            const paired = cards.filter(c => !c.classList.contains('committee-card--president'));
+            if (paired.length % 2 === 1) paired[paired.length - 1].classList.add('committee-card--solo');
+            cards.forEach(c => tierGrid.appendChild(c));
+
+            col.appendChild(tierGrid);
+            return col;
+        }
+
+        function appendSection(el) {
+            const section = document.createElement('div');
+            section.className = 'committee-tier';
+            section.appendChild(el);
+            grid.appendChild(section);
+        }
+
+        const leadershipCol = tierColumn('leadership');
+        if (leadershipCol) appendSection(leadershipCol);
+
+        // Department Heads and Executives sit side by side in one shared
+        // row instead of each getting their own full-width section.
+        const headsCol = tierColumn('heads', true);
+        const execsCol = tierColumn('execs', true);
+        if (headsCol || execsCol) {
+            const pair = document.createElement('div');
+            pair.className = 'committee-tier-pair';
+            if (headsCol) pair.appendChild(headsCol);
+            if (execsCol) pair.appendChild(execsCol);
+            appendSection(pair);
+        }
+
+        const juniorsCol = tierColumn('juniors');
+        const otherCol   = tierColumn('other');
+        if (juniorsCol) appendSection(juniorsCol);
+        if (otherCol)   appendSection(otherCol);
+
+        if (isAdmin) {
+            const addCol = document.createElement('div');
+            const addGrid = document.createElement('div');
+            addGrid.className = 'committee-grid';
+            addGrid.appendChild(buildAddCard());
+            addCol.appendChild(addGrid);
+            appendSection(addCol);
+        }
+    }
+    renderAll();
 
     function buildCard(member) {
+        const tier = tierFor(member.position);
         const card = document.createElement('article');
-        card.className = 'committee-card' + (member.position === 'President' ? ' committee-card--president' : '');
+        card.className = 'committee-card'
+            + (member.position === 'President' ? ' committee-card--president' : '')
+            + (tier.officer ? ' committee-card--officer' : '');
         card.dataset.id = member.id;
 
         const name  = displayName(member);
@@ -98,7 +202,6 @@
             <div class="committee-card__body">
                 <${nameTag} class="committee-card__name"${profileUrl ? ` href="${profileUrl}"` : ''}>${esc(name)}</${nameTag}>
                 ${member.position ? `<span class="cm-pos-badge">${esc(member.position)}</span>` : ''}
-                ${member.bio ? `<p class="committee-card__bio">${esc(member.bio)}</p>` : ''}
             </div>`;
 
         if (isOwnCard && !isAdmin) {
@@ -276,10 +379,6 @@
                         <label class="ab-label">Position</label>
                         <select class="ab-input" id="cm-d-position" required>${positionOptions('')}</select>
                     </div>
-                    <div class="ab-field">
-                        <label class="ab-label">Bio <span style="font-weight:400;color:hsl(0 0% 50%)">(optional)</span></label>
-                        <textarea class="ab-textarea" id="cm-d-bio" rows="3" placeholder="Short bio for the committee page"></textarea>
-                    </div>
                     <div id="cm-d-err" class="ab-error" hidden></div>
                     <div class="ab-form-actions">
                         <button type="submit" class="ab-form-btn ab-form-btn--primary" id="cm-d-save">Add to Committee</button>
@@ -299,7 +398,6 @@
             const errEl = overlay.querySelector('#cm-d-err');
             const btn   = overlay.querySelector('#cm-d-save');
             const position = overlay.querySelector('#cm-d-position').value.trim();
-            const bio      = overlay.querySelector('#cm-d-bio').value.trim();
 
             if (!position) return;
 
@@ -309,7 +407,7 @@
 
             const { data: newMember, error: insertErr } = await db
                 .from('committee_members')
-                .insert({ user_id: profile.id, position, bio: bio || null })
+                .insert({ user_id: profile.id, position })
                 .select()
                 .single();
 
@@ -323,8 +421,7 @@
 
             list.push(newMember);
             profileMap[profile.id] = profile;
-            const addCard = document.getElementById('js-add-card');
-            grid.insertBefore(buildCard(newMember), addCard || null);
+            renderAll();
             close();
         });
     }
@@ -359,9 +456,6 @@
                      contenteditable="true" data-placeholder="Full Name"
                      role="textbox" aria-label="Full Name">${esc(member.name || '')}</div>
                 <select class="cm-pos-select" id="ec-position-select">${positionOptions(member.position || '')}</select>
-                <div class="committee-card__bio committee-card__bio--edit"
-                     contenteditable="true" data-placeholder="Add a short bio…"
-                     role="textbox" aria-label="Bio">${esc(member.bio || '')}</div>
             </div>
             <div class="committee-card__new-actions">
                 <button class="cm-new-btn cm-new-btn--save" id="ec-save">Save</button>
@@ -405,7 +499,7 @@
         card.classList.add('committee-card--new');
 
         if (member.user_id) {
-            // Linked to a real profile — name comes from their account; photo/position/bio are ours to edit
+            // Linked to a real profile — name comes from their account; photo/position are ours to edit
             const name  = displayName(member);
             const photo = displayPhoto(member);
             const hasPhoto = !!photo;
@@ -430,9 +524,6 @@
                 <div class="committee-card__body">
                     <p class="committee-card__name">${esc(name)}</p>
                     <select class="cm-pos-select" id="ec-position-select">${positionOptions(member.position || '')}</select>
-                    <div class="committee-card__bio committee-card__bio--edit"
-                         contenteditable="true" data-placeholder="Add a short bio…"
-                         role="textbox" aria-label="Bio">${esc(member.bio || '')}</div>
                 </div>
                 <div class="committee-card__new-actions">
                     <button class="cm-new-btn cm-new-btn--save" id="ec-save">Save</button>
@@ -461,7 +552,6 @@
 
     async function saveLinkedEditable(card, member, getPending) {
         const position = card.querySelector('#ec-position-select').value;
-        const bio      = card.querySelector('.committee-card__bio--edit').textContent.trim();
 
         if (!position) { card.querySelector('#ec-position-select').focus(); return; }
 
@@ -469,7 +559,7 @@
         saveBtn.disabled    = true;
         saveBtn.textContent = 'Saving…';
 
-        const payload = { position, bio: bio || null };
+        const payload = { position };
         const file = getPending?.();
 
         if (file) {
@@ -499,13 +589,12 @@
         }
 
         Object.assign(member, payload);
-        card.replaceWith(buildCard(member));
+        renderAll(); // position may have changed, which can move them to a different tier
     }
 
     async function saveEditable(card, member, getPending) {
         const name     = card.querySelector('.committee-card__name--edit').textContent.trim();
         const position = card.querySelector('#ec-position-select').value;
-        const bio      = card.querySelector('.committee-card__bio--edit').textContent.trim();
 
         if (!name) { card.querySelector('.committee-card__name--edit').focus(); return; }
         if (!position) { card.querySelector('#ec-position-select').focus(); return; }
@@ -534,7 +623,7 @@
             imageUrl = publicUrl;
         }
 
-        const payload = { name, position, bio: bio || null, image_url: imageUrl };
+        const payload = { name, position, image_url: imageUrl };
 
         const { error: updateErr } = await db
             .from('committee_members')
@@ -548,7 +637,7 @@
             return;
         }
         Object.assign(member, payload);
-        card.replaceWith(buildCard(member));
+        renderAll(); // position may have changed, which can move them to a different tier
     }
 
     async function deleteMember(member, card) {
@@ -557,7 +646,7 @@
         if (deleteErr) { alert('Delete failed: ' + deleteErr.message); return; }
         const idx = list.findIndex(m => m.id === member.id);
         if (idx !== -1) list.splice(idx, 1);
-        card.remove();
+        renderAll(); // also cleans up a tier section that's now empty
     }
 
     function esc(str) {
