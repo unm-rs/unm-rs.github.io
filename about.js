@@ -34,6 +34,13 @@
                 [...child.attributes].forEach(attr => {
                     if (!allowed.has(attr.name)) child.removeAttribute(attr.name);
                 });
+                // Belt-and-suspenders for the same formatBlock quirk handled
+                // live in the block-select handler — font-size has no
+                // legitimate use here (there's no font-size control), so
+                // any that slipped through some other path gets stripped
+                // on save/reload too, without touching color/highlight
+                // styles which ARE legitimate.
+                child.style.removeProperty('font-size');
                 if (child.tagName === 'A') {
                     child.setAttribute('target', '_blank');
                     child.setAttribute('rel', 'noopener noreferrer');
@@ -238,8 +245,31 @@
     document.getElementById('ab-block').addEventListener('change', e => {
         canvas.focus();
         document.execCommand('formatBlock', false, e.target.value);
+        // Chrome's formatBlock, with styleWithCSS on, sometimes carries the
+        // old block's rendered font-size over as an inline style on the new
+        // one instead of just swapping the tag — the CSS below already
+        // gives h1-h4/p their own sizes, but that inline style outranks it,
+        // which is why switching a heading to a paragraph looked like it
+        // only dropped the bold. Strip it so the tag's own size wins.
+        const block = currentBlockElement();
+        if (block) {
+            block.style.removeProperty('font-size');
+            block.querySelectorAll('[style]').forEach(el => el.style.removeProperty('font-size'));
+        }
         markDirty();
     });
+
+    function currentBlockElement() {
+        const sel = document.getSelection();
+        if (!sel.rangeCount) return null;
+        let node = sel.getRangeAt(0).startContainer;
+        if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+        while (node && node !== canvas) {
+            if (/^(P|H1|H2|H3|H4|DIV|BLOCKQUOTE|LI|UL|OL)$/.test(node.tagName)) return node;
+            node = node.parentElement;
+        }
+        return null;
+    }
 
     document.getElementById('ab-text-color').addEventListener('input', e => {
         canvas.focus();

@@ -1292,7 +1292,7 @@ svg {
 
     .about-wrap {
         max-width: none;
-        padding: 100px clamp(24px, 5vw, 80px) 80px;
+        padding: 110px clamp(32px, 9vw, 160px) 100px;
     }
 
     .about-toolbar {
