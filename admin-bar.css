@@ -375,6 +375,21 @@
 .ic-handle--sw { bottom: -7px; left: -7px;  cursor: nesw-resize; }
 .ic-handle--se { bottom: -7px; right: -7px; cursor: nwse-resize; }
 
+/* A 14px dot is very easy to miss with a finger — a missed touch falls
+   through to whatever's behind it (the scrollable modal), which is
+   exactly what made dragging a corner scroll the page instead. Extend
+   the actual hit area well past the visible dot without changing how it
+   looks, using a bigger invisible pseudo-element instead of just making
+   the dot itself bigger. */
+@media (pointer: coarse) {
+    .ic-handle::before {
+        content: '';
+        position: absolute;
+        inset: -16px;
+        touch-action: none;
+    }
+}
+
 .ab-error {
     font-size: 13px;
     color: hsl(5, 68%, 62%);

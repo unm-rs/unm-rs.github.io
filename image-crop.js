@@ -1,9 +1,36 @@
 (function () {
     function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
 
-    const STAGE_MAX = 420;
-    const MIN_BOX   = 40;
-    const HANDLES   = ['nw', 'ne', 'sw', 'se'];
+    const MIN_BOX = 40;
+    const HANDLES = ['nw', 'ne', 'sw', 'se'];
+
+    // A fixed stage size (the old behavior) doesn't fit a phone screen —
+    // two stacked 380px stages plus header/buttons is 800px+ tall, well
+    // past most phones' viewport height, forcing the modal to scroll
+    // internally. That's what made dragging a corner also scroll the
+    // page: a drag that missed the (small) handle fell through to the
+    // scrollable modal behind it. Instead, measure what's actually
+    // available and size the stage(s) to fit without any scrolling.
+    const MODAL_MAX_WIDTH = 480; // matches .ab-modal's own max-width in admin-bar.css
+    function computeStageMax(overlay, modal, stageCount) {
+        const modalStyle   = getComputedStyle(modal);
+        const modalPadX    = parseFloat(modalStyle.paddingLeft) + parseFloat(modalStyle.paddingRight);
+        const overlayStyle = getComputedStyle(overlay);
+        const overlayPadX  = parseFloat(overlayStyle.paddingLeft) + parseFloat(overlayStyle.paddingRight);
+        const overlayPadY  = parseFloat(overlayStyle.paddingTop)  + parseFloat(overlayStyle.paddingBottom);
+        // .ic-modal is max-width:fit-content, so modal.clientWidth isn't
+        // trustworthy yet — the stage (the thing that would normally make
+        // it wide) has no size of its own until this function returns.
+        // Derive available width straight from the viewport instead.
+        const availW = Math.min(MODAL_MAX_WIDTH, window.innerWidth - overlayPadX) - modalPadX;
+        // The modal's height, on the other hand, IS already accurate at
+        // this point — nothing else here is fit-content, so what's
+        // rendered right now really is just its chrome (header, labels,
+        // buttons, padding) before the still-unsized stage(s) add anything.
+        const chromeH = modal.getBoundingClientRect().height;
+        const availH  = (window.innerHeight - overlayPadY - chromeH) / stageCount;
+        return Math.max(160, Math.floor(Math.min(availW, availH)));
+    }
 
     function stageMarkup(circle) {
         return `
@@ -180,9 +207,12 @@
                     </div>
                 </div>`;
             document.body.appendChild(overlay);
+            const prevBodyOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden'; // the crop UI handles all its own dragging — nothing behind it should move
 
             const finish = result => {
                 overlay.remove();
+                document.body.style.overflow = prevBodyOverflow;
                 URL.revokeObjectURL(objectUrl);
                 resolve(result);
             };
@@ -193,7 +223,8 @@
             let stageApi = null;
             const img = new Image();
             img.onload = () => {
-                stageApi = initCropStage(overlay.querySelector('#ic-container'), img, aspect, STAGE_MAX);
+                const modal = overlay.querySelector('.ic-modal');
+                stageApi = initCropStage(overlay.querySelector('#ic-container'), img, aspect, computeStageMax(overlay, modal, 1));
             };
             img.src = objectUrl;
 
@@ -232,9 +263,12 @@
                     </div>
                 </div>`;
             document.body.appendChild(overlay);
+            const prevBodyOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden'; // the crop UI handles all its own dragging — nothing behind it should move
 
             const finish = result => {
                 overlay.remove();
+                document.body.style.overflow = prevBodyOverflow;
                 URL.revokeObjectURL(objectUrl);
                 resolve(result);
             };
@@ -245,7 +279,8 @@
             let topApi = null, bottomApi = null;
             const img = new Image();
             img.onload = () => {
-                const stageMax = 380;
+                const modal    = overlay.querySelector('.ic-modal');
+                const stageMax = computeStageMax(overlay, modal, 2);
                 topApi    = initCropStage(overlay.querySelector('#ic-container-top'),    img, top.aspect,    stageMax);
                 bottomApi = initCropStage(overlay.querySelector('#ic-container-bottom'), img, bottom.aspect, stageMax);
             };
