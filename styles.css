@@ -1764,6 +1764,16 @@ svg {
                     hsl(0, 0%, 90%) calc(50% + 24px),
                     hsl(0, 0%, 90%) 100%
                 );
+
+                /* Below 580px the pair stacks into one column (see
+                   .committee-tier-pair's own mobile rule), so the gap this
+                   split was matching no longer exists there — the gradient
+                   just reads as two disconnected line segments above a
+                   single column. Go back to one solid bar, same as every
+                   other tier. */
+                @media (width < calc(580 / 16 * 1rem)) {
+                    background: hsl(0, 0%, 90%);
+                }
             }
 
             & + .committee-tier {
@@ -1788,6 +1798,26 @@ svg {
             @media (width < calc(580 / 16 * 1rem)) {
                 grid-template-columns: 1fr;
                 row-gap: 100px;
+
+                /* Side by side on desktop, Department Heads and Executives
+                   never needed a line between them — column-gap alone reads
+                   as a separation. Stacked on mobile they look like one
+                   continuous list without it, so add the same divider style
+                   every other tier transition uses, sitting in the middle
+                   of the existing 100px gap instead of adding to it. */
+                > div + div {
+                    position: relative;
+
+                    &::before {
+                        content: '';
+                        position: absolute;
+                        top: -50px;
+                        left: 0;
+                        right: 0;
+                        height: 1px;
+                        background: hsl(0, 0%, 90%);
+                    }
+                }
             }
         }
 
