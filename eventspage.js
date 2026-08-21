@@ -15,7 +15,7 @@
     let groups = groupsRes.data || [];
     let events = eventsRes.data || [];
 
-    let selectedGroupId = groups[groups.length - 1]?.id ?? null;
+    let selectedGroupId = groups[0]?.id ?? null;
 
     const STATUS_LABEL      = { upcoming: 'Upcoming', coming_soon: 'Coming Soon', completed: 'Completed' };
     const STATUS_NEXT       = { upcoming: 'coming_soon', coming_soon: 'completed', completed: 'upcoming' };
@@ -224,7 +224,7 @@
 
         groups = groups.filter(g => g.id !== grp.id);
         events.forEach(ev => { if (ev.group_id === grp.id) ev.group_id = null; });
-        if (selectedGroupId === grp.id) selectedGroupId = groups[groups.length - 1]?.id ?? null;
+        if (selectedGroupId === grp.id) selectedGroupId = groups[0]?.id ?? null;
         renderGroupTabs();
         renderEvents();
     }
