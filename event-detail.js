@@ -223,7 +223,7 @@
             input = document.createElement('input');
             input.type        = 'text';
             input.value        = valueFor(kind);
-            input.placeholder  = kind === 'venue' ? 'e.g. Engineering Building, Room 204' : 'e.g. Free, $10, RM15';
+            input.placeholder  = kind === 'venue' ? 'e.g. Engineering Building, Room 204' : 'e.g. RM100000';
             input.className    = `event-hero__meta-input event-hero__meta-input--${kind}`;
         } else {
             input = document.createElement('input');
