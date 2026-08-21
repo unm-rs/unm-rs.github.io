@@ -742,26 +742,26 @@ svg {
         .event-hero__content {
             position: relative;
             z-index: 1;
-            padding: 0 clamp(24px, 5vw, 80px) clamp(32px, 5vh, 56px);
+            padding: 0 clamp(20px, 5vw, 64px) clamp(28px, 5vh, 44px);
+            max-width: min(620px, 92%);
             display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            gap: 24px;
-            width: 100%;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
         }
 
         .event-hero__title {
-            font-size: clamp(2.4rem, 7vw, 5.5rem);
-            font-weight: 700;
+            font-size: clamp(2rem, 4vw, 3.1rem);
+            font-weight: 800;
             color: var(--c-white);
-            letter-spacing: -0.02em;
-            line-height: 1.05;
-            text-shadow: 0 2px 24px hsl(0 0% 0% / 0.5);
+            letter-spacing: -0.01em;
+            line-height: 1.15;
+            text-shadow: 0 2px 20px hsl(0 0% 0% / 0.55);
         }
 
         .event-hero__slug {
             font-family: ui-monospace, "SF Mono", Consolas, monospace;
-            font-size: 13px;
+            font-size: 14px;
             color: hsl(0 0% 100% / 0.65);
             text-shadow: 0 2px 12px hsl(0 0% 0% / 0.5);
             margin-block-start: 6px;
@@ -791,40 +791,33 @@ svg {
         .event-hero__actions {
             display: flex;
             align-items: center;
-            gap: 40px;
-            flex-shrink: 0;
+            gap: 12px;
+            margin-block-start: 4px;
         }
 
-        .event-hero__datetime {
+        .event-hero__meta {
             display: flex;
-            align-items: center;
-            gap: 40px;
+            flex-wrap: wrap;
+            align-items: baseline;
+            row-gap: 4px;
         }
 
-        .event-hero__dt-block {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .event-hero__dt-label {
-            font-size: 13px;
-            font-weight: 800;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: hsl(0 0% 100% / 0.8);
-            text-shadow: 0 2px 12px hsl(0 0% 0% / 0.5);
-        }
-
-        .event-hero__dt-value {
+        .event-hero__meta-item {
             font-size: 15px;
-            font-weight: 700;
-            color: hsl(0 0% 100%);
+            font-weight: 600;
+            color: hsl(0 0% 100% / 0.92);
             white-space: nowrap;
-            text-shadow: 0 2px 12px hsl(0 0% 0% / 0.5);
+            text-shadow: 0 1px 10px hsl(0 0% 0% / 0.5);
         }
 
-        .event-hero__dt-value--editable {
+        .event-hero__meta-sep {
+            font-size: 15px;
+            color: hsl(0 0% 100% / 0.5);
+            margin-inline: 8px;
+            text-shadow: 0 1px 10px hsl(0 0% 0% / 0.5);
+        }
+
+        .event-hero__meta-item--editable {
             cursor: pointer;
             border-bottom: 1px dashed hsl(0 0% 100% / 0.5);
             padding-bottom: 1px;
@@ -833,10 +826,10 @@ svg {
             &:hover { border-bottom-color: hsl(45, 95%, 55%); }
         }
 
-        .event-hero__dt-input {
+        .event-hero__meta-input {
             font-family: inherit;
             font-size: 15px;
-            font-weight: 700;
+            font-weight: 600;
             color: hsl(0 0% 100%);
             background: transparent;
             border: none;
@@ -847,29 +840,28 @@ svg {
 
             &:focus { border-bottom-color: hsl(45, 95%, 55%); }
 
-            &.event-hero__dt-input--venue { min-width: 220px; }
+            &.event-hero__meta-input--venue { min-width: 200px; }
         }
 
         .event-hero__join-btn {
             flex-shrink: 0;
             display: inline-flex;
             align-items: center;
-            padding: 12px 28px;
-            background: hsl(0 0% 100% / 0.15);
-            border: 2px solid hsl(0 0% 100% / 0.6);
-            border-radius: 6px;
-            color: hsl(0 0% 100%);
-            font-size: var(--fs-16);
+            padding: 10px 26px;
+            background: hsl(0 0% 100% / 0.92);
+            border: none;
+            border-radius: 999px;
+            color: hsl(0 0% 8%);
+            font-size: 16px;
             font-weight: 700;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.01em;
             text-decoration: none;
             white-space: nowrap;
-            backdrop-filter: blur(6px);
-            transition: background 0.15s, border-color 0.15s;
+            transition: background 0.15s, transform 0.15s;
 
             &:hover {
-                background: hsl(0 0% 100% / 0.28);
-                border-color: hsl(0 0% 100%);
+                background: hsl(0 0% 100%);
+                transform: translateY(-1px);
             }
         }
 
@@ -902,25 +894,16 @@ svg {
             }
         }
 
-        /* Matches the aspect-ratio breakpoint above — the hero goes square
-           at 700px, so content needs to stack right at that same point
-           instead of staying in a wide desktop row down to 540px, which
-           left a gap where a short, square hero met un-stacked content
-           tall enough to push up into the topnav. */
+        /* The hero goes square at 700px (see the aspect-ratio breakpoint
+           above), which gives the content column more vertical room to
+           breathe — nudge sizes down slightly so it still reads as compact
+           on a small screen instead of stretching to fill that extra height. */
         @media (width < calc(700 / 16 * 1rem)) {
-            .event-hero__content { flex-direction: column; align-items: flex-start; gap: 16px; }
-            .event-hero__title   { font-size: clamp(1.9rem, 8vw, 3rem); }
-            .event-hero__actions { flex-direction: column; align-items: flex-start; gap: 12px; }
-
-            .event-hero__datetime {
-                flex-wrap: wrap;
-                gap: 10px 20px;
-            }
-
-            .event-hero__dt-label { font-size: 11px; }
-            .event-hero__dt-value { font-size: 13px; }
-
-            .event-hero__join-btn { padding: 10px 22px; }
+            .event-hero__content  { max-width: 100%; gap: 8px; }
+            .event-hero__title    { font-size: clamp(1.7rem, 8vw, 2.4rem); }
+            .event-hero__meta-item,
+            .event-hero__meta-sep { font-size: 14px; }
+            .event-hero__join-btn { padding: 10px 22px; font-size: 15px; }
         }
     }
 

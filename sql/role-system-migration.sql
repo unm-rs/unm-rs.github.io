@@ -1061,3 +1061,11 @@ ALTER TABLE public.events ADD COLUMN IF NOT EXISTS venue text;
 --     image_url_mobile for events cropped before this existed.
 -- ============================================================
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS image_url_portrait text;
+
+-- ============================================================
+-- 48. Price detail for events, shown/edited in the hero's compact meta
+--     row exactly like venue already is. Free-form text (not numeric) so
+--     it can hold "Free", "$10", "RM15", etc. instead of forcing one
+--     currency/format — same reasoning as venue being plain text.
+-- ============================================================
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS price text;

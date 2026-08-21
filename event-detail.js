@@ -86,16 +86,14 @@
         bgEl.style.setProperty('--hero-bg-mobile', `url('${event.image_url_mobile.replace(/'/g, '%27')}')`);
     }
 
-    const datetimeEl     = document.getElementById('js-datetime');
-    const dateLabelEl    = document.getElementById('js-date-label');
-    const endDateBlockEl = document.getElementById('js-enddate-block');
-    const venueBlockEl   = document.getElementById('js-venue-block');
+    const datetimeEl  = document.getElementById('js-datetime');
     let typeValueEl    = document.getElementById('js-type-value');
     let dateValueEl     = document.getElementById('js-date-value');
     let endDateValueEl  = document.getElementById('js-enddate-value');
     let timeValueEl     = document.getElementById('js-time-value');
     let endTimeValueEl  = document.getElementById('js-endtime-value');
     let venueValueEl    = document.getElementById('js-venue-value');
+    let priceValueEl    = document.getElementById('js-price-value');
 
     const TYPE_LABELS = {
         'single-day': 'Single Day',
@@ -103,6 +101,13 @@
         'weekly':     'Weekly',
         'competition': 'Competition',
     };
+
+    // Fields shown unconditionally once the meta row is visible at all.
+    const CORE_KINDS = ['type', 'date', 'time'];
+    // Fields that only take up space in the row when they're actually set
+    // (or an admin is editing, so there's still something to click on).
+    const OPTIONAL_KINDS = ['enddate', 'endtime', 'venue', 'price'];
+    const ALL_KINDS = [...CORE_KINDS, ...OPTIONAL_KINDS];
 
     const DATE_KINDS = { date: 'currentEventDate', enddate: 'currentEventEndDate' };
     const TIME_KINDS = { time: 'currentEventTime', endtime: 'currentEventEndTime' };
@@ -113,6 +118,7 @@
     let currentEventTime     = event.event_time || '';
     let currentEventEndTime  = event.event_end_time || '';
     let currentEventVenue    = event.venue || '';
+    let currentEventPrice    = event.price || '';
 
     function formatDateDisplay(d) {
         return d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBC';
@@ -128,12 +134,14 @@
     function valueFor(kind) {
         if (kind === 'type')    return currentEventType;
         if (kind === 'venue')   return currentEventVenue;
+        if (kind === 'price')   return currentEventPrice;
         if (kind in DATE_KINDS) return kind === 'date' ? currentEventDate : currentEventEndDate;
         return kind === 'time' ? currentEventTime : currentEventEndTime;
     }
     function displayFor(kind) {
         if (kind === 'type')    return TYPE_LABELS[currentEventType] || TYPE_LABELS['single-day'];
         if (kind === 'venue')   return currentEventVenue || 'Click to add a venue';
+        if (kind === 'price')   return currentEventPrice || 'Click to add a price';
         if (kind in DATE_KINDS) return formatDateDisplay(valueFor(kind));
         return formatTimeDisplay(valueFor(kind));
     }
@@ -143,6 +151,7 @@
         if (kind === 'enddate') return endDateValueEl;
         if (kind === 'time')    return timeValueEl;
         if (kind === 'venue')   return venueValueEl;
+        if (kind === 'price')   return priceValueEl;
         return endTimeValueEl;
     }
     function setEl(kind, span) {
@@ -152,28 +161,49 @@
         if (kind === 'time')    timeValueEl    = span;
         if (kind === 'endtime') endTimeValueEl = span;
         if (kind === 'venue')   venueValueEl   = span;
+        if (kind === 'price')   priceValueEl   = span;
+    }
+    function titleFor(kind) {
+        if (kind === 'venue') return 'Click to change the venue';
+        if (kind === 'price') return 'Click to change the price';
+        return `Click to change ${kind}`;
     }
 
-    function updateForType() {
-        const isRange = currentEventType !== 'single-day';
-        if (dateLabelEl) dateLabelEl.textContent = isRange ? 'Starting Date' : 'Date';
-        if (endDateBlockEl) endDateBlockEl.hidden = !isRange;
+    // Whether an optional field earns a spot in the compact meta row —
+    // hidden once it's empty and nobody can edit it, so a mostly-unset
+    // event doesn't read as a wall of "TBC"s.
+    function isOptionalVisible(kind) {
+        if (kind === 'enddate') return currentEventType !== 'single-day' && (isAdmin || !!currentEventEndDate);
+        if (kind === 'endtime') return isAdmin || !!currentEventEndTime;
+        if (kind === 'venue')   return isAdmin || !!currentEventVenue;
+        if (kind === 'price')   return isAdmin || !!currentEventPrice;
+        return true;
+    }
+
+    // Each optional value has its own separator span right before it (a
+    // "–" for enddate/endtime, since they read as a range with the value
+    // before them, otherwise a "·") — keep the two in sync so hiding one
+    // never leaves a stray dot dangling in the row.
+    function refreshMetaVisibility() {
+        OPTIONAL_KINDS.forEach(kind => {
+            const show = isOptionalVisible(kind);
+            elFor(kind).hidden = !show;
+            const sep = document.getElementById(`js-${kind}-sep`);
+            if (sep) sep.hidden = !show;
+        });
     }
 
     if (datetimeEl) {
-        if (isAdmin || currentEventDate || currentEventTime || currentEventVenue) datetimeEl.hidden = false;
+        if (isAdmin || currentEventDate || currentEventTime || currentEventVenue || currentEventPrice) datetimeEl.hidden = false;
 
-        ['type', 'date', 'enddate', 'time', 'endtime', 'venue'].forEach(kind => {
-            elFor(kind).textContent = displayFor(kind);
-        });
-        updateForType();
-        if (venueBlockEl) venueBlockEl.hidden = !isAdmin && !currentEventVenue;
+        ALL_KINDS.forEach(kind => { elFor(kind).textContent = displayFor(kind); });
+        refreshMetaVisibility();
 
         if (isAdmin) {
-            ['type', 'date', 'enddate', 'time', 'endtime', 'venue'].forEach(kind => {
+            ALL_KINDS.forEach(kind => {
                 const el = elFor(kind);
-                el.classList.add('event-hero__dt-value--editable');
-                el.title = kind === 'venue' ? 'Click to change the venue' : `Click to change ${kind}`;
+                el.classList.add('event-hero__meta-item--editable');
+                el.title = titleFor(kind);
                 el.addEventListener('click', () => editField(kind));
             });
         }
@@ -185,21 +215,21 @@
 
         if (kind === 'type') {
             input = document.createElement('select');
-            input.className = 'event-hero__dt-input';
+            input.className = 'event-hero__meta-input';
             input.innerHTML = Object.entries(TYPE_LABELS)
                 .map(([val, label]) => `<option value="${val}"${val === currentEventType ? ' selected' : ''}>${label}</option>`)
                 .join('');
-        } else if (kind === 'venue') {
+        } else if (kind === 'venue' || kind === 'price') {
             input = document.createElement('input');
             input.type        = 'text';
-            input.value        = currentEventVenue;
-            input.placeholder  = 'e.g. Engineering Building, Room 204';
-            input.className    = 'event-hero__dt-input event-hero__dt-input--venue';
+            input.value        = valueFor(kind);
+            input.placeholder  = kind === 'venue' ? 'e.g. Engineering Building, Room 204' : 'e.g. Free, $10, RM15';
+            input.className    = `event-hero__meta-input event-hero__meta-input--${kind}`;
         } else {
             input = document.createElement('input');
             input.type  = kind in DATE_KINDS ? 'date' : 'time';
             input.value = valueFor(kind);
-            input.className = 'event-hero__dt-input';
+            input.className = 'event-hero__meta-input';
         }
         input.id = el.id;
         el.replaceWith(input);
@@ -217,18 +247,18 @@
             if (kind === 'time')     currentEventTime    = input.value;
             if (kind === 'endtime')  currentEventEndTime = input.value;
             if (kind === 'venue')    currentEventVenue   = input.value.trim();
+            if (kind === 'price')    currentEventPrice   = input.value.trim();
 
             const span = document.createElement('span');
-            span.className = 'event-hero__dt-value event-hero__dt-value--editable';
+            span.className = 'event-hero__meta-item event-hero__meta-item--editable';
             span.id        = input.id;
-            span.title     = kind === 'venue' ? 'Click to change the venue' : `Click to change ${kind}`;
+            span.title     = titleFor(kind);
             span.textContent = displayFor(kind);
             span.addEventListener('click', () => editField(kind));
             input.replaceWith(span);
             setEl(kind, span);
 
-            if (kind === 'type') updateForType();
-            if (kind === 'venue' && venueBlockEl) venueBlockEl.hidden = false; // admin already sees it; stays visible even if cleared, so it's easy to re-add
+            refreshMetaVisibility();
             markDirty();
         };
         input.addEventListener('blur',   commit, { once: true });
@@ -914,6 +944,7 @@
             event_time:        currentEventTime || null,
             event_end_time:    currentEventEndTime || null,
             venue:             currentEventVenue || null,
+            price:             currentEventPrice || null,
         }).eq('id', event.id);
 
         if (error) {
