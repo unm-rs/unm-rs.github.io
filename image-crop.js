@@ -11,25 +11,42 @@
     // page: a drag that missed the (small) handle fell through to the
     // scrollable modal behind it. Instead, measure what's actually
     // available and size the stage(s) to fit without any scrolling.
-    const MODAL_MAX_WIDTH = 480; // matches .ab-modal's own max-width in admin-bar.css
-    function computeStageMax(overlay, modal, stageCount) {
+    const MODAL_MAX_WIDTH_STACKED      = 480; // matches .ab-modal's own max-width in admin-bar.css
+    const MODAL_MAX_WIDTH_SIDE_BY_SIDE = 860; // wider ceiling so two stages side by side can each still get real room
+    // Matches the CSS breakpoint that switches .ic-stages-row from a
+    // stacked column to a row (see admin-bar.css) — keep the two in sync,
+    // or this sizing math and the actual layout disagree.
+    const SIDE_BY_SIDE_BREAKPOINT = 700;
+
+    // `sideBySide` mirrors the CSS layout: stacked stages split the
+    // available HEIGHT between them (one on top of another), side-by-side
+    // stages instead split the available WIDTH and each keep the full
+    // height — same idea, different axis.
+    function computeStageMax(overlay, modal, stageCount, sideBySide) {
         const modalStyle   = getComputedStyle(modal);
         const modalPadX    = parseFloat(modalStyle.paddingLeft) + parseFloat(modalStyle.paddingRight);
         const overlayStyle = getComputedStyle(overlay);
         const overlayPadX  = parseFloat(overlayStyle.paddingLeft) + parseFloat(overlayStyle.paddingRight);
         const overlayPadY  = parseFloat(overlayStyle.paddingTop)  + parseFloat(overlayStyle.paddingBottom);
         // .ic-modal is max-width:fit-content, so modal.clientWidth isn't
-        // trustworthy yet — the stage (the thing that would normally make
-        // it wide) has no size of its own until this function returns.
+        // trustworthy yet — the stage(s) (the thing that would normally make
+        // it wide) have no size of their own until this function returns.
         // Derive available width straight from the viewport instead.
-        const availW = Math.min(MODAL_MAX_WIDTH, window.innerWidth - overlayPadX) - modalPadX;
+        const modalCeiling = sideBySide ? MODAL_MAX_WIDTH_SIDE_BY_SIDE : MODAL_MAX_WIDTH_STACKED;
+        const availW = Math.min(modalCeiling, window.innerWidth - overlayPadX) - modalPadX;
         // The modal's height, on the other hand, IS already accurate at
         // this point — nothing else here is fit-content, so what's
         // rendered right now really is just its chrome (header, labels,
         // buttons, padding) before the still-unsized stage(s) add anything.
         const chromeH = modal.getBoundingClientRect().height;
-        const availH  = (window.innerHeight - overlayPadY - chromeH) / stageCount;
-        return Math.max(160, Math.floor(Math.min(availW, availH)));
+        const availH  = window.innerHeight - overlayPadY - chromeH;
+
+        if (sideBySide && stageCount > 1) {
+            const rowGap    = 28 * (stageCount - 1); // matches .ic-stages-row's column-gap
+            const perStageW = (availW - rowGap) / stageCount;
+            return Math.max(160, Math.floor(Math.min(perStageW, availH)));
+        }
+        return Math.max(160, Math.floor(Math.min(availW, availH / stageCount)));
     }
 
     function stageMarkup(circle) {
@@ -224,7 +241,7 @@
             const img = new Image();
             img.onload = () => {
                 const modal = overlay.querySelector('.ic-modal');
-                stageApi = initCropStage(overlay.querySelector('#ic-container'), img, aspect, computeStageMax(overlay, modal, 1));
+                stageApi = initCropStage(overlay.querySelector('#ic-container'), img, aspect, computeStageMax(overlay, modal, 1, false));
             };
             img.src = objectUrl;
 
@@ -253,10 +270,14 @@
                         <h2 class="ab-modal__title">Crop Image</h2>
                         <button class="ab-modal__close" id="ic-close">✕</button>
                     </div>
-                    ${stages.map((s, i) => `
-                        <p class="ic-dual-label">${esc(s.label)}</p>
-                        <div id="ic-container-${i}">${stageMarkup(s.circle)}</div>
-                    `).join('')}
+                    <div class="ic-stages-row">
+                        ${stages.map((s, i) => `
+                            <div class="ic-pair">
+                                <p class="ic-dual-label">${esc(s.label)}</p>
+                                <div id="ic-container-${i}">${stageMarkup(s.circle)}</div>
+                            </div>
+                        `).join('')}
+                    </div>
                     <div class="ab-form-actions">
                         <button class="ab-form-btn ab-form-btn--ghost" id="ic-cancel">Cancel</button>
                         <button class="ab-form-btn ab-form-btn--primary" id="ic-confirm">Use ${stages.length > 1 ? 'These Crops' : 'This Crop'}</button>
@@ -279,8 +300,9 @@
             let apis = null;
             const img = new Image();
             img.onload = () => {
-                const modal    = overlay.querySelector('.ic-modal');
-                const stageMax = computeStageMax(overlay, modal, stages.length);
+                const modal      = overlay.querySelector('.ic-modal');
+                const sideBySide = stages.length > 1 && window.innerWidth >= SIDE_BY_SIDE_BREAKPOINT;
+                const stageMax   = computeStageMax(overlay, modal, stages.length, sideBySide);
                 apis = stages.map((s, i) =>
                     initCropStage(overlay.querySelector(`#ic-container-${i}`), img, s.aspect, stageMax));
             };

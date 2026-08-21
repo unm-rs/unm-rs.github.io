@@ -309,15 +309,45 @@
 .ic-modal { max-width: fit-content; }
 .ic-modal--dual { max-height: 90vh; overflow-y: auto; }
 
+.ic-stages-row {
+    display: flex;
+    flex-direction: column;
+}
+
+.ic-pair + .ic-pair { margin-block-start: 14px; }
+
 .ic-dual-label {
     font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: hsl(220, 14%, 55%);
-    margin-block: 14px 8px;
+    margin-block: 4px 8px;
 }
-.ic-dual-label:first-of-type { margin-block-start: 4px; }
+
+/* Side by side once there's room to give each stage its own column.
+   Stacked, every stage only gets a share of the viewport's HEIGHT to
+   work with (half, for the usual desktop+mobile crop pair) — which is
+   what made them feel cramped on an otherwise roomy desktop screen.
+   Arranged in a row instead, each stage keeps the viewport's full
+   height and only shares its WIDTH, which a desktop screen has plenty
+   of. See computeStageMax()'s matching `sideBySide` branch in
+   image-crop.js, gated at the same 700px breakpoint. */
+@media (min-width: 700px) {
+    .ic-stages-row {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 28px;
+    }
+
+    .ic-pair {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+    .ic-pair + .ic-pair { margin-block-start: 0; }
+
+    .ic-dual-label { text-align: center; }
+}
 
 .ic-stage {
     position: relative;
