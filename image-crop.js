@@ -11,8 +11,8 @@
     // page: a drag that missed the (small) handle fell through to the
     // scrollable modal behind it. Instead, measure what's actually
     // available and size the stage(s) to fit without any scrolling.
-    const MODAL_MAX_WIDTH_STACKED      = 480; // matches .ab-modal's own max-width in admin-bar.css
-    const MODAL_MAX_WIDTH_SIDE_BY_SIDE = 860; // wider ceiling so two stages side by side can each still get real room
+    const MODAL_MAX_WIDTH_STACKED      = 480;     // matches .ab-modal's own max-width in admin-bar.css
+    const MODAL_MAX_WIDTH_SIDE_BY_SIDE = Infinity; // no ceiling of its own — let the viewport (below) be the only limit, so the modal fills almost the whole screen on desktop
     // Matches the CSS breakpoint that switches .ic-stages-row from a
     // stacked column to a row (see admin-bar.css) — keep the two in sync,
     // or this sizing math and the actual layout disagree.
