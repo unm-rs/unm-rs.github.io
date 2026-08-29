@@ -1069,3 +1069,20 @@ ALTER TABLE public.events ADD COLUMN IF NOT EXISTS image_url_portrait text;
 --     currency/format — same reasoning as venue being plain text.
 -- ============================================================
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS price text;
+
+-- ============================================================
+-- 49. About page: a SpaceX-mission-style stats strip below the
+--     main editable canvas — a row of big numbers, each with a
+--     label under it, all mod-editable inline. Stored as a JSON
+--     array on the same about_page singleton row (no new table,
+--     no new policy — the existing "Admins update about page"
+--     UPDATE policy already covers every column). Defaults to an
+--     empty array; the public page just hides the strip until a
+--     mod fills something in.
+--
+--     Shape: [{ "num": "42", "label": "Projects Shipped" }, ...]
+--     Free-form text for both (not numeric) so "42", "1,200+",
+--     "∞" all work — same reasoning as events.price being text.
+-- ============================================================
+ALTER TABLE public.about_page
+  ADD COLUMN IF NOT EXISTS stats jsonb NOT NULL DEFAULT '[]'::jsonb;

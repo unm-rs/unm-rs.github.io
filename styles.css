@@ -1275,6 +1275,11 @@ svg {
 
     .about-wrap {
         max-width: none;
+        /* The editable canvas is meant to read as its own full screen —
+           the SpaceX-style stats strip below it only comes into view once
+           you scroll past this. */
+        min-height: 100vh;
+        box-sizing: border-box;
         padding: 110px clamp(32px, 9vw, 160px) 100px;
     }
 
@@ -1385,6 +1390,92 @@ svg {
 
     .about-canvas--editing .about-img-frame:hover .about-img-align {
         display: flex;
+    }
+
+    /* SpaceX-mission-style band of big numbers under the About canvas.
+       Full-bleed dark strip; each item is a large editable number with a
+       small uppercase label beneath it. */
+    .about-stats {
+        background-color: hsl(0, 0%, 0%);
+        color: hsl(0, 0%, 98%);
+        padding-block: clamp(48px, 9vh, 104px);
+        padding-inline: clamp(14px, 2.5vw, 40px);
+        display: flex;
+        flex-direction: column;
+        gap: 44px;
+        border-bottom: 1px solid hsl(0, 0%, 100%);
+    }
+
+    .about-stats__hint {
+        text-align: center;
+        font-size: var(--fs-14);
+        color: hsl(0, 0%, 55%);
+    }
+
+    .about-stats__grid {
+        display: grid;
+        /* Equal columns — each stat owns its third (left / middle / right)
+           within a fixed max-width area, with a comfortable gap between. */
+        grid-template-columns: repeat(var(--about-stats-cols, 3), 1fr);
+        gap: clamp(24px, 4vw, 72px);
+        width: 100%;
+        max-width: 1180px;
+        margin-inline: auto;
+    }
+
+    .about-stat {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+        min-width: 0; /* let the number shrink instead of forcing the row wider */
+    }
+
+    .about-stat__num {
+        font-size: clamp(3.5rem, 12vw, 12rem);
+        font-weight: 800;
+        line-height: 0.9;
+        letter-spacing: -0.03em;
+    }
+
+    .about-stat__label {
+        font-size: clamp(1rem, 1.1vw, 1.25rem);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: hsl(0, 0%, 85%);
+    }
+
+    .about-stats--editing .about-stat__num,
+    .about-stats--editing .about-stat__label {
+        outline: 1px dashed hsl(0 0% 100% / 0.22);
+        outline-offset: 6px;
+        border-radius: 3px;
+        cursor: text;
+        transition: outline-color 0.15s;
+    }
+
+    .about-stats--editing .about-stat__num:hover,
+    .about-stats--editing .about-stat__label:hover,
+    .about-stats--editing .about-stat__num:focus,
+    .about-stats--editing .about-stat__label:focus {
+        outline-color: hsl(45, 95%, 55%);
+    }
+
+    /* Placeholder shown while a field is empty (admin editing view) */
+    .about-stat__num[data-placeholder]:empty::before,
+    .about-stat__label[data-placeholder]:empty::before {
+        content: attr(data-placeholder);
+        opacity: 0.3;
+    }
+
+    /* Portrait / stacked on mobile — one number per row, top to bottom */
+    @media (max-width: 780px) {
+        .about-stats__grid {
+            grid-template-columns: 1fr;
+            row-gap: clamp(48px, 11vw, 72px);
+        }
+        .about-stat__num { font-size: clamp(4.5rem, 30vw, 12rem); }
     }
 
     .values {

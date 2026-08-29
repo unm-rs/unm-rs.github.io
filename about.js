@@ -167,13 +167,63 @@
         }
     }
 
+    function esc(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // SpaceX-mission-style strip of big numbers below the main canvas.
+    // Fixed at three slots while editing; the public page only renders the
+    // slots that have something in them (and nothing at all if none do).
+    const STAT_COUNT = 3;
+
+    function renderStatsSection(stats, editable) {
+        if (editable) {
+            const items = Array.from({ length: STAT_COUNT }, (_, i) => {
+                const s = stats[i] || {};
+                return `
+                    <div class="about-stat">
+                        <span class="about-stat__num" data-stat="num" data-placeholder="0"
+                              contenteditable="true">${esc(s.num || '')}</span>
+                        <span class="about-stat__label" data-stat="label" data-placeholder="hi"
+                              contenteditable="true">${esc(s.label || '')}</span>
+                    </div>`;
+            }).join('');
+            return `
+                <section class="about-stats about-stats--editing" id="js-about-stats" style="--about-stats-cols:${STAT_COUNT}">
+                    <p class="about-stats__hint">do the thing</p>
+                    <div class="about-stats__grid">${items}</div>
+                </section>`;
+        }
+
+        const filled = (stats || []).filter(s => s && (String(s.num || '').trim() || String(s.label || '').trim()));
+        if (!filled.length) return '';
+        const items = filled.map(s => `
+            <div class="about-stat">
+                <span class="about-stat__num">${esc(String(s.num || '').trim() || '0')}</span>
+                <span class="about-stat__label">${esc(String(s.label || '').trim() || 'hi')}</span>
+            </div>`).join('');
+        return `
+            <section class="about-stats" id="js-about-stats" style="--about-stats-cols:${filled.length}">
+                <div class="about-stats__grid">${items}</div>
+            </section>`;
+    }
+
     const root = document.getElementById('js-about-root');
+    // select('*') rather than naming `stats` explicitly: the column only
+    // exists once SQL migration step 49 has been run, and naming a missing
+    // column fails the whole query (which would blank out the saved
+    // content). This way the page still works before the migration —
+    // `stats` is just absent and the strip stays empty.
     const [{ isAdmin }, { data: row }] = await Promise.all([
         window.roleReady,
-        db.from('about_page').select('content').eq('id', true).maybeSingle(),
+        db.from('about_page').select('*').eq('id', true).maybeSingle(),
     ]);
 
-    const savedContent = row?.content || '';
+    const savedContent   = row?.content || '';
+    const savedStats     = Array.isArray(row?.stats) ? row.stats : [];
+    const hasStatsColumn = !!row && 'stats' in row;
     document.title = 'About';
 
     root.innerHTML = `
@@ -210,7 +260,8 @@
             </div>` : ''}
             <div class="about-canvas${isAdmin ? ' about-canvas--editing' : ''}" id="about-canvas"
                  ${isAdmin ? 'contenteditable="true"' : ''}>${sanitizeHtml(savedContent)}</div>
-        </div>`;
+        </div>
+        ${renderStatsSection(savedStats, isAdmin)}`;
 
     if (!isAdmin) return;
 
@@ -223,6 +274,26 @@
     let isDirty = false;
 
     canvas.querySelectorAll('img').forEach(wrapImageForResize);
+
+    // --- Stats strip editing -------------------------------------------
+    const statsSection = document.getElementById('js-about-stats');
+    statsSection.querySelectorAll('[data-stat]').forEach(el => {
+        // Keep the node truly empty when blank so the CSS :empty placeholder
+        // ("0" / "hi") shows instead of a stray <br> the browser leaves behind.
+        const clearIfBlank = () => { if (!el.textContent.trim()) el.innerHTML = ''; };
+        el.addEventListener('input', () => { clearIfBlank(); markDirty(); });
+        el.addEventListener('blur', clearIfBlank);
+        el.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); el.blur(); } // single-line fields
+        });
+    });
+
+    function collectStats() {
+        return [...statsSection.querySelectorAll('.about-stat')].map(item => ({
+            num:   item.querySelector('[data-stat="num"]').textContent.trim(),
+            label: item.querySelector('[data-stat="label"]').textContent.trim(),
+        }));
+    }
 
     function markDirty() {
         if (isDirty) return;
@@ -317,7 +388,14 @@
 
         const clone = canvas.cloneNode(true);
         clone.querySelectorAll('.about-img-handle, .about-img-align').forEach(el => el.remove());
-        const { error } = await db.from('about_page').update({ content: clone.innerHTML }).eq('id', true);
+
+        // Only write `stats` if the column actually exists (SQL step 49) —
+        // otherwise the update errors and nothing, including the content,
+        // gets saved.
+        const payload = { content: clone.innerHTML };
+        if (hasStatsColumn) payload.stats = collectStats();
+
+        const { error } = await db.from('about_page').update(payload).eq('id', true);
 
         if (error) {
             alert('Save failed: ' + error.message);
