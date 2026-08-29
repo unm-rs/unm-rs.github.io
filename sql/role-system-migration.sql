@@ -1132,3 +1132,40 @@ CREATE POLICY "Admins manage event gallery"
   ON public.event_gallery FOR ALL TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
+
+-- ============================================================
+-- 52. About page: two full-screen feature sections below the
+--     stats strip — the same SpaceX-style banner + editable
+--     title/description/CTA blocks the home page has
+--     (home_feature_sections, step 40), just for /about. Fixed at
+--     two rows, alternating left/right text alignment. Dual
+--     desktop/mobile crop stored the same way. The lower
+--     free-text canvas (step 50, content_below) is retired — it's
+--     replaced by these. `content_below` is left in place, just
+--     unused, so no destructive change is needed.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.about_feature_sections (
+  id               text PRIMARY KEY CHECK (id IN ('section-1', 'section-2')),
+  title            text,
+  description      text,
+  cta_label        text,
+  cta_href         text,
+  image_url        text,
+  image_url_mobile text
+);
+
+INSERT INTO public.about_feature_sections (id) VALUES ('section-1'), ('section-2')
+  ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE public.about_feature_sections ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public read about feature sections" ON public.about_feature_sections;
+CREATE POLICY "Public read about feature sections"
+  ON public.about_feature_sections FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Admins update about feature sections" ON public.about_feature_sections;
+CREATE POLICY "Admins update about feature sections"
+  ON public.about_feature_sections FOR UPDATE TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());

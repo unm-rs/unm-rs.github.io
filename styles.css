@@ -1414,6 +1414,11 @@ svg {
         padding: 110px clamp(32px, 9vw, 160px) 100px;
     }
 
+    /* When the stats strip is the last thing in the wrap, butt it straight
+       up against the feature sections that follow — no trailing gap. */
+    .about-wrap:has(> .about-stats:last-child) { padding-bottom: 0; }
+    .about-stats:last-child { margin-bottom: 0; }
+
     .about-toolbar {
         position: sticky;
         top: 70px;
@@ -1469,11 +1474,6 @@ svg {
         min-height: 8rem;
     }
 
-    /* The lower canvas sits right under the stats strip */
-    .about-canvas--below {
-        margin-block-start: clamp(40px, 7vw, 88px);
-    }
-
     .about-img-frame {
         position: relative;
         display: inline-block;
@@ -1482,6 +1482,22 @@ svg {
         vertical-align: bottom;
         border-radius: 6px;
         margin: 4px;
+    }
+
+    /* A floated image never takes the whole width, so there's always a
+       column of text beside it. */
+    .about-img-frame--float {
+        max-width: 55%;
+    }
+
+    /* On phones, stack instead of floating — a 55%-wide image beside text
+       is unreadable at that size. */
+    @media (max-width: 600px) {
+        .about-img-frame--float {
+            float: none !important;
+            max-width: 100%;
+            margin-inline: 0 !important;
+        }
     }
 
     .about-canvas--editing .about-img-frame {
@@ -1565,7 +1581,7 @@ svg {
         display: flex;
         flex-direction: column;
         gap: 44px;
-        border-bottom: 1px solid hsl(0, 0%, 100%);
+        border-bottom: 0px solid hsl(0, 0%, 100%);
     }
 
     .about-stats__hint {

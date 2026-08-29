@@ -82,6 +82,8 @@
         frame.style.marginInlineEnd   = '';
         frame.style.marginInlineStart = '';
         frame.style.marginBottom      = '';
+        const floated = align === 'left' || align === 'right';
+        frame.classList.toggle('about-img-frame--float', floated);
         if (align === 'left') {
             frame.style.float = 'left';
             frame.style.marginInlineEnd = '16px';
@@ -96,8 +98,10 @@
         } else {
             frame.style.display = 'inline-block';
         }
-        // A freshly floated frame still needs caret targets on both sides.
-        ensureFrameEditableSiblings(frame);
+        // Floated frames need to share a block with the text so it can wrap
+        // beside them across many lines; inline/centre just need caret pads.
+        if (floated) ensureFloatContext(frame);
+        else         ensureFrameEditableSiblings(frame);
     }
 
     function wrapImageForResize(img) {
@@ -190,6 +194,19 @@
             };
             if (img.complete && img.naturalWidth) applySize();
             else img.addEventListener('load', applySize, { once: true });
+
+            // Default a newly inserted image to float-left, so text wraps
+            // beside it right away instead of it sitting on one tall line.
+            setAlignment(frame, 'left');
+        } else if (frame.style.float === 'left' || frame.style.float === 'right') {
+            // Re-establish the block/caret context for images saved as floated.
+            frame.classList.add('about-img-frame--float');
+            ensureFloatContext(frame);
+        } else if (!frame.style.float && !frame.style.display) {
+            // A loaded image that never had an alignment set behaves like an
+            // inline block — one tall line, nothing wraps beside it. Give it
+            // the same float-left default as a fresh insert.
+            setAlignment(frame, 'left');
         }
     }
 
@@ -210,6 +227,56 @@
         const isText = n => n && n.nodeType === Node.TEXT_NODE;
         if (!isText(frame.previousSibling)) frame.before(document.createTextNode(ZWSP));
         if (!isText(frame.nextSibling))     frame.after(document.createTextNode(ZWSP));
+    }
+
+    // For a floated image, text only wraps into multiple lines beside it if
+    // the image and that text live in the SAME block box, with the image
+    // first. This normalises whatever contenteditable produced into that
+    // shape: image = first child of a paragraph, the following run of text
+    // pulled in alongside it. Without this the text ends up in a separate
+    // block and only the line level with the image's bottom is reachable.
+    const BLOCK_TAGS = /^(P|DIV|H1|H2|H3|H4|UL|OL|BLOCKQUOTE|HR|TABLE)$/;
+
+    function blockIsJustFrame(block, frame) {
+        const blank = n => n.nodeType === Node.TEXT_NODE && !n.data.split(ZWSP).join('').trim();
+        return ![...block.childNodes].some(n =>
+            n !== frame && !blank(n) &&
+            !(n.nodeType === Node.ELEMENT_NODE && n.tagName === 'BR'));
+    }
+
+    function ensureFloatContext(frame) {
+        const canvasEl = frame.closest('.about-canvas');
+        if (!canvasEl) { ensureFrameEditableSiblings(frame); return; }
+
+        let block = frame.parentElement;
+
+        // (1) bare in the editable root → give it a paragraph and sweep the
+        //     following inline run into it
+        if (block === canvasEl) {
+            const p = document.createElement('p');
+            frame.replaceWith(p);
+            p.appendChild(frame);
+            while (p.nextSibling && !(p.nextSibling.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.test(p.nextSibling.tagName))) {
+                p.appendChild(p.nextSibling);
+            }
+            block = p;
+        }
+
+        // (2) image should be the first thing in its block so text wraps from
+        //     the top edge, not just the bottom
+        if (block.firstChild !== frame) block.insertBefore(frame, block.firstChild);
+
+        // (3) if the block is nothing but the image, fold the next block's
+        //     content in after it so there's something to wrap beside
+        if (blockIsJustFrame(block, frame)) {
+            const next = block.nextElementSibling;
+            if (next && /^(P|DIV)$/.test(next.tagName)) {
+                while (next.firstChild) block.appendChild(next.firstChild);
+                next.remove();
+            }
+        }
+
+        ensureFrameEditableSiblings(frame);
     }
 
     function frameFromNode(node) {
@@ -288,17 +355,30 @@
     // column fails the whole query (which would blank out the saved
     // content). This way the page still works before the migration —
     // `stats` is just absent and the strip stays empty.
-    const [{ isAdmin }, { data: row }] = await Promise.all([
+    const [{ isAdmin }, { data: row }, featRes] = await Promise.all([
         window.roleReady,
         db.from('about_page').select('*').eq('id', true).maybeSingle(),
+        db.from('about_feature_sections').select('*'),
     ]);
 
-    const savedContent          = row?.content || '';
-    const savedContentBelow     = row?.content_below || '';
-    const savedStats            = Array.isArray(row?.stats) ? row.stats : [];
-    const hasStatsColumn        = !!row && 'stats' in row;
-    const hasContentBelowColumn = !!row && 'content_below' in row;
+    const savedContent   = row?.content || '';
+    const savedStats     = Array.isArray(row?.stats) ? row.stats : [];
+    const hasStatsColumn = !!row && 'stats' in row;
     document.title = 'About';
+
+    // Home-page-style full-screen feature sections below the strip.
+    // Fixed at two, alternating text alignment (SQL step 52). The table
+    // may not exist yet before that migration runs — degrade to nothing.
+    const FEAT_IDS     = ['section-1', 'section-2'];
+    const hasFeatTable = !featRes.error;
+    const featById     = Object.fromEntries((featRes.data || []).map(r => [r.id, r]));
+    const featHasContent = FEAT_IDS.some(id => {
+        const r = featById[id];
+        return r && (r.title || r.description || r.image_url);
+    });
+    // Admins always get both (empty, editable) sections once the table
+    // exists; visitors only see sections that have been filled in.
+    const showFeatureSections = isAdmin ? hasFeatTable : featHasContent;
 
     root.innerHTML = `
         <div class="about-wrap">
@@ -335,10 +415,154 @@
             <div class="about-canvas${isAdmin ? ' about-canvas--editing' : ''}" id="about-canvas"
                  ${isAdmin ? 'contenteditable="true"' : ''}>${sanitizeHtml(savedContent)}</div>
             ${renderStatsSection(savedStats, isAdmin)}
-            ${(isAdmin || savedContentBelow) ? `
-            <div class="about-canvas about-canvas--below${isAdmin ? ' about-canvas--editing' : ''}" id="about-canvas-2"
-                 ${isAdmin ? 'contenteditable="true"' : ''}>${sanitizeHtml(savedContentBelow)}</div>` : ''}
-        </div>`;
+        </div>
+        ${showFeatureSections ? `
+        <section class="feature-hero" id="js-about-feat-1"></section>
+        <section class="feature-hero" id="js-about-feat-2"></section>` : ''}`;
+
+    // Shared "Unsaved changes" bar — the main canvas, the stats strip and
+    // the feature sections all flow through this one save.
+    const saveBar = document.getElementById('js-savebar');
+    const saveBtn = document.getElementById('js-savebtn');
+    let   isDirty = false;
+
+    function markDirty() {
+        if (isDirty) return;
+        isDirty = true;
+        saveBar.hidden = false;
+        document.body.style.paddingBottom = '72px';
+    }
+
+    // --- Home-style feature sections ----------------------------------
+    const pendingFeatureImages = {};   // { 'section-1': { desktop, mobile } }
+    const dirtyFeatureIds      = new Set();
+    function markFeatureDirty(id) { dirtyFeatureIds.add(id); markDirty(); }
+
+    function startCtaUrlEdit(ctaUrlEl, id) {
+        const input = document.createElement('input');
+        input.type        = 'text';
+        input.className   = 'feature-hero__cta-url-input';
+        input.value       = ctaUrlEl.dataset.href || '';
+        input.placeholder = '/eventspage/, https://example.com, …';
+        ctaUrlEl.replaceWith(input);
+        input.focus();
+        input.select();
+
+        let done = false;
+        const commit = () => {
+            if (done) return;
+            done = true;
+            const next = input.value.trim();
+            if (next !== (ctaUrlEl.dataset.href || '')) {
+                ctaUrlEl.dataset.href = next;
+                markFeatureDirty(id);
+            }
+            ctaUrlEl.textContent = `→ ${next || '(no link set)'}`;
+            input.replaceWith(ctaUrlEl);
+        };
+        input.addEventListener('blur', commit, { once: true });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter')  input.blur();
+            if (e.key === 'Escape') { done = true; input.replaceWith(ctaUrlEl); }
+        });
+    }
+
+    function renderFeatureSections() {
+        FEAT_IDS.forEach((id, idx) => {
+            const el = document.getElementById(`js-about-feat-${idx + 1}`);
+            if (!el) return;
+            const rowF  = featById[id] || {};
+            const align = idx === 0 ? 'left' : 'right';
+
+            // Public view: skip a section that's got nothing in it yet.
+            if (!isAdmin && !rowF.title && !rowF.description && !rowF.image_url) {
+                el.remove();
+                return;
+            }
+
+            el.className = `feature-hero feature-hero--${align}`;
+            el.innerHTML = `
+                <div class="feature-hero__bg"></div>
+                <div class="feature-hero__overlay"></div>
+                ${isAdmin ? `
+                <label class="hero-img-btn" data-role="imgbtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Change Image
+                    <input type="file" accept="image/*" hidden data-role="imginput">
+                </label>` : ''}
+                <div class="feature-hero__content">
+                    <h2 class="feature-hero__title" data-role="title"${isAdmin ? ' contenteditable="true"' : ''}>${esc(rowF.title || '')}</h2>
+                    <p class="feature-hero__desc" data-role="desc"${isAdmin ? ' contenteditable="true"' : ''}>${esc(rowF.description || '')}</p>
+                    ${isAdmin
+                        ? `<span class="feature-hero__cta" data-role="cta" contenteditable="true" tabindex="0" role="button">${esc(rowF.cta_label || '')}</span>
+                           <p class="feature-hero__cta-url" data-role="ctaurl" data-href="${esc(rowF.cta_href || '')}" title="Click to change where this button links to">→ ${esc(rowF.cta_href || '(no link set)')}</p>`
+                        : (rowF.cta_label
+                            ? `<a class="feature-hero__cta" data-role="cta" href="${esc(rowF.cta_href || '#')}">${esc(rowF.cta_label)}</a>`
+                            : '')}
+                </div>`;
+
+            if (rowF.image_url)        el.style.setProperty('--hero-bg-desktop', `url('${rowF.image_url.replace(/'/g, '%27')}')`);
+            if (rowF.image_url_mobile) el.style.setProperty('--hero-bg-mobile',  `url('${rowF.image_url_mobile.replace(/'/g, '%27')}')`);
+
+            if (!isAdmin) return;
+
+            el.querySelector('[data-role="title"]').addEventListener('input', () => markFeatureDirty(id));
+            el.querySelector('[data-role="desc"]').addEventListener('input',  () => markFeatureDirty(id));
+            el.querySelector('[data-role="cta"]').addEventListener('input',   () => markFeatureDirty(id));
+
+            el.querySelector('[data-role="ctaurl"]').addEventListener('click', e => startCtaUrlEdit(e.currentTarget, id));
+
+            el.querySelector('[data-role="imginput"]').addEventListener('change', async e => {
+                const file = e.target.files[0];
+                e.target.value = '';
+                if (!file || !validateImageFile(file)) return;
+
+                const crops = await window.openDualImageCropper(file, {
+                    top:    { aspect: 16 / 9, outputWidth: 1920, outputHeight: 1080, label: 'Desktop (16:9)' },
+                    bottom: { aspect: 9 / 16, outputWidth: 1080, outputHeight: 1920, label: 'Mobile (9:16)' },
+                });
+                if (!crops) return;
+
+                pendingFeatureImages[id] = crops;
+                el.style.setProperty('--hero-bg-desktop', `url('${URL.createObjectURL(crops.desktop)}')`);
+                el.style.setProperty('--hero-bg-mobile',  `url('${URL.createObjectURL(crops.mobile)}')`);
+                markFeatureDirty(id);
+            });
+        });
+    }
+
+    async function saveFeatureSections() {
+        for (const id of dirtyFeatureIds) {
+            const idx = FEAT_IDS.indexOf(id);
+            const el  = document.getElementById(`js-about-feat-${idx + 1}`);
+            if (!el) continue;
+
+            const update = {
+                title:       el.querySelector('[data-role="title"]').textContent.trim() || null,
+                description: el.querySelector('[data-role="desc"]').textContent.trim()  || null,
+                cta_label:   el.querySelector('[data-role="cta"]').textContent.trim()   || null,
+                cta_href:    (el.querySelector('[data-role="ctaurl"]').dataset.href || '').trim() || null,
+            };
+
+            if (pendingFeatureImages[id]) {
+                const stamp = Date.now();
+                const [d, m] = await Promise.all([
+                    db.storage.from(BUCKET).upload(`about-hero/${id}-${stamp}.jpg`,        pendingFeatureImages[id].desktop, { upsert: true }),
+                    db.storage.from(BUCKET).upload(`about-hero/${id}-${stamp}-mobile.jpg`, pendingFeatureImages[id].mobile,  { upsert: true }),
+                ]);
+                if (d.error || m.error) throw (d.error || m.error);
+                update.image_url        = db.storage.from(BUCKET).getPublicUrl(d.data.path).data.publicUrl;
+                update.image_url_mobile = db.storage.from(BUCKET).getPublicUrl(m.data.path).data.publicUrl;
+                delete pendingFeatureImages[id];
+            }
+
+            const { error } = await db.from('about_feature_sections').update(update).eq('id', id);
+            if (error) throw error;
+        }
+        dirtyFeatureIds.clear();
+    }
+
+    renderFeatureSections();
 
     // Count the stat numbers up from 0 the first time the strip scrolls into
     // view (read-only view only — the admin fields are contenteditable and
@@ -411,35 +635,26 @@
 
     document.execCommand('styleWithCSS', false, true);
 
-    const canvas   = document.getElementById('about-canvas');
-    const canvas2  = document.getElementById('about-canvas-2');
-    const canvases = [canvas, canvas2].filter(Boolean);
-    const toolbar  = document.getElementById('ab-toolbar');
-    const saveBar  = document.getElementById('js-savebar');
-    const saveBtn  = document.getElementById('js-savebtn');
-    let isDirty = false;
+    const canvas  = document.getElementById('about-canvas');
+    const toolbar = document.getElementById('ab-toolbar');
+    let activeCanvas = canvas; // only one canvas now; kept for the toolbar helpers
 
-    // The one sticky toolbar drives whichever canvas was last focused.
-    let activeCanvas = canvas;
-    canvases.forEach(c => {
-        c.addEventListener('focusin', () => { activeCanvas = c; });
-        c.addEventListener('input', () => markDirty());
-        c.querySelectorAll('img').forEach(wrapImageForResize);
+    canvas.addEventListener('input', () => markDirty());
+    canvas.querySelectorAll('img').forEach(wrapImageForResize);
 
-        // If a click lands on a (floated) image frame, drop the caret into
-        // the text next to it instead — run after the browser has placed its
-        // own selection.
-        c.addEventListener('click', e => {
-            if (e.target.closest('.about-img-align, .about-img-handle')) return;
-            const x = e.clientX;
-            setTimeout(() => rescueCaret(c, x), 0);
-        });
-        // Same guard for typing — hop the caret off the frame before the key
-        // would otherwise be swallowed.
-        c.addEventListener('keydown', e => {
-            if (e.ctrlKey || e.metaKey || e.altKey) return;
-            if (e.key === 'Enter' || e.key.length === 1) rescueCaret(c, null);
-        });
+    // If a click lands on a (floated) image frame, drop the caret into the
+    // text next to it instead — run after the browser has placed its own
+    // selection.
+    canvas.addEventListener('click', e => {
+        if (e.target.closest('.about-img-align, .about-img-handle')) return;
+        const x = e.clientX;
+        setTimeout(() => rescueCaret(canvas, x), 0);
+    });
+    // Same guard for typing — hop the caret off the frame before the key
+    // would otherwise be swallowed.
+    canvas.addEventListener('keydown', e => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key === 'Enter' || e.key.length === 1) rescueCaret(canvas, null);
     });
 
     // --- Stats strip editing -------------------------------------------
@@ -460,13 +675,6 @@
             num:   item.querySelector('[data-stat="num"]').textContent.trim(),
             label: item.querySelector('[data-stat="label"]').textContent.trim(),
         }));
-    }
-
-    function markDirty() {
-        if (isDirty) return;
-        isDirty = true;
-        saveBar.hidden = false;
-        document.body.style.paddingBottom = '72px';
     }
 
     toolbar.addEventListener('mousedown', e => {
@@ -558,17 +766,25 @@
             return clone.innerHTML.split(ZWSP).join('');
         };
 
-        // Only write a column if it actually exists yet (SQL steps 49/50) —
-        // naming a missing column fails the whole update, so nothing,
-        // including `content`, would get saved.
+        // Only write `stats` if the column exists yet (SQL step 49) — naming
+        // a missing column fails the whole update, so nothing, `content`
+        // included, would get saved.
         const payload = { content: cleanHtml(canvas) };
-        if (hasStatsColumn)        payload.stats        = collectStats();
-        if (hasContentBelowColumn) payload.content_below = cleanHtml(canvas2);
+        if (hasStatsColumn) payload.stats = collectStats();
 
         const { error } = await db.from('about_page').update(payload).eq('id', true);
 
         if (error) {
             alert('Save failed: ' + error.message);
+            saveBtn.disabled    = false;
+            saveBtn.textContent = 'Save Changes';
+            return;
+        }
+
+        try {
+            await saveFeatureSections();
+        } catch (featErr) {
+            alert('The feature sections could not be saved: ' + (featErr.message || featErr));
             saveBtn.disabled    = false;
             saveBtn.textContent = 'Save Changes';
             return;
