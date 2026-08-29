@@ -1098,3 +1098,37 @@ ALTER TABLE public.about_page
 -- ============================================================
 ALTER TABLE public.about_page
   ADD COLUMN IF NOT EXISTS content_below text;
+
+-- ============================================================
+-- 51. Per-event photo gallery. Once an event's date has passed it
+--     can't be joined any more, so event-detail.js hides the apply
+--     form and shows this gallery in its place: admins upload /
+--     remove photos, everyone can view and click a thumbnail for
+--     the full image. Photos live in the existing public
+--     `event-images` bucket (its image-only + 5MB limits from step
+--     28 already apply), so no new bucket or storage policy — just
+--     this table.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.event_gallery (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id   uuid NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  image_url  text NOT NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS event_gallery_event_idx
+  ON public.event_gallery (event_id, sort_order, created_at);
+
+ALTER TABLE public.event_gallery ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view event gallery" ON public.event_gallery;
+CREATE POLICY "Anyone can view event gallery"
+  ON public.event_gallery FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Admins manage event gallery" ON public.event_gallery;
+CREATE POLICY "Admins manage event gallery"
+  ON public.event_gallery FOR ALL TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());

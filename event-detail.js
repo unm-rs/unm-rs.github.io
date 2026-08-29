@@ -70,6 +70,18 @@
 
     document.title      = `${event.title}`;
     titleEl.textContent = event.title;
+
+    // An event whose (end) date is before today is over — it can't be joined
+    // any more, and the apply form is swapped for the photo gallery below.
+    const isPast = (() => {
+        const ref = (event.event_type && event.event_type !== 'single-day')
+            ? (event.event_end_date || event.event_date)
+            : event.event_date;
+        if (!ref) return false;
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        return String(ref).slice(0, 10) < todayStr;
+    })();
     try {
         descEl.innerHTML     = sanitizeHtml(event.description       || '');
         outcomesEl.innerHTML = sanitizeHtml(event.learning_outcomes || '');
@@ -274,13 +286,20 @@
     if (applyHeading) applyHeading.textContent = `${event.title} Application`;
 
     const applySection = document.getElementById('apply-form');
+    const joinBtn      = document.querySelector('.event-hero__join-btn');
 
     if (isAdmin) {
         if (applySection) applySection.hidden = true;
         showApprovalsPanel();
+    } else if (isPast) {
+        // Past events can't be joined — drop the apply form entirely; the
+        // gallery below takes its place.
+        if (applySection) applySection.hidden = true;
     } else {
         setupApplyForm(session, isLoggedIn);
     }
+
+    setupGallery();
 
     async function setupApplyForm(session, isLoggedIn) {
         const applyForm  = document.getElementById('js-apply-form');
@@ -728,6 +747,146 @@
         return String(str || '')
             .replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ---- Photo gallery -------------------------------------------------
+    // Shown when the event is over (for everyone) or to an admin at any
+    // time, so photos can be added right after the event runs. Admins
+    // upload/remove; visitors click a thumbnail to open the full image.
+    function openLightbox(url) {
+        if (!url) return;
+        const box = document.createElement('div');
+        box.className = 'lightbox';
+        box.innerHTML = `
+            <button type="button" class="lightbox__close" aria-label="Close">&times;</button>
+            <img class="lightbox__img" src="${esc(url)}" alt="">`;
+        document.body.appendChild(box);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const close = () => {
+            box.remove();
+            document.body.style.overflow = prevOverflow;
+            document.removeEventListener('keydown', onKey);
+        };
+        function onKey(e) { if (e.key === 'Escape') close(); }
+        document.addEventListener('keydown', onKey);
+        box.addEventListener('click', e => {
+            // click the backdrop or the close button, but not the image itself
+            if (e.target === box || e.target.closest('.lightbox__close')) close();
+        });
+    }
+
+    async function setupGallery() {
+        if (!(isPast || isAdmin)) return;
+
+        const anchor = document.getElementById('apply-form') || document.querySelector('.event-detail');
+        if (!anchor) return;
+
+        const section = document.createElement('section');
+        section.className = 'event-gallery';
+        section.id        = 'event-gallery';
+        section.innerHTML = `
+            <div class="event-gallery__inner">
+                <div class="event-gallery__head">
+                    <h2 class="event-gallery__title">Gallery</h2>
+                    ${isAdmin ? `
+                        <button type="button" class="event-gallery__add" id="js-gallery-add">Add Photos</button>
+                        <input type="file" id="js-gallery-input" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>` : ''}
+                </div>
+                <div class="event-gallery__grid" id="js-gallery-grid"></div>
+                <p class="event-gallery__empty" id="js-gallery-empty" hidden></p>
+            </div>`;
+        anchor.after(section);
+
+        const grid    = section.querySelector('#js-gallery-grid');
+        const emptyEl = section.querySelector('#js-gallery-empty');
+        let items = [];
+
+        function render() {
+            grid.innerHTML = items.map(row => `
+                <div class="event-gallery__cell">
+                    <button type="button" class="event-gallery__item" data-full="${esc(row.image_url)}" aria-label="View photo">
+                        <img src="${esc(row.image_url)}" alt="" loading="lazy">
+                    </button>
+                    ${isAdmin ? `<button type="button" class="event-gallery__del" data-id="${esc(String(row.id))}" title="Remove photo" aria-label="Remove photo">&times;</button>` : ''}
+                </div>`).join('');
+
+            if (items.length) {
+                emptyEl.hidden = true;
+            } else {
+                emptyEl.hidden = false;
+                emptyEl.textContent = isAdmin
+                    ? 'No photos yet — add some with the button above.'
+                    : 'Photos will be posted here soon.';
+            }
+
+            if (isPast && joinBtn) {
+                if (items.length || isAdmin) {
+                    joinBtn.textContent = 'View Photos';
+                    joinBtn.setAttribute('href', '#event-gallery');
+                    joinBtn.hidden = false;
+                } else {
+                    joinBtn.hidden = true;
+                }
+            }
+        }
+
+        grid.addEventListener('click', async e => {
+            const del = e.target.closest('.event-gallery__del');
+            if (del) {
+                if (!confirm('Remove this photo?')) return;
+                const id = del.dataset.id;
+                const { error } = await db.from('event_gallery').delete().eq('id', id);
+                if (error) { alert('Could not remove photo: ' + error.message); return; }
+                items = items.filter(r => String(r.id) !== String(id));
+                render();
+                return;
+            }
+            const item = e.target.closest('.event-gallery__item');
+            if (item) openLightbox(item.dataset.full);
+        });
+
+        if (isAdmin) {
+            const addBtn = section.querySelector('#js-gallery-add');
+            const input  = section.querySelector('#js-gallery-input');
+            addBtn.addEventListener('click', () => input.click());
+            input.addEventListener('change', async e => {
+                const files = [...e.target.files];
+                e.target.value = '';
+                if (!files.length) return;
+
+                const label = addBtn.textContent;
+                addBtn.disabled = true;
+                let n = 0;
+                for (const file of files) {
+                    if (!validateImageFile(file, input)) continue; // 5MB + image type, alerts itself
+                    addBtn.textContent = `Uploading ${++n}/${files.length}…`;
+                    const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
+                    const path = `gallery/${event.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+                    const { error: upErr } = await db.storage.from('event-images').upload(path, file, { upsert: true });
+                    if (upErr) { alert('Upload failed: ' + upErr.message); continue; }
+                    const url = db.storage.from('event-images').getPublicUrl(path).data.publicUrl;
+                    const nextOrder = items.length ? Math.max(...items.map(r => r.sort_order || 0)) + 1 : 0;
+                    const { data: inserted, error: insErr } = await db.from('event_gallery')
+                        .insert({ event_id: event.id, image_url: url, sort_order: nextOrder })
+                        .select().single();
+                    if (insErr) { alert('Could not save photo: ' + insErr.message); continue; }
+                    items.push(inserted);
+                }
+                addBtn.disabled    = false;
+                addBtn.textContent = label;
+                render();
+            });
+        }
+
+        const { data, error } = await db.from('event_gallery')
+            .select('*').eq('event_id', event.id)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: true });
+        if (error) console.error('Gallery load failed:', error.message);
+        items = data || [];
+        render();
     }
 
     if (!isAdmin) return;
