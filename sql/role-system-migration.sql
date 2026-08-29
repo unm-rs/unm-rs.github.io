@@ -1086,3 +1086,15 @@ ALTER TABLE public.events ADD COLUMN IF NOT EXISTS price text;
 -- ============================================================
 ALTER TABLE public.about_page
   ADD COLUMN IF NOT EXISTS stats jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+-- ============================================================
+-- 50. About page: a second free-form rich-content canvas that
+--     sits BELOW the stats strip (same editor, same sanitizer,
+--     same "Save Changes" bar as the top one). Just another text
+--     column on the singleton row — the existing "Admins update
+--     about page" policy already covers it. NULL until a mod
+--     writes something; the public page omits the lower block
+--     entirely while it's empty.
+-- ============================================================
+ALTER TABLE public.about_page
+  ADD COLUMN IF NOT EXISTS content_below text;

@@ -1275,11 +1275,8 @@ svg {
 
     .about-wrap {
         max-width: none;
-        /* The editable canvas is meant to read as its own full screen —
-           the SpaceX-style stats strip below it only comes into view once
-           you scroll past this. */
-        min-height: 100vh;
         box-sizing: border-box;
+        /* Height follows the content now — no forced full screen. */
         padding: 110px clamp(32px, 9vw, 160px) 100px;
     }
 
@@ -1304,7 +1301,6 @@ svg {
     .about-block-select { cursor: pointer; }
 
     .about-canvas {
-        min-height: calc(100vh - 260px);
         font-size: var(--fs-16);
         line-height: 1.7;
         color: hsl(0, 0%, 12%);
@@ -1328,6 +1324,13 @@ svg {
     .about-canvas--editing {
         outline: none;
         cursor: text;
+        /* keep a clickable target when a canvas is empty */
+        min-height: 8rem;
+    }
+
+    /* The lower canvas sits right under the stats strip */
+    .about-canvas--below {
+        margin-block-start: clamp(40px, 7vw, 88px);
     }
 
     .about-img-frame {
@@ -1396,6 +1399,10 @@ svg {
        Full-bleed dark strip; each item is a large editable number with a
        small uppercase label beneath it. */
     .about-stats {
+        /* Full-bleed out of .about-wrap's inline padding (keep this value in
+           sync with .about-wrap's padding-inline). */
+        margin-inline: calc(clamp(32px, 9vw, 160px) * -1);
+        margin-block: clamp(48px, 8vw, 96px);
         background-color: hsl(0, 0%, 0%);
         color: hsl(0, 0%, 98%);
         padding-block: clamp(48px, 9vh, 104px);

@@ -221,9 +221,11 @@
         db.from('about_page').select('*').eq('id', true).maybeSingle(),
     ]);
 
-    const savedContent   = row?.content || '';
-    const savedStats     = Array.isArray(row?.stats) ? row.stats : [];
-    const hasStatsColumn = !!row && 'stats' in row;
+    const savedContent          = row?.content || '';
+    const savedContentBelow     = row?.content_below || '';
+    const savedStats            = Array.isArray(row?.stats) ? row.stats : [];
+    const hasStatsColumn        = !!row && 'stats' in row;
+    const hasContentBelowColumn = !!row && 'content_below' in row;
     document.title = 'About';
 
     root.innerHTML = `
@@ -260,8 +262,11 @@
             </div>` : ''}
             <div class="about-canvas${isAdmin ? ' about-canvas--editing' : ''}" id="about-canvas"
                  ${isAdmin ? 'contenteditable="true"' : ''}>${sanitizeHtml(savedContent)}</div>
-        </div>
-        ${renderStatsSection(savedStats, isAdmin)}`;
+            ${renderStatsSection(savedStats, isAdmin)}
+            ${(isAdmin || savedContentBelow) ? `
+            <div class="about-canvas about-canvas--below${isAdmin ? ' about-canvas--editing' : ''}" id="about-canvas-2"
+                 ${isAdmin ? 'contenteditable="true"' : ''}>${sanitizeHtml(savedContentBelow)}</div>` : ''}
+        </div>`;
 
     // Count the stat numbers up from 0 the first time the strip scrolls into
     // view (read-only view only — the admin fields are contenteditable and
@@ -335,12 +340,20 @@
     document.execCommand('styleWithCSS', false, true);
 
     const canvas   = document.getElementById('about-canvas');
+    const canvas2  = document.getElementById('about-canvas-2');
+    const canvases = [canvas, canvas2].filter(Boolean);
     const toolbar  = document.getElementById('ab-toolbar');
     const saveBar  = document.getElementById('js-savebar');
     const saveBtn  = document.getElementById('js-savebtn');
     let isDirty = false;
 
-    canvas.querySelectorAll('img').forEach(wrapImageForResize);
+    // The one sticky toolbar drives whichever canvas was last focused.
+    let activeCanvas = canvas;
+    canvases.forEach(c => {
+        c.addEventListener('focusin', () => { activeCanvas = c; });
+        c.addEventListener('input', () => markDirty());
+        c.querySelectorAll('img').forEach(wrapImageForResize);
+    });
 
     // --- Stats strip editing -------------------------------------------
     const statsSection = document.getElementById('js-about-stats');
@@ -369,19 +382,17 @@
         document.body.style.paddingBottom = '72px';
     }
 
-    canvas.addEventListener('input', markDirty);
-
     toolbar.addEventListener('mousedown', e => {
         const btn = e.target.closest('[data-cmd]');
         if (!btn) return;
         e.preventDefault();
-        canvas.focus();
+        activeCanvas.focus();
         document.execCommand(btn.dataset.cmd, false, null);
         markDirty();
     });
 
     document.getElementById('ab-block').addEventListener('change', e => {
-        canvas.focus();
+        activeCanvas.focus();
         document.execCommand('formatBlock', false, e.target.value);
         // Chrome's formatBlock, with styleWithCSS on, sometimes carries the
         // old block's rendered font-size over as an inline style on the new
@@ -402,7 +413,7 @@
         if (!sel.rangeCount) return null;
         let node = sel.getRangeAt(0).startContainer;
         if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
-        while (node && node !== canvas) {
+        while (node && node !== activeCanvas) {
             if (/^(P|H1|H2|H3|H4|DIV|BLOCKQUOTE|LI|UL|OL)$/.test(node.tagName)) return node;
             node = node.parentElement;
         }
@@ -410,13 +421,13 @@
     }
 
     document.getElementById('ab-text-color').addEventListener('input', e => {
-        canvas.focus();
+        activeCanvas.focus();
         document.execCommand('foreColor', false, e.target.value);
         markDirty();
     });
 
     document.getElementById('ab-bg-color').addEventListener('input', e => {
-        canvas.focus();
+        activeCanvas.focus();
         document.execCommand('hiliteColor', false, e.target.value);
         markDirty();
     });
@@ -424,7 +435,7 @@
     document.getElementById('ab-link').addEventListener('click', () => {
         const url = prompt('Link URL:', 'https://');
         if (!url) return;
-        canvas.focus();
+        activeCanvas.focus();
         document.execCommand('createLink', false, url);
         markDirty();
     });
@@ -443,9 +454,9 @@
         if (upErr) { alert('Image upload failed: ' + upErr.message); return; }
 
         const { data: { publicUrl } } = db.storage.from(BUCKET).getPublicUrl(up.path);
-        canvas.focus();
+        activeCanvas.focus();
         document.execCommand('insertImage', false, publicUrl);
-        canvas.querySelectorAll(`img[src="${publicUrl}"]`).forEach(wrapImageForResize);
+        activeCanvas.querySelectorAll(`img[src="${publicUrl}"]`).forEach(wrapImageForResize);
         markDirty();
     });
 
@@ -453,14 +464,18 @@
         saveBtn.disabled    = true;
         saveBtn.textContent = 'Saving…';
 
-        const clone = canvas.cloneNode(true);
-        clone.querySelectorAll('.about-img-handle, .about-img-align').forEach(el => el.remove());
+        const cleanHtml = (el) => {
+            const clone = el.cloneNode(true);
+            clone.querySelectorAll('.about-img-handle, .about-img-align').forEach(n => n.remove());
+            return clone.innerHTML;
+        };
 
-        // Only write `stats` if the column actually exists (SQL step 49) —
-        // otherwise the update errors and nothing, including the content,
-        // gets saved.
-        const payload = { content: clone.innerHTML };
-        if (hasStatsColumn) payload.stats = collectStats();
+        // Only write a column if it actually exists yet (SQL steps 49/50) —
+        // naming a missing column fails the whole update, so nothing,
+        // including `content`, would get saved.
+        const payload = { content: cleanHtml(canvas) };
+        if (hasStatsColumn)        payload.stats        = collectStats();
+        if (hasContentBelowColumn) payload.content_below = cleanHtml(canvas2);
 
         const { error } = await db.from('about_page').update(payload).eq('id', true);
 
