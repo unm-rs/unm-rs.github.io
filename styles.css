@@ -1141,6 +1141,140 @@ svg {
         }
     }
 
+    /* Per-event photo gallery — replaces the apply form once an event is
+       over (see event-detail.js). */
+    .event-gallery {
+        background: hsl(220, 20%, 97%);
+        padding-block: 80px;
+        padding-inline: clamp(32px, 8vw, 140px);
+    }
+
+    .event-gallery__inner {
+        max-width: 960px;
+        margin-inline: auto;
+    }
+
+    .event-gallery__head {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-block-end: 32px;
+    }
+
+    .event-gallery__title {
+        font-size: clamp(1.6rem, 4vw, 2.4rem);
+        font-weight: 700;
+        color: var(--color-text-dark);
+        line-height: 1.1;
+        margin-inline-end: auto;
+    }
+
+    .event-gallery__add {
+        font-family: inherit;
+        font-size: var(--fs-14);
+        font-weight: 700;
+        padding: 9px 20px;
+        border-radius: 6px;
+        border: none;
+        background: hsl(232 75% 62%);
+        color: #fff;
+        cursor: pointer;
+        transition: opacity 0.15s;
+    }
+    .event-gallery__add:hover:not(:disabled) { opacity: 0.85; }
+    .event-gallery__add:disabled { opacity: 0.5; cursor: default; }
+
+    .event-gallery__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 14px;
+    }
+
+    .event-gallery__cell {
+        position: relative;
+        aspect-ratio: 1;
+    }
+
+    .event-gallery__item {
+        width: 100%;
+        height: 100%;
+        display: block;
+        padding: 0;
+        border: none;
+        border-radius: 8px;
+        overflow: hidden;
+        background: hsl(220, 14%, 90%);
+        cursor: zoom-in;
+    }
+    .event-gallery__item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transition: transform 0.25s;
+    }
+    .event-gallery__item:hover img { transform: scale(1.04); }
+
+    .event-gallery__del {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: none;
+        background: hsl(0 0% 0% / 0.6);
+        color: #fff;
+        font-size: 16px;
+        line-height: 1;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+    }
+    .event-gallery__del:hover { background: hsl(0 72% 45%); }
+
+    .event-gallery__empty {
+        color: hsl(220, 14%, 45%);
+        font-size: var(--fs-16);
+    }
+
+    /* Fullscreen image viewer for gallery thumbnails */
+    .lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: hsl(0 0% 0% / 0.9);
+        display: grid;
+        place-items: center;
+        padding: 4vw;
+        cursor: zoom-out;
+    }
+    .lightbox__img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: 4px;
+        cursor: default;
+    }
+    .lightbox__close {
+        position: absolute;
+        top: 18px;
+        right: 22px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: none;
+        background: hsl(0 0% 100% / 0.14);
+        color: #fff;
+        font-size: 24px;
+        line-height: 1;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+    }
+    .lightbox__close:hover { background: hsl(0 0% 100% / 0.28); }
+
     .event-hero__title[contenteditable="true"] {
         outline: none;
         border-bottom: 2px solid hsl(0 0% 100% / 0.35);
@@ -1304,13 +1438,20 @@ svg {
         font-size: var(--fs-16);
         line-height: 1.7;
         color: hsl(0, 0%, 12%);
+        /* contain floated images so a right/left-floated picture at the end
+           of the text can't spill out below the canvas onto the next section */
+        display: flow-root;
+        overflow-wrap: break-word;
 
-        h1, h2, h3, h4 { font-weight: 800; margin-block: 0.6em 0.3em; line-height: 1.2; }
+        h1, h2, h3, h4 { font-weight: 800; margin-block: 0.7em 0.35em; line-height: 1.2; }
         h1 { font-size: 2.2rem; }
         h2 { font-size: 1.8rem; }
         h3 { font-size: 1.4rem; }
+        h1:first-child, h2:first-child, h3:first-child { margin-block-start: 0; }
         p  { margin-block-end: 1em; }
+        p:last-child { margin-block-end: 0; }
         ul, ol { margin-block-end: 1em; padding-inline-start: 1.4em; }
+        li { margin-block-end: 0.25em; }
         blockquote {
             border-left: 3px solid hsl(45, 95%, 55%);
             padding-inline-start: 16px;
@@ -1344,6 +1485,13 @@ svg {
     }
 
     .about-canvas--editing .about-img-frame {
+        /* quiet outline normally, full ring on hover so the canvas isn't a
+           wall of yellow boxes while editing */
+        box-shadow: 0 0 0 1px hsl(45, 90%, 55%, 0.45);
+        user-select: none;
+    }
+
+    .about-canvas--editing .about-img-frame:hover {
         box-shadow: 0 0 0 2px hsl(45, 95%, 55%);
     }
 

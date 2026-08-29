@@ -3,6 +3,10 @@
 
     const BUCKET = 'event-images';
 
+    // Zero-width space used as a caret "landing pad" next to non-editable
+    // image frames while editing — stripped out again on save/load.
+    const ZWSP = String.fromCharCode(0x200B); // U+200B
+
     const ALLOWED_TAGS = new Set([
         'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'UL', 'OL', 'LI', 'BR', 'P', 'DIV', 'SPAN',
         'H1', 'H2', 'H3', 'H4', 'A', 'IMG', 'BLOCKQUOTE', 'HR',
@@ -24,6 +28,13 @@
         while (stack.length) {
             const node = stack.pop();
             [...node.childNodes].forEach(child => {
+                if (child.nodeType === Node.TEXT_NODE) {
+                    // Drop the zero-width-space caret shims we add around images
+                    // while editing (see ensureFrameEditableSiblings) so they
+                    // never pile up in the stored content.
+                    if (child.data.includes(ZWSP)) child.data = child.data.split(ZWSP).join('');
+                    return;
+                }
                 if (child.nodeType !== Node.ELEMENT_NODE) return;
                 if (!ALLOWED_TAGS.has(child.tagName)) {
                     child.replaceWith(...child.childNodes);
@@ -70,18 +81,23 @@
         frame.style.marginInline   = '';
         frame.style.marginInlineEnd   = '';
         frame.style.marginInlineStart = '';
+        frame.style.marginBottom      = '';
         if (align === 'left') {
             frame.style.float = 'left';
-            frame.style.marginInlineEnd = '14px';
+            frame.style.marginInlineEnd = '16px';
+            frame.style.marginBottom    = '10px';
         } else if (align === 'right') {
             frame.style.float = 'right';
-            frame.style.marginInlineStart = '14px';
+            frame.style.marginInlineStart = '16px';
+            frame.style.marginBottom      = '10px';
         } else if (align === 'center') {
             frame.style.display      = 'block';
             frame.style.marginInline = 'auto';
         } else {
             frame.style.display = 'inline-block';
         }
+        // A freshly floated frame still needs caret targets on both sides.
+        ensureFrameEditableSiblings(frame);
     }
 
     function wrapImageForResize(img) {
@@ -102,6 +118,8 @@
         img.style.height = '100%';
         img.style.display = 'block';
         img.style.objectFit = 'cover';
+
+        ensureFrameEditableSiblings(frame);
 
         if (!frame.querySelector('.about-img-align')) {
             const align = document.createElement('span');
@@ -171,6 +189,54 @@
         return String(str || '')
             .replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // A contenteditable="false" image frame that's floated (esp. float:right)
+    // otherwise "eats" clicks and keystrokes aimed at the text beside it —
+    // the browser drops the caret onto the frame, where typing goes nowhere.
+    // Fix: make sure there's always a real text node on each side of the
+    // frame for the caret to live in (a zero-width space if nothing else),
+    // and if a click/keypress still lands on a frame, bounce the caret into
+    // the nearest of those text nodes.
+    function ensureFrameEditableSiblings(frame) {
+        const isText = n => n && n.nodeType === Node.TEXT_NODE;
+        if (!isText(frame.previousSibling)) frame.before(document.createTextNode(ZWSP));
+        if (!isText(frame.nextSibling))     frame.after(document.createTextNode(ZWSP));
+    }
+
+    function frameFromNode(node) {
+        for (let n = node; n; n = n.parentNode) {
+            if (n.nodeType === Node.ELEMENT_NODE && n.classList && n.classList.contains('about-img-frame')) return n;
+        }
+        return null;
+    }
+
+    function rescueCaret(canvasEl, clientX) {
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount || !canvasEl.contains(sel.anchorNode)) return false;
+
+        let frame = frameFromNode(sel.anchorNode);
+        // Selection sitting on a parent element with the boundary child being a frame
+        if (!frame && sel.anchorNode && sel.anchorNode.nodeType === Node.ELEMENT_NODE) {
+            const kids = sel.anchorNode.childNodes;
+            const cand = kids[sel.anchorOffset] || kids[sel.anchorOffset - 1];
+            if (cand && cand.nodeType === Node.ELEMENT_NODE && cand.classList.contains('about-img-frame')) frame = cand;
+        }
+        if (!frame) return false;
+
+        ensureFrameEditableSiblings(frame);
+        const rect  = frame.getBoundingClientRect();
+        const after = clientX == null ? true : clientX >= rect.left + rect.width / 2;
+        const pad   = after ? frame.nextSibling : frame.previousSibling;
+
+        const range = document.createRange();
+        // land at the near edge of the adjacent text: start of the node that
+        // follows the frame, or end of the node that precedes it
+        range.setStart(pad, after ? 0 : pad.length);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        return true;
     }
 
     // SpaceX-mission-style strip of big numbers below the main canvas.
@@ -353,6 +419,21 @@
         c.addEventListener('focusin', () => { activeCanvas = c; });
         c.addEventListener('input', () => markDirty());
         c.querySelectorAll('img').forEach(wrapImageForResize);
+
+        // If a click lands on a (floated) image frame, drop the caret into
+        // the text next to it instead — run after the browser has placed its
+        // own selection.
+        c.addEventListener('click', e => {
+            if (e.target.closest('.about-img-align, .about-img-handle')) return;
+            const x = e.clientX;
+            setTimeout(() => rescueCaret(c, x), 0);
+        });
+        // Same guard for typing — hop the caret off the frame before the key
+        // would otherwise be swallowed.
+        c.addEventListener('keydown', e => {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (e.key === 'Enter' || e.key.length === 1) rescueCaret(c, null);
+        });
     });
 
     // --- Stats strip editing -------------------------------------------
@@ -467,7 +548,7 @@
         const cleanHtml = (el) => {
             const clone = el.cloneNode(true);
             clone.querySelectorAll('.about-img-handle, .about-img-align').forEach(n => n.remove());
-            return clone.innerHTML;
+            return clone.innerHTML.split(ZWSP).join('');
         };
 
         // Only write a column if it actually exists yet (SQL steps 49/50) —
