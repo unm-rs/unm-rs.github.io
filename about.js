@@ -113,7 +113,13 @@
             img.replaceWith(frame);
             frame.appendChild(img);
         }
-        frame.contentEditable = 'false';
+        // The frame itself stays part of the editable flow — otherwise a tall
+        // non-editable island breaks caret placement in the text wrapping
+        // beside a floated image. Only the <img> (which behaves as one atomic
+        // character) and the little control overlays are non-editable.
+        frame.removeAttribute('contenteditable');
+        img.contentEditable = 'false';
+        img.draggable = false;
         img.style.width  = '100%';
         img.style.height = '100%';
         img.style.display = 'block';
@@ -124,6 +130,7 @@
         if (!frame.querySelector('.about-img-align')) {
             const align = document.createElement('span');
             align.className = 'about-img-align';
+            align.contentEditable = 'false';
             align.innerHTML = `
                 <button type="button" data-align="left"   title="Float left">◧</button>
                 <button type="button" data-align="center" title="Center">▣</button>
@@ -144,6 +151,7 @@
         if (!frame.querySelector('.about-img-handle')) {
             const handle = document.createElement('span');
             handle.className = 'about-img-handle';
+            handle.contentEditable = 'false';
             frame.appendChild(handle);
 
             let resizing = false, startX, startY, startW, startH;
@@ -215,13 +223,11 @@
         const sel = window.getSelection();
         if (!sel || !sel.rangeCount || !canvasEl.contains(sel.anchorNode)) return false;
 
-        let frame = frameFromNode(sel.anchorNode);
-        // Selection sitting on a parent element with the boundary child being a frame
-        if (!frame && sel.anchorNode && sel.anchorNode.nodeType === Node.ELEMENT_NODE) {
-            const kids = sel.anchorNode.childNodes;
-            const cand = kids[sel.anchorOffset] || kids[sel.anchorOffset - 1];
-            if (cand && cand.nodeType === Node.ELEMENT_NODE && cand.classList.contains('about-img-frame')) frame = cand;
-        }
+        // Only act when the caret actually ended up inside a frame (i.e. the
+        // click hit the image) — bounce it to the text on whichever side was
+        // clicked. A caret that legitimately landed in text beside a floated
+        // image is left alone.
+        const frame = frameFromNode(sel.anchorNode);
         if (!frame) return false;
 
         ensureFrameEditableSiblings(frame);
@@ -548,6 +554,7 @@
         const cleanHtml = (el) => {
             const clone = el.cloneNode(true);
             clone.querySelectorAll('.about-img-handle, .about-img-align').forEach(n => n.remove());
+            clone.querySelectorAll('[contenteditable]').forEach(n => n.removeAttribute('contenteditable'));
             return clone.innerHTML.split(ZWSP).join('');
         };
 

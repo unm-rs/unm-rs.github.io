@@ -1488,11 +1488,18 @@ svg {
         /* quiet outline normally, full ring on hover so the canvas isn't a
            wall of yellow boxes while editing */
         box-shadow: 0 0 0 1px hsl(45, 90%, 55%, 0.45);
-        user-select: none;
     }
 
     .about-canvas--editing .about-img-frame:hover {
         box-shadow: 0 0 0 2px hsl(45, 95%, 55%);
+    }
+
+    /* don't let a drag start a text selection that swallows the image */
+    .about-img-frame img,
+    .about-img-align,
+    .about-img-handle {
+        user-select: none;
+        -webkit-user-select: none;
     }
 
     .about-img-handle {
