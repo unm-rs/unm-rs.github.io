@@ -263,6 +263,73 @@
         </div>
         ${renderStatsSection(savedStats, isAdmin)}`;
 
+    // Count the stat numbers up from 0 the first time the strip scrolls into
+    // view (read-only view only — the admin fields are contenteditable and
+    // must keep whatever was typed). Values that aren't a plain number
+    // ("Free", "∞", "24/7") are left exactly as-is; a numeric core with a
+    // prefix/suffix ("$10", "1,200+", "98%") animates just the number part
+    // and the original text is restored verbatim at the end.
+    if (!isAdmin) setupStatCountUp();
+
+    function setupStatCountUp() {
+        const section = document.getElementById('js-about-stats');
+        if (!section) return;
+        const nums = [...section.querySelectorAll('.about-stat__num')];
+        if (!nums.length) return;
+
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        const specs = nums.map(el => {
+            const raw = el.textContent.trim();
+            const m = raw.match(/^(\D*?)(\d[\d,]*(?:\.\d+)?)(.*)$/s);
+            if (!m) return null;
+            const numStr = m[2].replace(/,/g, '');
+            const target = parseFloat(numStr);
+            if (!isFinite(target)) return null;
+            return {
+                el, raw,
+                prefix:   m[1],
+                suffix:   m[3],
+                target,
+                decimals: numStr.includes('.') ? numStr.split('.')[1].length : 0,
+                grouped:  m[2].includes(','),
+            };
+        });
+        if (!specs.some(Boolean)) return;
+
+        const fmt = (v, s) => {
+            const n = v.toFixed(s.decimals);
+            const body = s.grouped
+                ? Number(n).toLocaleString('en-US', { minimumFractionDigits: s.decimals, maximumFractionDigits: s.decimals })
+                : n;
+            return s.prefix + body + s.suffix;
+        };
+
+        specs.forEach(s => { if (s) s.el.textContent = fmt(0, s); });
+
+        const DURATION = 1600;
+        const easeOut  = t => 1 - Math.pow(1 - t, 3);
+
+        function run() {
+            const start = performance.now();
+            (function frame(now) {
+                const p = Math.min(1, (now - start) / DURATION);
+                const e = easeOut(p);
+                specs.forEach(s => { if (s) s.el.textContent = fmt(s.target * e, s); });
+                if (p < 1) requestAnimationFrame(frame);
+                else specs.forEach(s => { if (s) s.el.textContent = s.raw; });
+            })(start);
+        }
+
+        const io = new IntersectionObserver((entries) => {
+            if (entries.some(en => en.isIntersecting)) {
+                io.disconnect();
+                run();
+            }
+        }, { threshold: 0.4 });
+        io.observe(section);
+    }
+
     if (!isAdmin) return;
 
     document.execCommand('styleWithCSS', false, true);
