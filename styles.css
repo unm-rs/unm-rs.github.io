@@ -1454,6 +1454,69 @@ svg {
     .event-pay--embedded .event-pay__grid { gap: clamp(16px, 4vw, 28px); }
     .event-pay--embedded .event-pay__qr   { width: clamp(140px, 38vw, 190px); }
 
+    /* Proof-of-payment upload block, under the instructions */
+    .event-pay__proof {
+        margin-block-start: 18px;
+        padding-block-start: 16px;
+        border-top: 1px solid hsl(152, 30%, 82%);
+
+        &.is-busy { opacity: 0.55; pointer-events: none; }
+    }
+
+    .event-pay__proof-title {
+        font-size: var(--fs-16);
+        font-weight: 800;
+        color: hsl(152, 40%, 24%);
+    }
+
+    .event-pay__proof-sub {
+        font-size: 13px;
+        line-height: 1.5;
+        color: hsl(152, 16%, 34%);
+        margin-block: 3px 12px;
+    }
+
+    .event-pay__proof-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .event-pay__proof-btn,
+    .event-pay__proof-view,
+    .event-pay__proof-replace {
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        padding: 9px 18px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: opacity 0.15s, background 0.15s;
+    }
+
+    .event-pay__proof-btn,
+    .event-pay__proof-view {
+        border: none;
+        background: hsl(152, 55%, 36%);
+        color: #fff;
+
+        &:hover { opacity: 0.88; }
+    }
+
+    .event-pay__proof-replace {
+        border: 1.5px solid hsl(152, 40%, 60%);
+        background: transparent;
+        color: hsl(152, 40%, 28%);
+
+        &:hover { background: hsl(152, 55%, 92%); }
+    }
+
+    .ap-card__attachment.ap-card__attachment--proof {
+        color: hsl(152, 70%, 60%);
+        background: hsl(152, 55%, 10%);
+        border-color: hsl(152, 45%, 25%);
+    }
+
     .event-pay__inner {
         max-width: 820px;
         margin-inline: auto;

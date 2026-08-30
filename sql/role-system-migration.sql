@@ -1437,3 +1437,83 @@ ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS payment_required boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS payment_qr_url   text,
   ADD COLUMN IF NOT EXISTS payment_details  text;
+
+-- ============================================================
+-- 56. Proof of payment. An approved applicant can attach a
+--     screenshot / PDF of their transfer on the payment card,
+--     view it back, and replace it if they sent the wrong file.
+--
+--     Files live in a new PRIVATE bucket (payment-proofs) keyed
+--     by "<uid>/<event_id>/..." — the uploader and admins can
+--     read; nobody else. The pointer is stored on the applicant's
+--     own applications row.
+--
+--     applications UPDATE is admin-only, so a per-column guard
+--     (same pattern as protect_role_column, step 4) lets the
+--     applicant touch ONLY the three payment_proof_* fields on
+--     their own row.
+-- ============================================================
+ALTER TABLE public.applications
+  ADD COLUMN IF NOT EXISTS payment_proof_path        text,
+  ADD COLUMN IF NOT EXISTS payment_proof_name        text,
+  ADD COLUMN IF NOT EXISTS payment_proof_uploaded_at timestamptz;
+
+CREATE OR REPLACE FUNCTION public.protect_application_columns()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF public.is_admin() THEN
+    RETURN NEW;
+  END IF;
+  -- a non-admin may only change the payment-proof fields, nothing else
+  IF (to_jsonb(NEW) - 'payment_proof_path' - 'payment_proof_name' - 'payment_proof_uploaded_at')
+     IS DISTINCT FROM
+     (to_jsonb(OLD) - 'payment_proof_path' - 'payment_proof_name' - 'payment_proof_uploaded_at') THEN
+    RAISE EXCEPTION 'You can only update the payment proof on your own application';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_protect_application_columns ON public.applications;
+CREATE TRIGGER trg_protect_application_columns
+  BEFORE UPDATE ON public.applications
+  FOR EACH ROW EXECUTE FUNCTION public.protect_application_columns();
+
+DROP POLICY IF EXISTS "Applicants update own payment proof" ON public.applications;
+CREATE POLICY "Applicants update own payment proof"
+  ON public.applications FOR UPDATE TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'payment-proofs',
+  'payment-proofs',
+  false,
+  10485760, -- 10MB
+  ARRAY['application/pdf', 'image/png', 'image/jpeg', 'image/webp']
+)
+ON CONFLICT (id) DO UPDATE SET
+  file_size_limit    = EXCLUDED.file_size_limit,
+  allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+DROP POLICY IF EXISTS "Users upload own payment proof" ON storage.objects;
+CREATE POLICY "Users upload own payment proof"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'payment-proofs' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+DROP POLICY IF EXISTS "Users read own payment proof" ON storage.objects;
+CREATE POLICY "Users read own payment proof"
+  ON storage.objects FOR SELECT TO authenticated
+  USING (bucket_id = 'payment-proofs'
+         AND ((storage.foldername(name))[1] = auth.uid()::text OR public.is_admin()));
+
+DROP POLICY IF EXISTS "Users delete own payment proof" ON storage.objects;
+CREATE POLICY "Users delete own payment proof"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'payment-proofs'
+         AND ((storage.foldername(name))[1] = auth.uid()::text OR public.is_admin()));

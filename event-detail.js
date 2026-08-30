@@ -690,6 +690,7 @@
             approve:    (id) => setStatus(id, 'approved', panel, null),
             reject:     (id) => rejectWithReason(id, panel),
             viewAttach: (id) => viewAttachment(id),
+            viewProof:  (id) => viewPaymentProof(id),
         };
 
         await refreshApprovals(panel);
@@ -784,6 +785,10 @@
                         <button type="button" class="ap-card__attachment" data-id="${id}" onclick="window.__apAdmin.viewAttach(this.dataset.id)">
                             📎 ${esc(app.attachment_name || 'Attachment')}
                         </button>` : ''}
+                    ${app.payment_proof_path ? `
+                        <button type="button" class="ap-card__attachment ap-card__attachment--proof" data-id="${id}" onclick="window.__apAdmin.viewProof(this.dataset.id)">
+                            💳 ${esc(app.payment_proof_name || 'Payment proof')}
+                        </button>` : ''}
                     <div class="ap-card__actions">
                         ${actions}
                         <button class="ap-btn ap-btn--remove" data-id="${id}" onclick="window.__apAdmin.remove(this.dataset.id)">Remove</button>
@@ -846,6 +851,17 @@
         const { data, error } = await db.storage
             .from('application-files').createSignedUrl(app.attachment_path, 60);
         if (error) { alert('Could not open attachment: ' + error.message); return; }
+        window.open(data.signedUrl, '_blank', 'noopener');
+    }
+
+    async function viewPaymentProof(id) {
+        const { data: app, error: fetchErr } = await db
+            .from('applications').select('payment_proof_path').eq('id', id).single();
+        if (fetchErr || !app?.payment_proof_path) { alert('Could not find that file.'); return; }
+
+        const { data, error } = await db.storage
+            .from('payment-proofs').createSignedUrl(app.payment_proof_path, 120);
+        if (error) { alert('Could not open the file: ' + error.message); return; }
         window.open(data.signedUrl, '_blank', 'noopener');
     }
 
@@ -1160,10 +1176,10 @@
         // Approved applicants only.
         if (!event.payment_required || !session) return;
         const { data: mine } = await db.from('applications')
-            .select('status').eq('event_id', event.id).eq('user_id', session.user.id).maybeSingle();
+            .select('*').eq('event_id', event.id).eq('user_id', session.user.id).maybeSingle();
         if (mine?.status !== 'approved') return;
 
-        const section = buildPaymentPanel(false);
+        const section = buildPaymentPanel(false, mine);
         if (applySection) applySection.after(section);   // right below the "Approved" card
         else if (detail)  detail.after(section);
     }
@@ -1175,7 +1191,7 @@
             .replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, '<a href="mailto:$1">$1</a>');
     }
 
-    function buildPaymentPanel(editable) {
+    function buildPaymentPanel(editable, applicantApp) {
         const IMG_BUCKET = 'event-images';
         const section = document.createElement('section');
         section.id = 'event-pay';
@@ -1210,6 +1226,7 @@
                             : (hasContent
                                 ? `<div class="event-pay__instr">${linkify(event.payment_details)}</div>`
                                 : `<p class="event-pay__instr">Payment details haven't been posted yet — please check back soon.</p>`)}
+                        ${!editable ? `<div class="event-pay__proof" id="js-pay-proof"></div>` : ''}
                     </div>
                 </div>
             </div>`;
@@ -1217,7 +1234,10 @@
         const qrImg = section.querySelector('#js-pay-qr');
         qrImg.addEventListener('click', () => { if (qrImg.getAttribute('src')) openLightbox(qrImg.getAttribute('src')); });
 
-        if (!editable) return section;
+        if (!editable) {
+            setupProofUI(section, applicantApp);
+            return section;
+        }
 
         section.querySelector('#js-pay-toggle').addEventListener('change', async e => {
             const on = e.target.checked;
@@ -1266,6 +1286,81 @@
         });
 
         return section;
+    }
+
+    // Proof-of-payment upload on the approved applicant's payment card.
+    // Private "payment-proofs" bucket, pointer on their applications row.
+    function setupProofUI(root, app) {
+        const box = root.querySelector('#js-pay-proof');
+        if (!box || !app || !('payment_proof_path' in app)) return; // needs SQL step 56
+
+        const PROOF_BUCKET = 'payment-proofs';
+        const PROOF_MAX    = 10 * 1024 * 1024;
+        const PROOF_EXTS   = ['pdf', 'png', 'jpg', 'jpeg', 'webp'];
+
+        let path = app.payment_proof_path || null;
+
+        function render() {
+            box.innerHTML = path
+                ? `<p class="event-pay__proof-title">Proof of payment received ✓</p>
+                   <p class="event-pay__proof-sub">Thank you — we'll confirm your payment shortly. Sent the wrong file? You can replace it.</p>
+                   <div class="event-pay__proof-actions">
+                       <button type="button" class="event-pay__proof-view"    id="js-proof-view">View file</button>
+                       <button type="button" class="event-pay__proof-replace" id="js-proof-replace">Upload a different file</button>
+                   </div>
+                   <input type="file" id="js-proof-input" hidden accept=".pdf,image/png,image/jpeg,image/webp">`
+                : `<p class="event-pay__proof-title">Made your payment?</p>
+                   <p class="event-pay__proof-sub">Attach a screenshot or PDF of your transfer so we can verify it.</p>
+                   <button type="button" class="event-pay__proof-btn" id="js-proof-btn">Upload proof of payment</button>
+                   <input type="file" id="js-proof-input" hidden accept=".pdf,image/png,image/jpeg,image/webp">`;
+
+            const input = box.querySelector('#js-proof-input');
+            box.querySelector('#js-proof-btn')?.addEventListener('click', () => input.click());
+            box.querySelector('#js-proof-replace')?.addEventListener('click', () => input.click());
+            box.querySelector('#js-proof-view')?.addEventListener('click', viewProof);
+            input.addEventListener('change', () => doUpload(input));
+        }
+
+        async function viewProof() {
+            if (!path) return;
+            const { data, error } = await db.storage.from(PROOF_BUCKET).createSignedUrl(path, 120);
+            if (error || !data?.signedUrl) { alert('Could not open the file.'); return; }
+            window.open(data.signedUrl, '_blank', 'noopener');
+        }
+
+        async function doUpload(input) {
+            const file = input.files[0];
+            input.value = '';
+            if (!file) return;
+            const ext = (file.name.split('.').pop() || '').toLowerCase();
+            if (!PROOF_EXTS.includes(ext)) { alert('Please upload a PDF or image (PNG, JPG, WebP).'); return; }
+            if (file.size > PROOF_MAX)     { alert('File must be under 10MB.'); return; }
+
+            box.classList.add('is-busy');
+            const newPath = `${session.user.id}/${event.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+            const { error: upErr } = await db.storage.from(PROOF_BUCKET).upload(newPath, file);
+            if (upErr) { alert('Upload failed: ' + upErr.message); box.classList.remove('is-busy'); return; }
+
+            const { error: updErr } = await db.from('applications').update({
+                payment_proof_path:        newPath,
+                payment_proof_name:        file.name,
+                payment_proof_uploaded_at: new Date().toISOString(),
+            }).eq('id', app.id);
+            if (updErr) {
+                alert('Could not save: ' + updErr.message);
+                db.storage.from(PROOF_BUCKET).remove([newPath]); // don't leave an orphan
+                box.classList.remove('is-busy');
+                return;
+            }
+
+            const oldPath = path;
+            path = newPath;
+            if (oldPath && oldPath !== newPath) db.storage.from(PROOF_BUCKET).remove([oldPath]); // best-effort
+            box.classList.remove('is-busy');
+            render();
+        }
+
+        render();
     }
 
     if (!isAdmin) return;
