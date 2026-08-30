@@ -991,7 +991,7 @@
                 if (!DOC_EXTS.includes(ext)) { alert('Allowed types: PDF, Word, Excel, TXT, PNG, JPG.'); return; }
                 if (file.size > DOC_MAX)     { alert('File must be under 20MB.'); return; }
 
-                const note = (prompt('Short note for this document (optional) — e.g. "requires guardian signature"') || '').trim();
+                const note = (prompt('Short note for this document (optional) e.g. "requires guardian signature"') || '').trim();
 
                 const label = addBtn.textContent;
                 addBtn.disabled = true;
