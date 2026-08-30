@@ -1205,8 +1205,8 @@
                         <h2 class="event-pay__title">Payment Required${priceBit}</h2>
                         ${editable
                             ? `<div class="event-pay__instr" id="js-pay-instr" contenteditable="true"
-                                    data-placeholder="e.g. TnG QR of UNM Robotics Society Treasurer. If you have any issues please contact Jane at 012-3456789">${esc(event.payment_details || '')}</div>
-                               <p class="event-pay__hint">Click the text to edit — it saves when you click away. Links and emails become clickable for visitors. Only approved applicants see this.</p>`
+                                    data-placeholder="e.g. TnG QR of UNM Robotics Society Treasurer. If you have any issues please contact India at 012-3456789">${esc(event.payment_details || '')}</div>
+                               <p class="event-pay__hint">Click the text to edit, it saves when you click away. Links and emails become clickable for visitors. Only approved applicants see this.</p>`
                             : (hasContent
                                 ? `<div class="event-pay__instr">${linkify(event.payment_details)}</div>`
                                 : `<p class="event-pay__instr">Payment details haven't been posted yet — please check back soon.</p>`)}
