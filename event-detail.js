@@ -105,7 +105,6 @@
     let timeValueEl     = document.getElementById('js-time-value');
     let endTimeValueEl  = document.getElementById('js-endtime-value');
     let venueValueEl    = document.getElementById('js-venue-value');
-    let priceValueEl    = document.getElementById('js-price-value');
     let pricememValueEl = document.getElementById('js-pricemem-value');
     let pricenonValueEl = document.getElementById('js-pricenon-value');
     let scpdValueEl     = document.getElementById('js-scpd-value');
@@ -121,7 +120,7 @@
     const CORE_KINDS = ['type', 'date', 'time'];
     // Fields that only take up space in the row when they're actually set
     // (or an admin is editing, so there's still something to click on).
-    const OPTIONAL_KINDS = ['enddate', 'endtime', 'venue', 'price', 'pricemem', 'pricenon', 'scpd'];
+    const OPTIONAL_KINDS = ['enddate', 'endtime', 'venue', 'pricemem', 'pricenon', 'scpd'];
     const ALL_KINDS = [...CORE_KINDS, ...OPTIONAL_KINDS];
 
     const DATE_KINDS = { date: 'currentEventDate', enddate: 'currentEventEndDate' };
@@ -133,7 +132,6 @@
     let currentEventTime     = event.event_time || '';
     let currentEventEndTime  = event.event_end_time || '';
     let currentEventVenue    = event.venue || '';
-    let currentEventPrice    = event.price || '';
     let currentEventPriceMem = event.price_member || '';
     let currentEventPriceNon = event.price_nonmember || '';
     let currentEventScpd     = Number.isFinite(event.scpd_points) ? event.scpd_points : (parseInt(event.scpd_points, 10) || 0);
@@ -152,7 +150,6 @@
     function valueFor(kind) {
         if (kind === 'type')     return currentEventType;
         if (kind === 'venue')    return currentEventVenue;
-        if (kind === 'price')    return currentEventPrice;
         if (kind === 'pricemem') return currentEventPriceMem;
         if (kind === 'pricenon') return currentEventPriceNon;
         if (kind === 'scpd')     return currentEventScpd;
@@ -162,7 +159,6 @@
     function displayFor(kind) {
         if (kind === 'type')     return TYPE_LABELS[currentEventType] || TYPE_LABELS['single-day'];
         if (kind === 'venue')    return currentEventVenue || 'Click to add a venue';
-        if (kind === 'price')    return currentEventPrice || 'Click to add a price';
         if (kind === 'pricemem') return currentEventPriceMem || 'Click to add a member price';
         if (kind === 'pricenon') return currentEventPriceNon || 'Click to add a non-member price';
         if (kind === 'scpd')     return String(currentEventScpd);
@@ -175,7 +171,6 @@
         if (kind === 'enddate')  return endDateValueEl;
         if (kind === 'time')     return timeValueEl;
         if (kind === 'venue')    return venueValueEl;
-        if (kind === 'price')    return priceValueEl;
         if (kind === 'pricemem') return pricememValueEl;
         if (kind === 'pricenon') return pricenonValueEl;
         if (kind === 'scpd')     return scpdValueEl;
@@ -188,14 +183,12 @@
         if (kind === 'time')     timeValueEl     = span;
         if (kind === 'endtime')  endTimeValueEl  = span;
         if (kind === 'venue')    venueValueEl    = span;
-        if (kind === 'price')    priceValueEl    = span;
         if (kind === 'pricemem') pricememValueEl = span;
         if (kind === 'pricenon') pricenonValueEl = span;
         if (kind === 'scpd')     scpdValueEl     = span;
     }
     function titleFor(kind) {
         if (kind === 'venue')    return 'Click to change the venue';
-        if (kind === 'price')    return 'Click to change the price';
         if (kind === 'pricemem') return 'Click to change the member price';
         if (kind === 'pricenon') return 'Click to change the non-member price';
         if (kind === 'scpd')     return 'Click to change the S-CPD points';
@@ -209,7 +202,6 @@
         if (kind === 'enddate') return currentEventType !== 'single-day' && (isAdmin || !!currentEventEndDate);
         if (kind === 'endtime') return isAdmin || !!currentEventEndTime;
         if (kind === 'venue')    return isAdmin || !!currentEventVenue;
-        if (kind === 'price')    return isAdmin || !!currentEventPrice;
         if (kind === 'pricemem') return isAdmin || !!currentEventPriceMem;
         if (kind === 'pricenon') return isAdmin || !!currentEventPriceNon;
         if (kind === 'scpd')     return isAdmin || currentEventScpd > 0;
@@ -227,7 +219,7 @@
 
     if (datetimeEl) {
         if (isAdmin || currentEventDate || currentEventTime || currentEventVenue
-            || currentEventPrice || currentEventPriceMem || currentEventPriceNon || currentEventScpd > 0) datetimeEl.hidden = false;
+            || currentEventPriceMem || currentEventPriceNon || currentEventScpd > 0) datetimeEl.hidden = false;
 
         ALL_KINDS.forEach(kind => { elFor(kind).textContent = displayFor(kind); });
         refreshMetaVisibility();
@@ -252,7 +244,7 @@
             input.innerHTML = Object.entries(TYPE_LABELS)
                 .map(([val, label]) => `<option value="${val}"${val === currentEventType ? ' selected' : ''}>${label}</option>`)
                 .join('');
-        } else if (kind === 'venue' || kind === 'price' || kind === 'pricemem' || kind === 'pricenon') {
+        } else if (kind === 'venue' || kind === 'pricemem' || kind === 'pricenon') {
             input = document.createElement('input');
             input.type        = 'text';
             input.value        = valueFor(kind);
@@ -286,7 +278,6 @@
             if (kind === 'time')     currentEventTime    = input.value;
             if (kind === 'endtime')  currentEventEndTime = input.value;
             if (kind === 'venue')    currentEventVenue    = input.value.trim();
-            if (kind === 'price')    currentEventPrice    = input.value.trim();
             if (kind === 'pricemem') currentEventPriceMem = input.value.trim();
             if (kind === 'pricenon') currentEventPriceNon = input.value.trim();
             if (kind === 'scpd')     currentEventScpd     = Math.max(0, parseInt(input.value, 10) || 0);
@@ -1232,7 +1223,6 @@
         const priceParts = [];
         if (event.price_member)    priceParts.push(`Members ${esc(event.price_member)}`);
         if (event.price_nonmember) priceParts.push(`Non-members ${esc(event.price_nonmember)}`);
-        if (!priceParts.length && event.price) priceParts.push(esc(event.price));
         const priceBit  = priceParts.length ? `: ${priceParts.join(' · ')}` : '';
         const hasContent = event.payment_qr_url || event.payment_details;
 
@@ -1611,7 +1601,6 @@
             event_time:        currentEventTime || null,
             event_end_time:    currentEventEndTime || null,
             venue:             currentEventVenue || null,
-            price:             currentEventPrice || null,
             price_member:      currentEventPriceMem || null,
             price_nonmember:   currentEventPriceNon || null,
             scpd_points:       currentEventScpd,
