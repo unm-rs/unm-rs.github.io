@@ -364,6 +364,29 @@
                 </div>`).join('');
         }
 
+        // Data-protection notice + explicit, un-ticked consent — shown at the
+        // point of submission on every path that records personal data.
+        function privacyNoticeHtml(prefix) {
+            return `
+                <div class="apply-privacy">
+                    <p class="apply-privacy__notice">
+                        Your details will be recorded in our database. Please note we will not disclose
+                        your data to third parties outside The University of Nottingham and the information
+                        will only be used to send you relevant information relating to your enquiry. You can
+                        obtain a copy of your data or ask for your record to be removed by contacting
+                        <a href="mailto:data-protection@nottingham.ac.uk">data-protection@nottingham.ac.uk</a>.
+                        You can also view our
+                        <a href="https://www.nottingham.ac.uk/utilities/data-protection/data-protection.aspx"
+                           target="_blank" rel="noopener noreferrer">data protection policies for the United Kingdom, China and Malaysia</a>.
+                    </p>
+                    <label class="apply-privacy__consent">
+                        <input type="checkbox" id="${prefix}-consent">
+                        <span>I have read and understood the above and consent to my details being recorded and used as described.</span>
+                    </label>
+                </div>`;
+        }
+        const CONSENT_ERR = 'Please tick the box to consent to your details being recorded.';
+
         if (isLoggedIn) {
             const { data: profile } = await db
                 .from('user_profiles')
@@ -443,15 +466,18 @@
                 });
             } else {
                 oneClick.innerHTML = `
-                    <p class="apply-oneclick__info">
-                        Applying as <strong>${esc(profile.full_name)}</strong>
-                        &nbsp;·&nbsp; ${esc(profile.student_id)}
-                    </p>
+                    <div class="apply-identity">
+                        <span class="apply-identity__label">You're applying as</span>
+                        <span class="apply-identity__name">${esc(profile.full_name)}</span>
+                        <span class="apply-identity__meta">${esc(profile.student_id)} · ${esc(profile.owa)}</span>
+                        <span class="apply-identity__meta">${esc(profile.year_of_study)} · ${esc(profile.course_of_study)}</span>
+                    </div>
                     <div class="apply-field">
                         <label class="apply-label" for="af-oc-file">Attachment${fileRequired ? ' (required)' : ' (optional)'}</label>
                         <input class="apply-input apply-file-input" type="file" id="af-oc-file" accept="application/pdf,image/*,video/*">
                         <p class="apply-hint">PDF, image, or video — up to 20MB.</p>
                     </div>
+                    ${privacyNoticeHtml('af-oc')}
                     <div id="af-err" class="apply-error" hidden></div>
                     <button class="apply-submit" id="af-btn">Apply as ${esc(profile.full_name)}</button>`;
 
@@ -461,6 +487,11 @@
                     const file   = oneClick.querySelector('#af-oc-file').files[0] || null;
                     errEl.hidden = true;
 
+                    if (!oneClick.querySelector('#af-oc-consent').checked) {
+                        errEl.textContent = CONSENT_ERR;
+                        errEl.hidden      = false;
+                        return;
+                    }
                     if (fileRequired && !file) {
                         errEl.textContent = 'Please attach a file to apply.';
                         errEl.hidden      = false;
@@ -530,6 +561,8 @@
             document.dispatchEvent(new CustomEvent('ua:open-login'));
         });
 
+        document.getElementById('af-error').insertAdjacentHTML('beforebegin', privacyNoticeHtml('af'));
+
         applyForm.addEventListener('submit', async e => {
             e.preventDefault();
             const errEl  = document.getElementById('af-error');
@@ -553,6 +586,7 @@
             };
 
             if (!name || !sid || !owa || !year || !course) { fail('Please fill in all fields.'); return; }
+            if (!document.getElementById('af-consent')?.checked) { fail(CONSENT_ERR); return; }
             if (fileRequired && !file) { fail('Please attach a file to apply.'); return; }
             const fileErr = validateAttachment(file);
             if (fileErr) { fail(fileErr); return; }

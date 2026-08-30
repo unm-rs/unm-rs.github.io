@@ -4310,9 +4310,88 @@ body:has(.ab-bar) .ep-years-outer {
 
 .apply-oneclick__info {
     font-size: 15px;
-    color: hsl(220, 14%, 62%);
+    color: hsl(220, 14%, 40%);
 
-    strong { color: hsl(220, 14%, 88%); font-weight: 700; }
+    strong { color: var(--color-text-dark); font-weight: 700; }
+}
+
+/* Who you're applying as — needs to actually stand out on the light panel */
+.apply-identity {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    width: 100%;
+    max-width: 380px;
+    padding: 16px 20px;
+    background: #fff;
+    border: 1px solid hsl(220, 14%, 87%);
+    border-radius: 12px;
+    text-align: left;
+}
+
+.apply-identity__label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: hsl(220, 14%, 55%);
+}
+
+.apply-identity__name {
+    font-size: 1.4rem;
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--color-text-dark);
+    margin-block: 1px 3px;
+}
+
+.apply-identity__meta {
+    font-size: 13px;
+    color: hsl(220, 14%, 46%);
+}
+
+/* PDPA / data-protection notice + consent gate */
+.apply-privacy {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    border: 1px solid hsl(220, 14%, 86%);
+    background: hsl(220, 24%, 98.5%);
+    border-radius: 8px;
+    text-align: left;
+}
+
+.apply-privacy__notice {
+    font-size: 12px;
+    line-height: 1.6;
+    color: hsl(220, 14%, 42%);
+
+    a {
+        color: hsl(232, 62%, 52%);
+        text-decoration: underline;
+        overflow-wrap: anywhere;
+    }
+}
+
+.apply-privacy__consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--color-text-dark);
+    cursor: pointer;
+
+    input {
+        flex-shrink: 0;
+        width: 16px;
+        height: 16px;
+        margin-top: 2px;
+        accent-color: hsl(232, 75%, 62%);
+        cursor: pointer;
+    }
 }
 
 .apply-reviewed-by {
