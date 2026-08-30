@@ -341,7 +341,7 @@
             const p  = successEl.querySelector('p');
             if (status === 'waitlisted') {
                 if (h3) h3.textContent = "You're on the waitlist";
-                if (p)  p.textContent  = "This event is currently full. If a spot opens up you'll be moved in automatically — first come, first served.";
+                if (p)  p.textContent  = "This event is currently full. If a spot opens up you'll be moved in automatically.";
             } else if (status === 'approved') {
                 if (h3) h3.textContent = "You're in!";
                 if (p)  p.textContent  = "Your place is confirmed. See you there!";
