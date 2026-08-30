@@ -106,6 +106,7 @@
     let endTimeValueEl  = document.getElementById('js-endtime-value');
     let venueValueEl    = document.getElementById('js-venue-value');
     let priceValueEl    = document.getElementById('js-price-value');
+    let scpdValueEl     = document.getElementById('js-scpd-value');
 
     const TYPE_LABELS = {
         'single-day': 'Single Day',
@@ -118,7 +119,7 @@
     const CORE_KINDS = ['type', 'date', 'time'];
     // Fields that only take up space in the row when they're actually set
     // (or an admin is editing, so there's still something to click on).
-    const OPTIONAL_KINDS = ['enddate', 'endtime', 'venue', 'price'];
+    const OPTIONAL_KINDS = ['enddate', 'endtime', 'venue', 'price', 'scpd'];
     const ALL_KINDS = [...CORE_KINDS, ...OPTIONAL_KINDS];
 
     const DATE_KINDS = { date: 'currentEventDate', enddate: 'currentEventEndDate' };
@@ -131,6 +132,7 @@
     let currentEventEndTime  = event.event_end_time || '';
     let currentEventVenue    = event.venue || '';
     let currentEventPrice    = event.price || '';
+    let currentEventScpd     = Number.isFinite(event.scpd_points) ? event.scpd_points : (parseInt(event.scpd_points, 10) || 0);
 
     function formatDateDisplay(d) {
         return d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBC';
@@ -147,6 +149,7 @@
         if (kind === 'type')    return currentEventType;
         if (kind === 'venue')   return currentEventVenue;
         if (kind === 'price')   return currentEventPrice;
+        if (kind === 'scpd')    return currentEventScpd;
         if (kind in DATE_KINDS) return kind === 'date' ? currentEventDate : currentEventEndDate;
         return kind === 'time' ? currentEventTime : currentEventEndTime;
     }
@@ -154,6 +157,7 @@
         if (kind === 'type')    return TYPE_LABELS[currentEventType] || TYPE_LABELS['single-day'];
         if (kind === 'venue')   return currentEventVenue || 'Click to add a venue';
         if (kind === 'price')   return currentEventPrice || 'Click to add a price';
+        if (kind === 'scpd')    return String(currentEventScpd);
         if (kind in DATE_KINDS) return formatDateDisplay(valueFor(kind));
         return formatTimeDisplay(valueFor(kind));
     }
@@ -164,6 +168,7 @@
         if (kind === 'time')    return timeValueEl;
         if (kind === 'venue')   return venueValueEl;
         if (kind === 'price')   return priceValueEl;
+        if (kind === 'scpd')    return scpdValueEl;
         return endTimeValueEl;
     }
     function setEl(kind, span) {
@@ -174,10 +179,12 @@
         if (kind === 'endtime') endTimeValueEl = span;
         if (kind === 'venue')   venueValueEl   = span;
         if (kind === 'price')   priceValueEl   = span;
+        if (kind === 'scpd')    scpdValueEl    = span;
     }
     function titleFor(kind) {
         if (kind === 'venue') return 'Click to change the venue';
         if (kind === 'price') return 'Click to change the price';
+        if (kind === 'scpd')  return 'Click to change the S-CPD points';
         return `Click to change ${kind}`;
     }
 
@@ -189,24 +196,21 @@
         if (kind === 'endtime') return isAdmin || !!currentEventEndTime;
         if (kind === 'venue')   return isAdmin || !!currentEventVenue;
         if (kind === 'price')   return isAdmin || !!currentEventPrice;
+        if (kind === 'scpd')    return isAdmin || currentEventScpd > 0;
         return true;
     }
 
-    // Each optional value has its own separator span right before it (a
-    // "–" for enddate/endtime, since they read as a range with the value
-    // before them, otherwise a "·") — keep the two in sync so hiding one
-    // never leaves a stray dot dangling in the row.
+    // Each value lives in its own labelled cell — hide the whole cell (label
+    // included) when an optional field is empty and nobody can edit it.
     function refreshMetaVisibility() {
         OPTIONAL_KINDS.forEach(kind => {
-            const show = isOptionalVisible(kind);
-            elFor(kind).hidden = !show;
-            const sep = document.getElementById(`js-${kind}-sep`);
-            if (sep) sep.hidden = !show;
+            const cell = elFor(kind).closest('.event-hero__meta-cell');
+            if (cell) cell.hidden = !isOptionalVisible(kind);
         });
     }
 
     if (datetimeEl) {
-        if (isAdmin || currentEventDate || currentEventTime || currentEventVenue || currentEventPrice) datetimeEl.hidden = false;
+        if (isAdmin || currentEventDate || currentEventTime || currentEventVenue || currentEventPrice || currentEventScpd > 0) datetimeEl.hidden = false;
 
         ALL_KINDS.forEach(kind => { elFor(kind).textContent = displayFor(kind); });
         refreshMetaVisibility();
@@ -237,6 +241,12 @@
             input.value        = valueFor(kind);
             input.placeholder  = kind === 'venue' ? 'e.g. Engineering Building, Room 204' : 'e.g. RM100000';
             input.className    = `event-hero__meta-input event-hero__meta-input--${kind}`;
+        } else if (kind === 'scpd') {
+            input = document.createElement('input');
+            input.type  = 'number';
+            input.min   = '0';
+            input.value = String(currentEventScpd);
+            input.className = 'event-hero__meta-input event-hero__meta-input--scpd';
         } else {
             input = document.createElement('input');
             input.type  = kind in DATE_KINDS ? 'date' : 'time';
@@ -260,6 +270,7 @@
             if (kind === 'endtime')  currentEventEndTime = input.value;
             if (kind === 'venue')    currentEventVenue   = input.value.trim();
             if (kind === 'price')    currentEventPrice   = input.value.trim();
+            if (kind === 'scpd')     currentEventScpd    = Math.max(0, parseInt(input.value, 10) || 0);
 
             const span = document.createElement('span');
             span.className = 'event-hero__meta-item event-hero__meta-item--editable';
@@ -1578,6 +1589,7 @@
             event_end_time:    currentEventEndTime || null,
             venue:             currentEventVenue || null,
             price:             currentEventPrice || null,
+            scpd_points:       currentEventScpd,
         }).eq('id', event.id);
 
         if (error) {

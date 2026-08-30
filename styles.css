@@ -795,30 +795,42 @@ svg {
             margin-block-start: 4px;
         }
 
+        /* Labelled cells instead of a dot-separated run — each field says
+           what it is. */
         .event-hero__meta {
             display: flex;
             flex-wrap: wrap;
-            align-items: baseline;
-            row-gap: 4px;
+            gap: 10px 26px;
+            align-items: start;
+        }
+
+        .event-hero__meta-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .event-hero__meta-label {
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: hsl(0 0% 100% / 0.62);
+            text-shadow: 0 1px 8px hsl(0 0% 0% / 0.55);
         }
 
         .event-hero__meta-item {
             font-size: 15px;
-            font-weight: 600;
-            color: hsl(0 0% 100% / 0.92);
+            font-weight: 700;
+            color: hsl(0 0% 100% / 0.96);
             white-space: nowrap;
-            text-shadow: 0 1px 10px hsl(0 0% 0% / 0.5);
-        }
-
-        .event-hero__meta-sep {
-            font-size: 15px;
-            color: hsl(0 0% 100% / 0.5);
-            margin-inline: 8px;
             text-shadow: 0 1px 10px hsl(0 0% 0% / 0.5);
         }
 
         .event-hero__meta-item--editable {
             cursor: pointer;
+            align-self: flex-start;
             border-bottom: 1px dashed hsl(0 0% 100% / 0.5);
             padding-bottom: 1px;
             transition: border-color 0.15s;
@@ -841,6 +853,7 @@ svg {
             &:focus { border-bottom-color: hsl(45, 95%, 55%); }
 
             &.event-hero__meta-input--venue { min-width: 200px; }
+            &.event-hero__meta-input--scpd  { width: 68px; }
         }
 
         .event-hero__join-btn {
@@ -901,9 +914,10 @@ svg {
         @media (width < calc(700 / 16 * 1rem)) {
             .event-hero__content  { max-width: 100%; gap: 8px; }
             .event-hero__title    { font-size: clamp(1.7rem, 8vw, 2.4rem); }
-            .event-hero__meta-item,
-            .event-hero__meta-sep { font-size: 14px; }
-            .event-hero__join-btn { padding: 10px 22px; font-size: 15px; }
+            .event-hero__meta        { gap: 12px 20px; }
+            .event-hero__meta-label  { font-size: 9.5px; }
+            .event-hero__meta-item   { font-size: 14px; }
+            .event-hero__join-btn    { padding: 10px 22px; font-size: 15px; }
         }
     }
 
@@ -962,9 +976,11 @@ svg {
         }
 
         @media (width < calc(700 / 16 * 1rem)) {
+            padding-block: 48px;
+
             .event-detail__inner {
                 grid-template-columns: 1fr;
-                row-gap: 32px;
+                row-gap: 28px;
             }
             .event-detail__divider {
                 height: 1px;
@@ -4153,8 +4169,25 @@ body:has(.ab-bar) .ep-years-outer {
     @media (width < calc(700 / 16 * 1rem)) {
         flex-direction: column;
         align-items: flex-start;
-        gap: 10px;
-        padding: 18px 20px;
+        gap: 8px;
+        padding: 16px 18px;
+    }
+}
+
+/* On small screens the card art is mostly covered by the title + badge +
+   gradient — drop the S-CPD chip for visitors (it lives on the event page
+   now) and lighten the scrim so the image reads. Admins keep the editable
+   chip. */
+@media (width < calc(700 / 16 * 1rem)) {
+    .ep-card__scpd:not([role="button"]) { display: none; }
+
+    .ep-card__link::after {
+        background: linear-gradient(
+            to top,
+            hsl(220 20% 6% / 0.80) 0%,
+            hsl(220 20% 6% / 0.20) 42%,
+            hsl(220 20% 6% / 0.00) 62%
+        );
     }
 }
 
