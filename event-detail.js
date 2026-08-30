@@ -431,7 +431,7 @@
                         <div class="apply-success apply-success--waitlisted">
                             <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 7 12 12 15 14"/></svg>
                             <h3>You're on the waitlist</h3>
-                            <p>This event is full for now. If a place opens up you'll be moved in automatically — first come, first served.</p>
+                            <p>This event is full for now. If a place opens up you'll be moved in automatically.</p>
                             <div class="apply-success__summary">
                                 ${rows.map(([k, v]) => `
                                     <div class="apply-success__row">
