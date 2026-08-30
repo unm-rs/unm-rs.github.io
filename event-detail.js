@@ -300,6 +300,7 @@
     }
 
     setupGallery();
+    setupEventDocuments();
 
     async function setupApplyForm(session, isLoggedIn) {
         const applyForm  = document.getElementById('js-apply-form');
@@ -887,6 +888,131 @@
         if (error) console.error('Gallery load failed:', error.message);
         items = data || [];
         render();
+    }
+
+    // ---- Downloadable documents --------------------------------------
+    // Admin-uploaded files (consent / indemnity / registration forms —
+    // things to print, sign and return) shown as a prominent card just
+    // above the apply form. Public bucket, so anyone can download.
+    async function setupEventDocuments() {
+        const DOC_BUCKET  = 'event-documents';
+        const DOC_MAX     = 20 * 1024 * 1024;
+        const DOC_EXTS    = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'png', 'jpg', 'jpeg'];
+
+        const { data, error } = await db.from('event_documents')
+            .select('*').eq('event_id', event.id)
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: true });
+        if (error && !/does not exist|schema cache/i.test(error.message)) {
+            console.error('Event documents load failed:', error.message);
+        }
+        let docs = data || [];
+
+        if (!isAdmin && !docs.length) return;
+
+        const detail       = document.querySelector('.event-detail');
+        const applySection = document.getElementById('apply-form');
+        if (!detail && !applySection) return;
+
+        const section = document.createElement('section');
+        section.className = 'event-docs';
+        section.id        = 'event-docs';
+        section.innerHTML = `
+            <div class="event-docs__inner">
+                <div class="event-docs__banner">
+                    <span class="event-docs__icon" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="12" y2="11"/></svg>
+                    </span>
+                    <div class="event-docs__banner-text">
+                        <h2 class="event-docs__title">Required Documents</h2>
+                        <p class="event-docs__sub">Download, read and sign these before the event. Attach the signed copy to your application or bring it with you.</p>
+                    </div>
+                </div>
+                <ul class="event-docs__list" id="js-docs-list"></ul>
+                ${isAdmin ? `
+                <div class="event-docs__admin">
+                    <button type="button" class="event-docs__add" id="js-docs-add">Upload a document</button>
+                    <input type="file" id="js-docs-input" hidden
+                           accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,application/pdf,image/png,image/jpeg">
+                </div>` : ''}
+            </div>`;
+        // Sits right under the event description, above the apply form —
+        // "complete these before you apply".
+        if (detail) detail.after(section);
+        else applySection.before(section);
+
+        const list = section.querySelector('#js-docs-list');
+
+        function urlFor(d) {
+            return db.storage.from(DOC_BUCKET)
+                .getPublicUrl(d.file_path, { download: d.file_name }).data.publicUrl;
+        }
+
+        function render() {
+            if (!docs.length && !isAdmin) { section.remove(); return; }
+            list.innerHTML = docs.map(d => `
+                <li class="event-docs__item">
+                    <span class="event-docs__file-icon" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </span>
+                    <span class="event-docs__meta">
+                        <span class="event-docs__name">${esc(d.file_name)}</span>
+                        ${d.description ? `<span class="event-docs__desc">${esc(d.description)}</span>` : ''}
+                    </span>
+                    <a class="event-docs__dl" href="${esc(urlFor(d))}" target="_blank" rel="noopener">Download</a>
+                    ${isAdmin ? `<button type="button" class="event-docs__del" data-id="${esc(String(d.id))}" title="Remove" aria-label="Remove document">&times;</button>` : ''}
+                </li>`).join('') || `<li class="event-docs__empty">No documents yet.</li>`;
+        }
+        render();
+
+        if (isAdmin) {
+            list.addEventListener('click', async e => {
+                const del = e.target.closest('.event-docs__del');
+                if (!del) return;
+                if (!confirm('Remove this document?')) return;
+                const id  = del.dataset.id;
+                const doc = docs.find(d => String(d.id) === String(id));
+                const { error: delErr } = await db.from('event_documents').delete().eq('id', id);
+                if (delErr) { alert('Could not remove: ' + delErr.message); return; }
+                if (doc) db.storage.from(DOC_BUCKET).remove([doc.file_path]); // best-effort
+                docs = docs.filter(d => String(d.id) !== String(id));
+                render();
+            });
+
+            const addBtn = section.querySelector('#js-docs-add');
+            const input  = section.querySelector('#js-docs-input');
+            addBtn.addEventListener('click', () => input.click());
+            input.addEventListener('change', async e => {
+                const file = e.target.files[0];
+                e.target.value = '';
+                if (!file) return;
+
+                const ext = (file.name.split('.').pop() || '').toLowerCase();
+                if (!DOC_EXTS.includes(ext)) { alert('Allowed types: PDF, Word, Excel, TXT, PNG, JPG.'); return; }
+                if (file.size > DOC_MAX)     { alert('File must be under 20MB.'); return; }
+
+                const note = (prompt('Short note for this document (optional) — e.g. "requires guardian signature"') || '').trim();
+
+                const label = addBtn.textContent;
+                addBtn.disabled = true;
+                addBtn.textContent = 'Uploading…';
+
+                const path = `documents/${event.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+                const { error: upErr } = await db.storage.from(DOC_BUCKET).upload(path, file, { upsert: true });
+                if (upErr) {
+                    alert('Upload failed: ' + upErr.message);
+                } else {
+                    const nextOrder = docs.length ? Math.max(...docs.map(d => d.sort_order || 0)) + 1 : 0;
+                    const { data: inserted, error: insErr } = await db.from('event_documents')
+                        .insert({ event_id: event.id, file_path: path, file_name: file.name, description: note || null, sort_order: nextOrder })
+                        .select().single();
+                    if (insErr) alert('Could not save document: ' + insErr.message);
+                    else { docs.push(inserted); render(); }
+                }
+                addBtn.disabled = false;
+                addBtn.textContent = label;
+            });
+        }
     }
 
     if (!isAdmin) return;

@@ -1275,6 +1275,159 @@ svg {
     }
     .lightbox__close:hover { background: hsl(0 0% 100% / 0.28); }
 
+    /* Per-event downloadable documents — a deliberately loud card above
+       the apply form (consent / indemnity forms to sign). */
+    .event-docs {
+        background: hsl(45, 90%, 96%);
+        border-block: 1px solid hsl(45, 80%, 82%);
+        padding-block: clamp(40px, 6vw, 68px);
+        padding-inline: clamp(24px, 5vw, 80px);
+    }
+
+    .event-docs__inner {
+        max-width: 760px;
+        margin-inline: auto;
+    }
+
+    .event-docs__banner {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        margin-block-end: 22px;
+    }
+
+    .event-docs__icon {
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        border-radius: 12px;
+        background: hsl(45, 95%, 55%);
+        color: hsl(40, 60%, 16%);
+    }
+
+    .event-docs__title {
+        font-size: clamp(1.35rem, 3.2vw, 1.9rem);
+        font-weight: 800;
+        line-height: 1.15;
+        color: var(--color-text-dark);
+        margin: 2px 0 4px;
+    }
+
+    .event-docs__sub {
+        font-size: var(--fs-14);
+        line-height: 1.5;
+        color: hsl(40, 25%, 32%);
+    }
+
+    .event-docs__list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .event-docs__item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background: #fff;
+        border: 1px solid hsl(45, 45%, 85%);
+        border-radius: 10px;
+        padding: 14px 16px;
+        box-shadow: 0 1px 3px hsl(45 40% 40% / 0.12);
+    }
+
+    .event-docs__file-icon {
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        background: hsl(45, 90%, 94%);
+        color: hsl(40, 55%, 30%);
+    }
+
+    .event-docs__meta {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+        margin-inline-end: auto;
+    }
+
+    .event-docs__name {
+        font-weight: 700;
+        color: var(--color-text-dark);
+        word-break: break-word;
+    }
+
+    .event-docs__desc {
+        font-size: var(--fs-14);
+        color: hsl(40, 20%, 42%);
+    }
+
+    .event-docs__dl {
+        flex-shrink: 0;
+        font-weight: 700;
+        font-size: var(--fs-14);
+        text-decoration: none;
+        padding: 9px 20px;
+        border-radius: 7px;
+        background: hsl(232, 75%, 62%);
+        color: #fff;
+        transition: opacity 0.15s;
+    }
+    .event-docs__dl:hover { opacity: 0.85; }
+
+    .event-docs__del {
+        flex-shrink: 0;
+        width: 28px;
+        height: 28px;
+        border: none;
+        border-radius: 50%;
+        background: hsl(45, 40%, 90%);
+        color: hsl(40, 30%, 30%);
+        font-size: 17px;
+        line-height: 1;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+    }
+    .event-docs__del:hover { background: hsl(0, 72%, 92%); color: hsl(0, 65%, 40%); }
+
+    .event-docs__empty {
+        list-style: none;
+        color: hsl(40, 20%, 42%);
+        font-size: var(--fs-14);
+        padding: 4px 0;
+    }
+
+    .event-docs__admin { margin-block-start: 16px; }
+
+    .event-docs__add {
+        font-family: inherit;
+        font-size: var(--fs-14);
+        font-weight: 700;
+        padding: 10px 20px;
+        border-radius: 8px;
+        border: 1.5px dashed hsl(45, 60%, 55%);
+        background: transparent;
+        color: hsl(40, 45%, 28%);
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .event-docs__add:hover:not(:disabled) { background: hsl(45, 85%, 90%); }
+    .event-docs__add:disabled { opacity: 0.55; cursor: default; }
+
+    @media (max-width: 520px) {
+        .event-docs__item { flex-wrap: wrap; }
+        .event-docs__meta { flex-basis: 100%; margin-inline-end: 0; }
+        .event-docs__dl { margin-inline-start: auto; }
+    }
+
     .event-hero__title[contenteditable="true"] {
         outline: none;
         border-bottom: 2px solid hsl(0 0% 100% / 0.35);

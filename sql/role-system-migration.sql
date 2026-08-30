@@ -1169,3 +1169,73 @@ CREATE POLICY "Admins update about feature sections"
   ON public.about_feature_sections FOR UPDATE TO authenticated
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
+
+-- ============================================================
+-- 53. Per-event downloadable documents. Admins attach files
+--     (consent / indemnity / registration forms — things people
+--     print, sign and bring back) that show as a prominent card
+--     above the apply form on the event page. Anyone can download
+--     them; only admins upload / remove.
+--
+--     These are meant to be public (unlike application-files,
+--     which hold personal submissions), so they get their own
+--     PUBLIC bucket with a document-friendly MIME allowlist.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.event_documents (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id    uuid NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  file_path   text NOT NULL,
+  file_name   text NOT NULL,
+  description text,
+  sort_order  integer NOT NULL DEFAULT 0,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS event_documents_event_idx
+  ON public.event_documents (event_id, sort_order, created_at);
+
+ALTER TABLE public.event_documents ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view event documents" ON public.event_documents;
+CREATE POLICY "Anyone can view event documents"
+  ON public.event_documents FOR SELECT
+  USING (true);
+
+DROP POLICY IF EXISTS "Admins manage event documents" ON public.event_documents;
+CREATE POLICY "Admins manage event documents"
+  ON public.event_documents FOR ALL TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'event-documents',
+  'event-documents',
+  true,
+  20971520, -- 20MB
+  ARRAY['application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'text/plain', 'image/png', 'image/jpeg']
+)
+ON CONFLICT (id) DO UPDATE SET
+  public              = true,
+  file_size_limit     = EXCLUDED.file_size_limit,
+  allowed_mime_types  = EXCLUDED.allowed_mime_types;
+
+DROP POLICY IF EXISTS "Anyone can read event documents" ON storage.objects;
+CREATE POLICY "Anyone can read event documents"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'event-documents');
+
+DROP POLICY IF EXISTS "Admins upload event documents" ON storage.objects;
+CREATE POLICY "Admins upload event documents"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'event-documents' AND public.is_admin());
+
+DROP POLICY IF EXISTS "Admins delete event documents" ON storage.objects;
+CREATE POLICY "Admins delete event documents"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'event-documents' AND public.is_admin());
