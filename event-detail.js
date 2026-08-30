@@ -1326,7 +1326,7 @@
 
         function render() {
             box.innerHTML = path
-                ? `<p class="event-pay__proof-title">Proof of payment received ✓</p>
+                ? `<p class="event-pay__proof-title">Proof of payment received</p>
                    <p class="event-pay__proof-sub">Thank you! We'll confirm your payment shortly. Sent the wrong file? You can replace it.</p>
                    <div class="event-pay__proof-actions">
                        <button type="button" class="event-pay__proof-view"    id="js-proof-view">View file</button>
