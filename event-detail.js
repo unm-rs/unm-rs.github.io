@@ -1183,7 +1183,7 @@
             + ((event.payment_required || !editable) ? ' event-pay--on' : '')
             + (editable ? '' : ' event-pay--embedded');
 
-        const priceBit  = event.price ? ` — ${esc(event.price)}` : '';
+        const priceBit  = event.price ? `: ${esc(event.price)}` : '';
         const hasContent = event.payment_qr_url || event.payment_details;
 
         section.innerHTML = `
@@ -1202,7 +1202,7 @@
                         <input type="file" id="js-pay-qr-input" hidden accept="image/png,image/jpeg,image/webp">` : ''}
                     </div>
                     <div class="event-pay__body">
-                        <h2 class="event-pay__title">How to pay${priceBit}</h2>
+                        <h2 class="event-pay__title">Payment Required${priceBit}</h2>
                         ${editable
                             ? `<div class="event-pay__instr" id="js-pay-instr" contenteditable="true"
                                     data-placeholder="e.g. TnG QR of UNM Robotics Society Treasurer. If you have any issues please contact Jane at 012-3456789">${esc(event.payment_details || '')}</div>
