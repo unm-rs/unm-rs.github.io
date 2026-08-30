@@ -357,6 +357,9 @@
                 ['Course', details.course],
             ];
             if (details.attachmentName) rows.push(['Attachment', details.attachmentName]);
+            if (status === 'waitlisted' && details.waitlistPosition) {
+                rows.unshift(['Position', `#${details.waitlistPosition} in line`]);
+            }
             summaryEl.innerHTML = rows.map(([k, v]) => `
                 <div class="apply-success__row">
                     <span class="apply-success__k">${esc(k)}</span>
@@ -375,9 +378,7 @@
                         will only be used to send you relevant information relating to your enquiry. You can
                         obtain a copy of your data or ask for your record to be removed by contacting
                         <a href="mailto:data-protection@nottingham.ac.uk">data-protection@nottingham.ac.uk</a>.
-                        You can also view our
-                        <a href="https://www.nottingham.ac.uk/utilities/data-protection/data-protection.aspx"
-                           target="_blank" rel="noopener noreferrer">data protection policies for the United Kingdom, China and Malaysia</a>.
+                        You can also view our data protection policies for the United Kingdom, China and Malaysia.
                     </p>
                     <label class="apply-privacy__consent">
                         <input type="checkbox" id="${prefix}-consent">
@@ -414,21 +415,28 @@
                 const reason   = existing.rejection_reason;
 
                 if (s === 'waitlisted') {
-                    let posText = '';
                     const { data: pos } = await db.rpc('my_waitlist_position', { p_event_id: event.id });
-                    if (pos) posText = ` You're currently #${pos} in line.`;
+                    const rows = [];
+                    if (pos) rows.push(['Position', `#${pos} in line`]);
+                    rows.push(
+                        ['Name', profile.full_name],
+                        ['Student ID', profile.student_id],
+                        ['OWA', profile.owa],
+                        ['Year', profile.year_of_study],
+                        ['Course', profile.course_of_study],
+                    );
 
                     oneClick.innerHTML = `
-                        <p class="apply-oneclick__info">You've already applied to this event.</p>
-                        <div class="apply-verdict apply-verdict--waitlisted">
-                            <div class="apply-verdict__left">
-                                <span class="apply-verdict__label">Waitlist</span>
-                                <span class="apply-verdict__icon">⏳</span>
-                            </div>
-                            <div class="apply-verdict__divider"></div>
-                            <div class="apply-verdict__right">
-                                <p class="apply-verdict__right-title">You're on the waitlist</p>
-                                <p class="apply-verdict__congrats">This event is full for now. If a place opens up you'll be moved in automatically — first come, first served.${posText}</p>
+                        <div class="apply-success apply-success--waitlisted">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 7 12 12 15 14"/></svg>
+                            <h3>You're on the waitlist</h3>
+                            <p>This event is full for now. If a place opens up you'll be moved in automatically — first come, first served.</p>
+                            <div class="apply-success__summary">
+                                ${rows.map(([k, v]) => `
+                                    <div class="apply-success__row">
+                                        <span class="apply-success__k">${esc(k)}</span>
+                                        <span class="apply-success__v">${esc(v)}</span>
+                                    </div>`).join('')}
                             </div>
                         </div>`;
                 } else if (s === 'approved' || s === 'rejected') {
@@ -537,10 +545,16 @@
                         btn.textContent   = `Apply as ${profile.full_name}`;
                     } else {
                         oneClick.hidden  = true;
+                        let waitlistPosition = null;
+                        if (created?.status === 'waitlisted') {
+                            const { data: pos } = await db.rpc('my_waitlist_position', { p_event_id: event.id });
+                            waitlistPosition = pos || null;
+                        }
                         renderConfirmation({
                             name: profile.full_name, studentId: profile.student_id, owa: profile.owa,
                             year: profile.year_of_study, course: profile.course_of_study,
                             attachmentName: attachment?.name || null,
+                            waitlistPosition,
                         }, created?.status);
                         successEl.hidden = false;
                     }

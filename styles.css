@@ -4319,14 +4319,15 @@ body:has(.ab-bar) .ep-years-outer {
 .apply-identity {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 3px;
     width: 100%;
-    max-width: 380px;
-    padding: 16px 20px;
+    max-width: 360px;
+    padding: 18px 22px;
     background: #fff;
     border: 1px solid hsl(220, 14%, 87%);
     border-radius: 12px;
-    text-align: left;
+    text-align: center;
 }
 
 .apply-identity__label {
@@ -4471,15 +4472,8 @@ body:has(.ab-bar) .ep-years-outer {
 .apply-verdict--approved .apply-verdict__divider { background: hsl(140, 35%, 13%); }
 .apply-verdict--rejected .apply-verdict__divider { background: hsl(5, 35%, 13%); }
 
-/* Waitlist — yellow */
-.apply-verdict--waitlisted {
-    background: hsl(45, 34%, 8%);
-    border-color: hsl(45, 45%, 18%);
-}
-.apply-verdict--waitlisted .apply-verdict__label { color: hsl(45, 95%, 58%); }
-.apply-verdict--waitlisted .apply-verdict__icon  { color: hsl(45, 95%, 58%); font-size: 44px; }
-.apply-verdict--waitlisted .apply-verdict__divider { background: hsl(45, 35%, 14%); }
-
+/* Waitlist — yellow. Uses the same "success screen" layout (icon, heading,
+   details box) as a submitted application, just recoloured. */
 .apply-success.apply-success--waitlisted {
     color: hsl(42, 88%, 46%);
 }
