@@ -334,7 +334,19 @@
             return { path, name: file.name };
         }
 
-        function renderConfirmation(details) {
+        function renderConfirmation(details, status) {
+            // Tailor the success screen to how the application landed.
+            successEl.classList.toggle('apply-success--waitlisted', status === 'waitlisted');
+            const h3 = successEl.querySelector('h3');
+            const p  = successEl.querySelector('p');
+            if (status === 'waitlisted') {
+                if (h3) h3.textContent = "You're on the waitlist";
+                if (p)  p.textContent  = "This event is currently full. If a spot opens up you'll be moved in automatically — first come, first served.";
+            } else if (status === 'approved') {
+                if (h3) h3.textContent = "You're in!";
+                if (p)  p.textContent  = "Your place is confirmed. See you there!";
+            }
+
             const summaryEl = document.getElementById('af-summary');
             if (!summaryEl) return;
             const rows = [
@@ -368,7 +380,7 @@
 
             const { data: existing } = await db
                 .from('applications')
-                .select('id, status, reviewed_by, rejection_reason')
+                .select('id, status, reviewed_by, rejection_reason, submitted_at')
                 .eq('user_id', session.user.id)
                 .eq('event_id', event.id)
                 .maybeSingle();
@@ -378,7 +390,25 @@
                 const reviewer = existing.reviewed_by;
                 const reason   = existing.rejection_reason;
 
-                if (s === 'approved' || s === 'rejected') {
+                if (s === 'waitlisted') {
+                    let posText = '';
+                    const { data: pos } = await db.rpc('my_waitlist_position', { p_event_id: event.id });
+                    if (pos) posText = ` You're currently #${pos} in line.`;
+
+                    oneClick.innerHTML = `
+                        <p class="apply-oneclick__info">You've already applied to this event.</p>
+                        <div class="apply-verdict apply-verdict--waitlisted">
+                            <div class="apply-verdict__left">
+                                <span class="apply-verdict__label">Waitlist</span>
+                                <span class="apply-verdict__icon">⏳</span>
+                            </div>
+                            <div class="apply-verdict__divider"></div>
+                            <div class="apply-verdict__right">
+                                <p class="apply-verdict__right-title">You're on the waitlist</p>
+                                <p class="apply-verdict__congrats">This event is full for now. If a place opens up you'll be moved in automatically — first come, first served.${posText}</p>
+                            </div>
+                        </div>`;
+                } else if (s === 'approved' || s === 'rejected') {
                     const isApproved = s === 'approved';
                     const icon       = isApproved ? '✓' : '✕';
                     const label      = isApproved ? 'Approved' : 'Rejected';
@@ -455,7 +485,7 @@
                         }
                     }
 
-                    const { error } = await db.from('applications').insert({
+                    const { data: created, error } = await db.from('applications').insert({
                         event_id:        event.id,
                         event_slug:      event.slug || null,
                         full_name:       profile.full_name,
@@ -467,7 +497,7 @@
                         status:          'pending',
                         attachment_path: attachment?.path || null,
                         attachment_name: attachment?.name || null,
-                    });
+                    }).select('status').single();
 
                     if (error) {
                         errEl.textContent = error.message;
@@ -480,7 +510,7 @@
                             name: profile.full_name, studentId: profile.student_id, owa: profile.owa,
                             year: profile.year_of_study, course: profile.course_of_study,
                             attachmentName: attachment?.name || null,
-                        });
+                        }, created?.status);
                         successEl.hidden = false;
                     }
                 });
@@ -537,7 +567,7 @@
                 }
             }
 
-            const { error: submitErr } = await db.from('applications').insert({
+            const { data: created, error: submitErr } = await db.from('applications').insert({
                 event_id:        event.id,
                 event_slug:      event.slug || null,
                 full_name:       name,
@@ -549,14 +579,14 @@
                 status:          'pending',
                 attachment_path: attachment?.path || null,
                 attachment_name: attachment?.name || null,
-            });
+            }).select('status').single();
 
             if (submitErr) {
                 fail(submitErr.message);
             } else {
                 applyForm.hidden = true;
                 banner.remove();
-                renderConfirmation({ name, studentId: sid, owa, year, course, attachmentName: attachment?.name || null });
+                renderConfirmation({ name, studentId: sid, owa, year, course, attachmentName: attachment?.name || null }, created?.status);
                 successEl.hidden = false;
             }
         });
@@ -570,10 +600,17 @@
             <div class="approvals-panel__inner">
                 <div class="approvals-panel__head">
                     <h2 class="approvals-panel__title">Applications</h2>
-                    <label class="ap-file-toggle">
-                        <input type="checkbox" id="ap-file-required"${event.application_file_required ? ' checked' : ''}>
-                        Require an attachment to apply
-                    </label>
+                    <div class="ap-settings">
+                        <label class="ap-file-toggle">
+                            <input type="checkbox" id="ap-file-required"${event.application_file_required ? ' checked' : ''}>
+                            Require an attachment to apply
+                        </label>
+                        <label class="ap-cap-field">
+                            Max participants
+                            <input type="number" id="ap-max" min="0" inputmode="numeric"
+                                   value="${event.max_participants ?? ''}" placeholder="∞">
+                        </label>
+                    </div>
                     <div class="approvals-panel__counts" id="ap-counts"></div>
                 </div>
                 <div id="ap-list" class="ap-list">Loading…</div>
@@ -586,6 +623,17 @@
             const { error } = await db.from('events').update({ application_file_required: checked }).eq('id', event.id);
             if (error) { alert(error.message); e.target.checked = !checked; return; }
             event.application_file_required = checked;
+        });
+
+        panel.querySelector('#ap-max').addEventListener('change', async e => {
+            const raw = e.target.value.trim();
+            const val = raw === '' ? null : Math.max(0, parseInt(raw, 10) || 0);
+            e.target.value = val ?? '';
+            const { error } = await db.from('events').update({ max_participants: val }).eq('id', event.id);
+            if (error) { alert(error.message); e.target.value = event.max_participants ?? ''; return; }
+            event.max_participants = val;
+            // the DB trigger may have promoted people off the waitlist
+            await refreshApprovals(panel);
         });
 
         window.__apAdmin = {
@@ -636,51 +684,77 @@
             if (profiles) avatarMap = Object.fromEntries(profiles.map(p => [p.id, p.avatar_url]));
         }
 
-        const pending  = apps.filter(a => a.status === 'pending').length;
-        const approved = apps.filter(a => a.status === 'approved').length;
-        const rejected = apps.filter(a => a.status === 'rejected').length;
+        const byStatus = s => apps.filter(a => a.status === s);
+        const pending     = byStatus('pending');
+        const approved    = byStatus('approved');
+        const waitlisted  = byStatus('waitlisted');
+        const rejected    = byStatus('rejected');
 
+        const cap = event.max_participants;
         counts.innerHTML = `
             <span class="ap-count">${apps.length} total</span>
-            <span class="ap-count ap-count--pending">${pending} pending</span>
-            <span class="ap-count ap-count--approved">${approved} approved</span>
-            <span class="ap-count ap-count--rejected">${rejected} rejected</span>`;
+            ${cap != null ? `<span class="ap-count ap-count--seats">${approved.length} / ${cap} seats filled</span>` : ''}
+            ${pending.length ? `<span class="ap-count ap-count--pending">${pending.length} pending</span>` : ''}
+            <span class="ap-count ap-count--approved">${approved.length} approved</span>
+            ${waitlisted.length ? `<span class="ap-count ap-count--waitlisted">${waitlisted.length} waitlisted</span>` : ''}
+            <span class="ap-count ap-count--rejected">${rejected.length} rejected</span>`;
 
-        list.className = 'ap-grid';
-        list.innerHTML = apps.map(app => {
+        const card = app => {
             const avatarUrl  = avatarMap[app.user_id] || null;
             const initials   = (app.full_name || '?').split(' ').map(n => n[0] || '').slice(0, 2).join('').toUpperCase();
             const avatarHtml = avatarUrl
                 ? `<img class="ap-avatar" src="${esc(avatarUrl)}" alt="">`
                 : `<div class="ap-avatar ap-avatar--initials">${esc(initials)}</div>`;
+            const id = esc(String(app.id));
+            const label = app.status === 'waitlisted' ? 'Waitlist' : capitalize(app.status);
+
+            const actions =
+                app.status === 'pending' ? `
+                    <button class="ap-btn ap-btn--approve" data-id="${id}" onclick="window.__apAdmin.approve(this.dataset.id)">Approve</button>
+                    <button class="ap-btn ap-btn--reject"  data-id="${id}" onclick="window.__apAdmin.reject(this.dataset.id)">Reject</button>`
+              : app.status === 'waitlisted' ? `
+                    <button class="ap-btn ap-btn--approve" data-id="${id}" onclick="window.__apAdmin.approve(this.dataset.id)">Approve now</button>
+                    <button class="ap-btn ap-btn--reject"  data-id="${id}" onclick="window.__apAdmin.reject(this.dataset.id)">Reject</button>`
+              : app.status === 'rejected' ? `
+                    <button class="ap-btn ap-btn--approve" data-id="${id}" onclick="window.__apAdmin.approve(this.dataset.id)">Approve</button>`
+              : app.status === 'approved' ? `
+                    <button class="ap-btn ap-btn--reject"  data-id="${id}" onclick="window.__apAdmin.reject(this.dataset.id)">Reject</button>`
+              : '';
 
             return `
                 <div class="ap-card ap-card--${app.status}">
                     <div class="ap-card__top">
                         ${avatarHtml}
-                        <span class="ap-status ap-status--${app.status}">${capitalize(app.status)}</span>
+                        <span class="ap-status ap-status--${app.status}">${label}</span>
                     </div>
                     <strong class="ap-card__name">${esc(app.full_name)}</strong>
                     <span class="ap-card__meta">${esc(app.student_id)}</span>
                     <span class="ap-card__meta">${esc(app.owa)}</span>
                     <span class="ap-card__meta">${esc(app.year_of_study)} · ${esc(app.course_of_study)}</span>
                     ${app.attachment_path ? `
-                        <button type="button" class="ap-card__attachment" data-id="${esc(String(app.id))}" onclick="window.__apAdmin.viewAttach(this.dataset.id)">
+                        <button type="button" class="ap-card__attachment" data-id="${id}" onclick="window.__apAdmin.viewAttach(this.dataset.id)">
                             📎 ${esc(app.attachment_name || 'Attachment')}
                         </button>` : ''}
                     <div class="ap-card__actions">
-                        ${app.status === 'pending' ? `
-                            <button class="ap-btn ap-btn--approve" data-id="${esc(String(app.id))}" onclick="window.__apAdmin.approve(this.dataset.id)">Approve</button>
-                            <button class="ap-btn ap-btn--reject"  data-id="${esc(String(app.id))}" onclick="window.__apAdmin.reject(this.dataset.id)">Reject</button>`
-                        : app.status === 'rejected' ? `
-                            <button class="ap-btn ap-btn--approve" data-id="${esc(String(app.id))}" onclick="window.__apAdmin.approve(this.dataset.id)">Approve</button>`
-                        : app.status === 'approved' ? `
-                            <button class="ap-btn ap-btn--reject"  data-id="${esc(String(app.id))}" onclick="window.__apAdmin.reject(this.dataset.id)">Reject</button>`
-                        : ''}
-                        <button class="ap-btn ap-btn--remove" data-id="${esc(String(app.id))}" onclick="window.__apAdmin.remove(this.dataset.id)">Remove</button>
+                        ${actions}
+                        <button class="ap-btn ap-btn--remove" data-id="${id}" onclick="window.__apAdmin.remove(this.dataset.id)">Remove</button>
                     </div>
                 </div>`;
-        }).join('');
+        };
+
+        // Waitlist is a queue — show it oldest-first (next in line at the top).
+        const section = (title, rows) => rows.length ? `
+            <div class="ap-section">
+                <h3 class="ap-section__title">${title} <span>${rows.length}</span></h3>
+                <div class="ap-grid">${rows.map(card).join('')}</div>
+            </div>` : '';
+
+        list.className = 'ap-sections';
+        list.innerHTML =
+            section('Pending review', pending) +
+            section('Waitlist', [...waitlisted].sort((a, b) => new Date(a.submitted_at) - new Date(b.submitted_at))) +
+            section('Approved', approved) +
+            section('Rejected', rejected);
     }
 
     async function rejectWithReason(id, panel) {

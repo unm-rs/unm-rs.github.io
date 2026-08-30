@@ -1308,16 +1308,16 @@ svg {
     }
 
     .event-docs__title {
-        font-size: clamp(1.35rem, 3.2vw, 1.9rem);
+        font-size: clamp(1.55rem, 3.6vw, 2.2rem);
         font-weight: 800;
         line-height: 1.15;
         color: var(--color-text-dark);
-        margin: 2px 0 4px;
+        margin: 2px 0 5px;
     }
 
     .event-docs__sub {
-        font-size: var(--fs-14);
-        line-height: 1.5;
+        font-size: var(--fs-16);
+        line-height: 1.55;
         color: hsl(40, 25%, 32%);
     }
 
@@ -4392,6 +4392,20 @@ body:has(.ab-bar) .ep-years-outer {
 .apply-verdict--approved .apply-verdict__divider { background: hsl(140, 35%, 13%); }
 .apply-verdict--rejected .apply-verdict__divider { background: hsl(5, 35%, 13%); }
 
+/* Waitlist — yellow */
+.apply-verdict--waitlisted {
+    background: hsl(45, 34%, 8%);
+    border-color: hsl(45, 45%, 18%);
+}
+.apply-verdict--waitlisted .apply-verdict__label { color: hsl(45, 95%, 58%); }
+.apply-verdict--waitlisted .apply-verdict__icon  { color: hsl(45, 95%, 58%); font-size: 44px; }
+.apply-verdict--waitlisted .apply-verdict__divider { background: hsl(45, 35%, 14%); }
+
+.apply-success.apply-success--waitlisted {
+    color: hsl(42, 88%, 46%);
+}
+.apply-success.apply-success--waitlisted h3 { color: hsl(40, 55%, 24%); }
+
 .apply-verdict__right {
     padding: 28px 32px;
     display: flex;
@@ -4616,9 +4630,67 @@ body:has(.ab-bar) .ep-years-outer {
     color: hsl(220, 14%, 52%);
     border: 1px solid hsl(233, 18%, 20%);
 
-    &.ap-count--pending  { color: hsl(45, 95%, 55%);  border-color: hsl(45, 60%, 30%);  background: hsl(45, 60%, 10%); }
-    &.ap-count--approved { color: hsl(140, 60%, 48%); border-color: hsl(140, 40%, 22%); background: hsl(140, 40%, 8%); }
-    &.ap-count--rejected { color: hsl(5, 68%, 62%);   border-color: hsl(5, 40%, 22%);   background: hsl(5, 40%, 8%); }
+    &.ap-count--pending    { color: hsl(45, 95%, 55%);  border-color: hsl(45, 60%, 30%);  background: hsl(45, 60%, 10%); }
+    &.ap-count--approved   { color: hsl(140, 60%, 48%); border-color: hsl(140, 40%, 22%); background: hsl(140, 40%, 8%); }
+    &.ap-count--waitlisted { color: hsl(45, 95%, 58%);  border-color: hsl(45, 45%, 28%);  background: hsl(45, 50%, 9%); }
+    &.ap-count--rejected   { color: hsl(5, 68%, 62%);   border-color: hsl(5, 40%, 22%);   background: hsl(5, 40%, 8%); }
+    &.ap-count--seats      { color: hsl(220, 14%, 78%); border-color: hsl(233, 18%, 30%); background: hsl(233, 22%, 14%); }
+}
+
+.ap-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ap-cap-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: hsl(220, 14%, 65%);
+    user-select: none;
+
+    input {
+        width: 74px;
+        font: inherit;
+        font-size: 13px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid hsl(233, 18%, 26%);
+        background: hsl(233, 22%, 10%);
+        color: hsl(220, 14%, 92%);
+        accent-color: hsl(45, 95%, 55%);
+    }
+    input:focus { outline: 1px solid hsl(45, 70%, 45%); }
+}
+
+.ap-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+}
+
+.ap-section__title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: hsl(220, 14%, 55%);
+    margin-block-end: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    span {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 1px 8px;
+        border-radius: 100px;
+        background: hsl(233, 22%, 14%);
+        border: 1px solid hsl(233, 18%, 22%);
+        color: hsl(220, 14%, 62%);
+    }
 }
 
 .ap-list {
@@ -4645,8 +4717,9 @@ body:has(.ab-bar) .ep-years-outer {
     flex-direction: column;
     gap: 4px;
 
-    &.ap-card--approved { border-color: hsl(140, 40%, 18%); }
-    &.ap-card--rejected { border-color: hsl(5, 40%, 18%); opacity: 0.65; }
+    &.ap-card--approved   { border-color: hsl(140, 40%, 18%); }
+    &.ap-card--waitlisted { border-color: hsl(45, 45%, 24%); background: hsl(45, 30%, 6%); }
+    &.ap-card--rejected   { border-color: hsl(5, 40%, 18%); opacity: 0.65; }
 }
 
 .ap-card__top {
@@ -4756,9 +4829,10 @@ body:has(.ab-bar) .ep-years-outer {
     padding: 6px 18px;
     border-radius: 6px;
 
-    &.ap-status--pending  { background: hsl(45, 60%, 10%);  color: hsl(45, 95%, 55%);  border: 1px solid hsl(45, 60%, 25%); }
-    &.ap-status--approved { background: hsl(140, 40%, 8%);  color: hsl(140, 60%, 48%); border: 1px solid hsl(140, 40%, 20%); }
-    &.ap-status--rejected { background: hsl(5, 40%, 8%);    color: hsl(5, 68%, 62%);   border: 1px solid hsl(5, 40%, 20%); }
+    &.ap-status--pending    { background: hsl(45, 60%, 10%);  color: hsl(45, 95%, 55%);  border: 1px solid hsl(45, 60%, 25%); }
+    &.ap-status--approved   { background: hsl(140, 40%, 8%);  color: hsl(140, 60%, 48%); border: 1px solid hsl(140, 40%, 20%); }
+    &.ap-status--waitlisted { background: hsl(45, 55%, 9%);   color: hsl(45, 95%, 58%);  border: 1px solid hsl(45, 50%, 24%); }
+    &.ap-status--rejected   { background: hsl(5, 40%, 8%);    color: hsl(5, 68%, 62%);   border: 1px solid hsl(5, 40%, 20%); }
 }
 
 .ap-row__btns {

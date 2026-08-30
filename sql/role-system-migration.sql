@@ -1239,3 +1239,186 @@ DROP POLICY IF EXISTS "Admins delete event documents" ON storage.objects;
 CREATE POLICY "Admins delete event documents"
   ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'event-documents' AND public.is_admin());
+
+-- ============================================================
+-- 54. Event capacity + automatic waitlist.
+--
+--   * events.max_participants: NULL = unlimited (current behaviour —
+--     applications stay 'pending' for manual review).
+--   * With a cap set, a BEFORE INSERT trigger classifies each new
+--     application: 'approved' while seats remain, else 'waitlisted'.
+--     First come, first served by submitted_at.
+--   * When an approved seat is later given up (application rejected,
+--     removed, or moved back to the waitlist) OR the cap is raised,
+--     the oldest waitlisted application(s) are promoted to 'approved'
+--     to fill the freed seats.
+--   * Admins keep full manual control — approve/reject still work, and
+--     an admin approving past the cap is allowed (deliberate override).
+--
+--   A per-event advisory lock serialises all capacity changes so the
+--   FCFS ordering holds even under concurrent submissions.
+-- ============================================================
+
+-- new status value
+ALTER TABLE public.applications DROP CONSTRAINT IF EXISTS applications_status_check;
+ALTER TABLE public.applications
+  ADD CONSTRAINT applications_status_check
+  CHECK (status IN ('pending', 'approved', 'rejected', 'waitlisted'));
+
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS max_participants integer
+  CHECK (max_participants IS NULL OR max_participants >= 0);
+
+-- promote as many waitlisted as now fit under the cap (oldest first)
+CREATE OR REPLACE FUNCTION public.promote_event_waitlist(p_event_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_max      integer;
+  v_approved integer;
+  v_slots    integer;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('app-cap:' || p_event_id::text));
+
+  SELECT max_participants INTO v_max FROM public.events WHERE id = p_event_id;
+
+  -- no cap → unlimited room: everyone still waiting gets in
+  IF v_max IS NULL THEN
+    UPDATE public.applications
+    SET status = 'approved'
+    WHERE event_id = p_event_id AND status = 'waitlisted';
+    RETURN;
+  END IF;
+
+  SELECT count(*) INTO v_approved
+  FROM public.applications
+  WHERE event_id = p_event_id AND status = 'approved';
+
+  v_slots := v_max - v_approved;
+  IF v_slots <= 0 THEN RETURN; END IF;
+
+  UPDATE public.applications
+  SET status = 'approved'
+  WHERE id IN (
+    SELECT id FROM public.applications
+    WHERE event_id = p_event_id AND status = 'waitlisted'
+    ORDER BY submitted_at ASC
+    LIMIT v_slots
+  );
+END;
+$$;
+
+-- classify a fresh application against the cap
+CREATE OR REPLACE FUNCTION public.assign_application_status()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_max      integer;
+  v_approved integer;
+BEGIN
+  -- only the normal applicant path (status left at its 'pending' default);
+  -- if something inserts an explicit status, respect it
+  IF NEW.status IS DISTINCT FROM 'pending' THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT max_participants INTO v_max FROM public.events WHERE id = NEW.event_id;
+  IF v_max IS NULL THEN
+    RETURN NEW; -- no cap → stays 'pending' for manual review
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtext('app-cap:' || NEW.event_id::text));
+
+  SELECT count(*) INTO v_approved
+  FROM public.applications
+  WHERE event_id = NEW.event_id AND status = 'approved';
+
+  IF v_approved < v_max THEN
+    NEW.status := 'approved';
+  ELSE
+    NEW.status := 'waitlisted';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_assign_application_status ON public.applications;
+CREATE TRIGGER trg_assign_application_status
+  BEFORE INSERT ON public.applications
+  FOR EACH ROW EXECUTE FUNCTION public.assign_application_status();
+
+-- fill freed seats from the waitlist
+CREATE OR REPLACE FUNCTION public.applications_waitlist_sync()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.status = 'approved' THEN
+      PERFORM public.promote_event_waitlist(OLD.event_id);
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  IF OLD.status = 'approved' AND NEW.status IS DISTINCT FROM 'approved' THEN
+    PERFORM public.promote_event_waitlist(NEW.event_id);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_applications_waitlist_sync ON public.applications;
+CREATE TRIGGER trg_applications_waitlist_sync
+  AFTER UPDATE OR DELETE ON public.applications
+  FOR EACH ROW EXECUTE FUNCTION public.applications_waitlist_sync();
+
+-- promote when the cap itself is raised
+CREATE OR REPLACE FUNCTION public.events_capacity_sync()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.max_participants IS DISTINCT FROM OLD.max_participants THEN
+    PERFORM public.promote_event_waitlist(NEW.id);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_events_capacity_sync ON public.events;
+CREATE TRIGGER trg_events_capacity_sync
+  AFTER UPDATE OF max_participants ON public.events
+  FOR EACH ROW EXECUTE FUNCTION public.events_capacity_sync();
+
+-- Let a waitlisted applicant see their own place in the queue. RLS hides
+-- other people's applications, so this has to be SECURITY DEFINER.
+-- Returns 0 when the caller isn't on this event's waitlist.
+CREATE OR REPLACE FUNCTION public.my_waitlist_position(p_event_id uuid)
+RETURNS integer
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT count(*)::int
+  FROM public.applications a
+  WHERE a.event_id = p_event_id
+    AND a.status = 'waitlisted'
+    AND a.submitted_at <= (
+      SELECT submitted_at FROM public.applications
+      WHERE event_id = p_event_id AND user_id = auth.uid() AND status = 'waitlisted'
+      LIMIT 1
+    );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.my_waitlist_position(uuid) TO authenticated;
