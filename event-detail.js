@@ -301,6 +301,7 @@
 
     setupGallery();
     setupEventDocuments();
+    setupPaymentSection();
 
     async function setupApplyForm(session, isLoggedIn) {
         const applyForm  = document.getElementById('js-apply-form');
@@ -1135,6 +1136,136 @@
                 addBtn.textContent = label;
             });
         }
+    }
+
+    // ---- Payment (e-wallet QR) -------------------------------------------
+    // For events that charge a fee. Admin toggles it on, uploads the
+    // treasurer's QR and writes the instructions / contact line.
+    // Applicants only see it once they've been APPROVED — it appears
+    // directly under their "Approved" card.
+    async function setupPaymentSection() {
+        const hasCols = 'payment_required' in event;   // false before SQL step 55
+        if (!hasCols) return;
+
+        const applySection = document.getElementById('apply-form');
+        const detail       = document.querySelector('.event-detail');
+
+        if (isAdmin) {
+            const section = buildPaymentPanel(true);
+            if (applySection) applySection.before(section);
+            else if (detail)  detail.after(section);
+            return;
+        }
+
+        // Approved applicants only.
+        if (!event.payment_required || !session) return;
+        const { data: mine } = await db.from('applications')
+            .select('status').eq('event_id', event.id).eq('user_id', session.user.id).maybeSingle();
+        if (mine?.status !== 'approved') return;
+
+        const section = buildPaymentPanel(false);
+        if (applySection) applySection.after(section);   // right below the "Approved" card
+        else if (detail)  detail.after(section);
+    }
+
+    function linkify(t) {
+        return esc(t || '')
+            .replace(/\n/g, '<br>')
+            .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+            .replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, '<a href="mailto:$1">$1</a>');
+    }
+
+    function buildPaymentPanel(editable) {
+        const IMG_BUCKET = 'event-images';
+        const section = document.createElement('section');
+        section.id = 'event-pay';
+        section.className = 'event-pay'
+            + ((event.payment_required || !editable) ? ' event-pay--on' : '')
+            + (editable ? '' : ' event-pay--embedded');
+
+        const priceBit  = event.price ? ` — ${esc(event.price)}` : '';
+        const hasContent = event.payment_qr_url || event.payment_details;
+
+        section.innerHTML = `
+            <div class="event-pay__inner">
+                ${editable ? `
+                <label class="event-pay__toggle">
+                    <input type="checkbox" id="js-pay-toggle"${event.payment_required ? ' checked' : ''}>
+                    This event requires payment
+                </label>` : ''}
+                <div class="event-pay__grid">
+                    <div class="event-pay__qr-wrap">
+                        <img class="event-pay__qr" id="js-pay-qr" alt="Payment QR code"
+                             src="${esc(event.payment_qr_url || '')}"${event.payment_qr_url ? '' : ' hidden'}>
+                        ${editable ? `
+                        <button type="button" class="event-pay__qr-btn" id="js-pay-qr-btn">${event.payment_qr_url ? 'Change QR image' : 'Upload QR image'}</button>
+                        <input type="file" id="js-pay-qr-input" hidden accept="image/png,image/jpeg,image/webp">` : ''}
+                    </div>
+                    <div class="event-pay__body">
+                        <h2 class="event-pay__title">How to pay${priceBit}</h2>
+                        ${editable
+                            ? `<div class="event-pay__instr" id="js-pay-instr" contenteditable="true"
+                                    data-placeholder="e.g. TnG QR of UNM Robotics Society Treasurer. If you have any issues please contact Jane at 012-3456789">${esc(event.payment_details || '')}</div>
+                               <p class="event-pay__hint">Click the text to edit — it saves when you click away. Links and emails become clickable for visitors. Only approved applicants see this.</p>`
+                            : (hasContent
+                                ? `<div class="event-pay__instr">${linkify(event.payment_details)}</div>`
+                                : `<p class="event-pay__instr">Payment details haven't been posted yet — please check back soon.</p>`)}
+                    </div>
+                </div>
+            </div>`;
+
+        const qrImg = section.querySelector('#js-pay-qr');
+        qrImg.addEventListener('click', () => { if (qrImg.getAttribute('src')) openLightbox(qrImg.getAttribute('src')); });
+
+        if (!editable) return section;
+
+        section.querySelector('#js-pay-toggle').addEventListener('change', async e => {
+            const on = e.target.checked;
+            const { error } = await db.from('events').update({ payment_required: on }).eq('id', event.id);
+            if (error) { alert('Could not save: ' + error.message); e.target.checked = !on; return; }
+            event.payment_required = on;
+            section.classList.toggle('event-pay--on', on);
+        });
+
+        const qrBtn   = section.querySelector('#js-pay-qr-btn');
+        const qrInput = section.querySelector('#js-pay-qr-input');
+        qrBtn.addEventListener('click', () => qrInput.click());
+        qrInput.addEventListener('change', async e => {
+            const file = e.target.files[0];
+            e.target.value = '';
+            if (!file || !validateImageFile(file, qrInput)) return; // 5MB + image type
+            qrBtn.disabled = true;
+            const label = qrBtn.textContent;
+            qrBtn.textContent = 'Uploading…';
+            const ext  = (file.name.split('.').pop() || 'png').toLowerCase();
+            const path = `payment/${event.id}/${Date.now()}.${ext}`;
+            const { error: upErr } = await db.storage.from(IMG_BUCKET).upload(path, file, { upsert: true });
+            if (upErr) { alert('Upload failed: ' + upErr.message); qrBtn.disabled = false; qrBtn.textContent = label; return; }
+            const url = db.storage.from(IMG_BUCKET).getPublicUrl(path).data.publicUrl;
+            const { error: updErr } = await db.from('events').update({ payment_qr_url: url }).eq('id', event.id);
+            if (updErr) { alert('Could not save: ' + updErr.message); qrBtn.disabled = false; qrBtn.textContent = label; return; }
+            event.payment_qr_url = url;
+            qrImg.src = url;
+            qrImg.hidden = false;
+            qrBtn.disabled = false;
+            qrBtn.textContent = 'Change QR image';
+        });
+
+        const instr = section.querySelector('#js-pay-instr');
+        instr.addEventListener('blur', async () => {
+            const val = instr.innerText.replace(/\u00A0/g, " ").trim();
+            if (val === (event.payment_details || '')) return;
+            const { error } = await db.from('events').update({ payment_details: val || null }).eq('id', event.id);
+            if (error) { alert('Could not save: ' + error.message); return; }
+            event.payment_details = val || null;
+            const flash = document.createElement('span');
+            flash.className = 'event-pay__saved';
+            flash.textContent = 'Saved ✓';
+            instr.after(flash);
+            setTimeout(() => flash.remove(), 1600);
+        });
+
+        return section;
     }
 
     if (!isAdmin) return;

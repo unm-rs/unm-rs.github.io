@@ -1422,3 +1422,18 @@ AS $$
 $$;
 
 GRANT EXECUTE ON FUNCTION public.my_waitlist_position(uuid) TO authenticated;
+
+-- ============================================================
+-- 55. Payment info for events that charge a fee. Admin toggles
+--     `payment_required`; when on, the event page shows a panel
+--     with the treasurer's e-wallet QR on the left and free-text
+--     instructions / contact on the right.
+--
+--     The QR image reuses the existing public `event-images`
+--     bucket (5MB, image-only from step 28) — no new bucket or
+--     storage policy. `events` UPDATE is already admin-only.
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS payment_required boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS payment_qr_url   text,
+  ADD COLUMN IF NOT EXISTS payment_details  text;
