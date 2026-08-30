@@ -818,7 +818,7 @@
             } else {
                 emptyEl.hidden = false;
                 emptyEl.textContent = isAdmin
-                    ? 'No photos yet — add some with the button above.'
+                    ? 'No photos yet.'
                     : 'Photos will be posted here soon.';
             }
 
