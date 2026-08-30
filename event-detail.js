@@ -106,6 +106,8 @@
     let endTimeValueEl  = document.getElementById('js-endtime-value');
     let venueValueEl    = document.getElementById('js-venue-value');
     let priceValueEl    = document.getElementById('js-price-value');
+    let pricememValueEl = document.getElementById('js-pricemem-value');
+    let pricenonValueEl = document.getElementById('js-pricenon-value');
     let scpdValueEl     = document.getElementById('js-scpd-value');
 
     const TYPE_LABELS = {
@@ -119,7 +121,7 @@
     const CORE_KINDS = ['type', 'date', 'time'];
     // Fields that only take up space in the row when they're actually set
     // (or an admin is editing, so there's still something to click on).
-    const OPTIONAL_KINDS = ['enddate', 'endtime', 'venue', 'price', 'scpd'];
+    const OPTIONAL_KINDS = ['enddate', 'endtime', 'venue', 'price', 'pricemem', 'pricenon', 'scpd'];
     const ALL_KINDS = [...CORE_KINDS, ...OPTIONAL_KINDS];
 
     const DATE_KINDS = { date: 'currentEventDate', enddate: 'currentEventEndDate' };
@@ -132,6 +134,8 @@
     let currentEventEndTime  = event.event_end_time || '';
     let currentEventVenue    = event.venue || '';
     let currentEventPrice    = event.price || '';
+    let currentEventPriceMem = event.price_member || '';
+    let currentEventPriceNon = event.price_nonmember || '';
     let currentEventScpd     = Number.isFinite(event.scpd_points) ? event.scpd_points : (parseInt(event.scpd_points, 10) || 0);
 
     function formatDateDisplay(d) {
@@ -146,45 +150,55 @@
     function formatTimeDisplay(t) { return t ? formatTime(t) : 'TBC'; }
 
     function valueFor(kind) {
-        if (kind === 'type')    return currentEventType;
-        if (kind === 'venue')   return currentEventVenue;
-        if (kind === 'price')   return currentEventPrice;
-        if (kind === 'scpd')    return currentEventScpd;
-        if (kind in DATE_KINDS) return kind === 'date' ? currentEventDate : currentEventEndDate;
+        if (kind === 'type')     return currentEventType;
+        if (kind === 'venue')    return currentEventVenue;
+        if (kind === 'price')    return currentEventPrice;
+        if (kind === 'pricemem') return currentEventPriceMem;
+        if (kind === 'pricenon') return currentEventPriceNon;
+        if (kind === 'scpd')     return currentEventScpd;
+        if (kind in DATE_KINDS)  return kind === 'date' ? currentEventDate : currentEventEndDate;
         return kind === 'time' ? currentEventTime : currentEventEndTime;
     }
     function displayFor(kind) {
-        if (kind === 'type')    return TYPE_LABELS[currentEventType] || TYPE_LABELS['single-day'];
-        if (kind === 'venue')   return currentEventVenue || 'Click to add a venue';
-        if (kind === 'price')   return currentEventPrice || 'Click to add a price';
-        if (kind === 'scpd')    return String(currentEventScpd);
-        if (kind in DATE_KINDS) return formatDateDisplay(valueFor(kind));
+        if (kind === 'type')     return TYPE_LABELS[currentEventType] || TYPE_LABELS['single-day'];
+        if (kind === 'venue')    return currentEventVenue || 'Click to add a venue';
+        if (kind === 'price')    return currentEventPrice || 'Click to add a price';
+        if (kind === 'pricemem') return currentEventPriceMem || 'Click to add a member price';
+        if (kind === 'pricenon') return currentEventPriceNon || 'Click to add a non-member price';
+        if (kind === 'scpd')     return String(currentEventScpd);
+        if (kind in DATE_KINDS)  return formatDateDisplay(valueFor(kind));
         return formatTimeDisplay(valueFor(kind));
     }
     function elFor(kind) {
-        if (kind === 'type')    return typeValueEl;
-        if (kind === 'date')    return dateValueEl;
-        if (kind === 'enddate') return endDateValueEl;
-        if (kind === 'time')    return timeValueEl;
-        if (kind === 'venue')   return venueValueEl;
-        if (kind === 'price')   return priceValueEl;
-        if (kind === 'scpd')    return scpdValueEl;
+        if (kind === 'type')     return typeValueEl;
+        if (kind === 'date')     return dateValueEl;
+        if (kind === 'enddate')  return endDateValueEl;
+        if (kind === 'time')     return timeValueEl;
+        if (kind === 'venue')    return venueValueEl;
+        if (kind === 'price')    return priceValueEl;
+        if (kind === 'pricemem') return pricememValueEl;
+        if (kind === 'pricenon') return pricenonValueEl;
+        if (kind === 'scpd')     return scpdValueEl;
         return endTimeValueEl;
     }
     function setEl(kind, span) {
-        if (kind === 'type')    typeValueEl    = span;
-        if (kind === 'date')    dateValueEl    = span;
-        if (kind === 'enddate') endDateValueEl = span;
-        if (kind === 'time')    timeValueEl    = span;
-        if (kind === 'endtime') endTimeValueEl = span;
-        if (kind === 'venue')   venueValueEl   = span;
-        if (kind === 'price')   priceValueEl   = span;
-        if (kind === 'scpd')    scpdValueEl    = span;
+        if (kind === 'type')     typeValueEl     = span;
+        if (kind === 'date')     dateValueEl     = span;
+        if (kind === 'enddate')  endDateValueEl  = span;
+        if (kind === 'time')     timeValueEl     = span;
+        if (kind === 'endtime')  endTimeValueEl  = span;
+        if (kind === 'venue')    venueValueEl    = span;
+        if (kind === 'price')    priceValueEl    = span;
+        if (kind === 'pricemem') pricememValueEl = span;
+        if (kind === 'pricenon') pricenonValueEl = span;
+        if (kind === 'scpd')     scpdValueEl     = span;
     }
     function titleFor(kind) {
-        if (kind === 'venue') return 'Click to change the venue';
-        if (kind === 'price') return 'Click to change the price';
-        if (kind === 'scpd')  return 'Click to change the S-CPD points';
+        if (kind === 'venue')    return 'Click to change the venue';
+        if (kind === 'price')    return 'Click to change the price';
+        if (kind === 'pricemem') return 'Click to change the member price';
+        if (kind === 'pricenon') return 'Click to change the non-member price';
+        if (kind === 'scpd')     return 'Click to change the S-CPD points';
         return `Click to change ${kind}`;
     }
 
@@ -194,9 +208,11 @@
     function isOptionalVisible(kind) {
         if (kind === 'enddate') return currentEventType !== 'single-day' && (isAdmin || !!currentEventEndDate);
         if (kind === 'endtime') return isAdmin || !!currentEventEndTime;
-        if (kind === 'venue')   return isAdmin || !!currentEventVenue;
-        if (kind === 'price')   return isAdmin || !!currentEventPrice;
-        if (kind === 'scpd')    return isAdmin || currentEventScpd > 0;
+        if (kind === 'venue')    return isAdmin || !!currentEventVenue;
+        if (kind === 'price')    return isAdmin || !!currentEventPrice;
+        if (kind === 'pricemem') return isAdmin || !!currentEventPriceMem;
+        if (kind === 'pricenon') return isAdmin || !!currentEventPriceNon;
+        if (kind === 'scpd')     return isAdmin || currentEventScpd > 0;
         return true;
     }
 
@@ -210,7 +226,8 @@
     }
 
     if (datetimeEl) {
-        if (isAdmin || currentEventDate || currentEventTime || currentEventVenue || currentEventPrice || currentEventScpd > 0) datetimeEl.hidden = false;
+        if (isAdmin || currentEventDate || currentEventTime || currentEventVenue
+            || currentEventPrice || currentEventPriceMem || currentEventPriceNon || currentEventScpd > 0) datetimeEl.hidden = false;
 
         ALL_KINDS.forEach(kind => { elFor(kind).textContent = displayFor(kind); });
         refreshMetaVisibility();
@@ -235,12 +252,12 @@
             input.innerHTML = Object.entries(TYPE_LABELS)
                 .map(([val, label]) => `<option value="${val}"${val === currentEventType ? ' selected' : ''}>${label}</option>`)
                 .join('');
-        } else if (kind === 'venue' || kind === 'price') {
+        } else if (kind === 'venue' || kind === 'price' || kind === 'pricemem' || kind === 'pricenon') {
             input = document.createElement('input');
             input.type        = 'text';
             input.value        = valueFor(kind);
-            input.placeholder  = kind === 'venue' ? 'e.g. Engineering Building, Room 204' : 'e.g. RM100000';
-            input.className    = `event-hero__meta-input event-hero__meta-input--${kind}`;
+            input.placeholder  = kind === 'venue' ? 'e.g. Engineering Building, Room 204' : 'e.g. RM10';
+            input.className    = `event-hero__meta-input event-hero__meta-input--${kind === 'venue' ? 'venue' : 'price'}`;
         } else if (kind === 'scpd') {
             input = document.createElement('input');
             input.type  = 'number';
@@ -268,9 +285,11 @@
             if (kind === 'enddate')  currentEventEndDate = input.value;
             if (kind === 'time')     currentEventTime    = input.value;
             if (kind === 'endtime')  currentEventEndTime = input.value;
-            if (kind === 'venue')    currentEventVenue   = input.value.trim();
-            if (kind === 'price')    currentEventPrice   = input.value.trim();
-            if (kind === 'scpd')     currentEventScpd    = Math.max(0, parseInt(input.value, 10) || 0);
+            if (kind === 'venue')    currentEventVenue    = input.value.trim();
+            if (kind === 'price')    currentEventPrice    = input.value.trim();
+            if (kind === 'pricemem') currentEventPriceMem = input.value.trim();
+            if (kind === 'pricenon') currentEventPriceNon = input.value.trim();
+            if (kind === 'scpd')     currentEventScpd     = Math.max(0, parseInt(input.value, 10) || 0);
 
             const span = document.createElement('span');
             span.className = 'event-hero__meta-item event-hero__meta-item--editable';
@@ -1210,7 +1229,11 @@
             + ((event.payment_required || !editable) ? ' event-pay--on' : '')
             + (editable ? '' : ' event-pay--embedded');
 
-        const priceBit  = event.price ? `: ${esc(event.price)}` : '';
+        const priceParts = [];
+        if (event.price_member)    priceParts.push(`Members ${esc(event.price_member)}`);
+        if (event.price_nonmember) priceParts.push(`Non-members ${esc(event.price_nonmember)}`);
+        if (!priceParts.length && event.price) priceParts.push(esc(event.price));
+        const priceBit  = priceParts.length ? `: ${priceParts.join(' · ')}` : '';
         const hasContent = event.payment_qr_url || event.payment_details;
 
         section.innerHTML = `
@@ -1589,6 +1612,8 @@
             event_end_time:    currentEventEndTime || null,
             venue:             currentEventVenue || null,
             price:             currentEventPrice || null,
+            price_member:      currentEventPriceMem || null,
+            price_nonmember:   currentEventPriceNon || null,
             scpd_points:       currentEventScpd,
         }).eq('id', event.id);
 

@@ -5699,12 +5699,13 @@ body:has(.ab-bar) .fr-cats-outer { top: 44px; }
 .fr-post__author {
     display: flex;
     align-items: center;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: 8px 10px;
     font-weight: 700;
     font-size: 20px;
     color: hsl(0, 0%, 8%);
 
-    .fr-mod-badge, .cm-pos-badge, .fr-op-chip { margin-top: 0; }
+    .fr-mod-badge, .cm-pos-badge, .fr-op-chip, .pf-tag-badge { margin-top: 0; }
 }
 
 .fr-post__date {
@@ -6057,11 +6058,25 @@ body:has(.ab-bar) .fr-cats-outer { top: 44px; }
 @media (max-width: 600px) {
     .fr-hero { aspect-ratio: 1 / 1; min-height: 320px; max-height: none; }
 
-    .fr-thread-row { grid-template-columns: 36px 1fr; gap: 20px; }
+    .fr-thread-row { grid-template-columns: 36px 1fr; gap: 16px; padding: 20px 18px; }
     .fr-thread-avatar { width: 36px; height: 36px; font-size: 13px; }
     .fr-thread-stats { display: none; }
-    .fr-thread-title { max-width: none; }
     .fr-thread-detail { padding-inline: 16px; }
+
+    /* Keep the title on its own line so the category chip / badges wrap
+       cleanly under it instead of being squeezed off the edge. */
+    .fr-thread-title-row { row-gap: 8px; }
+    .fr-thread-title { flex: 1 1 100%; max-width: 100%; }
+    .fr-cat-chip {
+        font-size: 11px;
+        padding: 3px 10px;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-shrink: 1;
+    }
+    .fr-post__author { gap: 6px 8px; font-size: 16px; }
 
     .fr-pending-row { grid-template-columns: 1fr; }
     .fr-pending-row__actions { flex-direction: row; }

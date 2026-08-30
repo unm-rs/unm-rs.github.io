@@ -1517,3 +1517,12 @@ CREATE POLICY "Users delete own payment proof"
   ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'payment-proofs'
          AND ((storage.foldername(name))[1] = auth.uid()::text OR public.is_admin()));
+
+-- ============================================================
+-- 57. Separate member vs non-member event pricing. `price`
+--     (step 48) stays as the single "everyone pays this" field;
+--     these two are shown as their own meta cells when set.
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS price_member    text,
+  ADD COLUMN IF NOT EXISTS price_nonmember text;
