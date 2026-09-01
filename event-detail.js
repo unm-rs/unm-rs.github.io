@@ -400,7 +400,7 @@
                         will only be used to send you relevant information relating to your enquiry. You can
                         obtain a copy of your data or ask for your record to be removed by contacting
                         <a href="mailto:data-protection@nottingham.ac.uk">data-protection@nottingham.ac.uk</a>.
-                        You can also view our data protection policies for the United Kingdom, China and Malaysia.
+                        You can also view our <a href="https://www.nottingham.edu.my/Utilities/DataProtection.aspx" target="_blank" rel="noopener noreferrer">data protection policies</a> for the United Kingdom, China and Malaysia.
                     </p>
                     <label class="apply-privacy__consent">
                         <input type="checkbox" id="${prefix}-consent">
