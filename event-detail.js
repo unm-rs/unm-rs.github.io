@@ -579,6 +579,10 @@
                             waitlistPosition,
                         }, created?.status);
                         successEl.hidden = false;
+                        // Auto-approval (see assign_application_status trigger) can
+                        // happen right on insert — show the payment panel immediately
+                        // instead of making them reload to see it.
+                        if (created?.status === 'approved') setupPaymentSection();
                     }
                 });
             }
@@ -658,6 +662,10 @@
                 banner.remove();
                 renderConfirmation({ name, studentId: sid, owa, year, course, attachmentName: attachment?.name || null }, created?.status);
                 successEl.hidden = false;
+                // Auto-approval (see assign_application_status trigger) can
+                // happen right on insert — show the payment panel immediately
+                // instead of making them reload to see it.
+                if (created?.status === 'approved') setupPaymentSection();
             }
         });
     }
