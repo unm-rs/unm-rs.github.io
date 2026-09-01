@@ -1587,3 +1587,152 @@ ALTER TABLE public.events
 
 ALTER TABLE public.applications
   ADD COLUMN IF NOT EXISTS visitor_count integer;
+
+-- ============================================================
+-- 63. student_id and course_of_study were NOT NULL from back when
+--     every applicant was assumed to be a UNM student — external
+--     (non-UNM) applicants legitimately leave both null now (they
+--     carry school_name/region instead, see step 61), so the old
+--     constraint was rejecting every external application with
+--     "null value in column student_id violates not-null constraint".
+-- ============================================================
+ALTER TABLE public.applications
+  ALTER COLUMN student_id      DROP NOT NULL,
+  ALTER COLUMN course_of_study DROP NOT NULL;
+
+-- ============================================================
+-- 64. Root cause of the guest-application RLS error, found via the
+--     Postgres logs: PostgREST implements `.insert().select()` as
+--     `WITH pgrst_source AS (INSERT ... RETURNING ...) SELECT ... FROM
+--     pgrst_source` — that trailing SELECT is a real SELECT against
+--     "applications" and IS subject to its SELECT policies, even
+--     though the INSERT's own WITH CHECK already passed. Both
+--     existing SELECT policies ("Admins view applications", "Users
+--     view own") are `TO authenticated` only, so an anon/guest
+--     caller has no SELECT policy covering the row it just inserted
+--     — the request fails with a row-level security error even
+--     though the insert itself was perfectly allowed. This affected
+--     BOTH the UNM and external guest branches identically, since
+--     the failure has nothing to do with which fields were filled in
+--     — only with the caller being anon.
+--
+--     Fixed by routing every application submission through this
+--     function instead of a raw table insert. A plain `INSERT ...
+--     RETURNING status` inside a function reads the status straight
+--     off the just-inserted row — that's part of the INSERT command
+--     itself, not a subsequent SELECT, so no SELECT policy is ever
+--     consulted. Not SECURITY DEFINER — it runs as the calling role,
+--     so the existing "Anyone can submit" INSERT policy still fully
+--     governs who can write what (the p_user_id/auth.uid() check
+--     below mirrors that policy defensively). No new SELECT policy
+--     needed, so this doesn't reopen the applications PII leak that
+--     was deliberately closed earlier in this log.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.submit_application(
+  p_event_id uuid,
+  p_event_slug text,
+  p_full_name text,
+  p_owa text,
+  p_year_of_study text,
+  p_user_id uuid DEFAULT NULL,
+  p_student_id text DEFAULT NULL,
+  p_course_of_study text DEFAULT NULL,
+  p_school_name text DEFAULT NULL,
+  p_region text DEFAULT NULL,
+  p_attachment_path text DEFAULT NULL,
+  p_attachment_name text DEFAULT NULL,
+  p_dietary_medical_info text DEFAULT NULL,
+  p_visitor_count integer DEFAULT NULL
+)
+RETURNS text
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_status text;
+BEGIN
+  IF p_user_id IS NOT NULL AND p_user_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'You can only submit an application as yourself';
+  END IF;
+
+  INSERT INTO public.applications (
+    event_id, event_slug, full_name, owa, year_of_study,
+    student_id, course_of_study, school_name, region,
+    user_id, status, attachment_path, attachment_name,
+    dietary_medical_info, visitor_count
+  ) VALUES (
+    p_event_id, p_event_slug, p_full_name, p_owa, p_year_of_study,
+    p_student_id, p_course_of_study, p_school_name, p_region,
+    p_user_id, 'pending', p_attachment_path, p_attachment_name,
+    p_dietary_medical_info, p_visitor_count
+  )
+  RETURNING status INTO v_status;
+
+  RETURN v_status;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.submit_application(
+  uuid, text, text, text, text, uuid, text, text, text, text, text, text, text, integer
+) TO anon, authenticated;
+
+-- ============================================================
+-- 65. Step 64 didn't actually fix the guest RLS error — turns out
+--     the rule is broader than "PostgREST wraps insert().select() in
+--     a SELECT": ANY RETURNING clause on an INSERT is checked against
+--     the table's SELECT policies too, not just the INSERT policy's
+--     WITH CHECK — including a plain `RETURNING ... INTO` inside a
+--     PL/pgSQL function. So the function hit the exact same wall the
+--     raw table insert did.
+--
+--     Actual fix: SECURITY DEFINER, so the function (and its
+--     RETURNING) runs under the function owner's privileges, which
+--     bypass RLS entirely, instead of the caller's. That also means
+--     RLS is no longer there to stop a malicious anon caller from
+--     passing an arbitrary p_user_id to impersonate someone — the
+--     p_user_id/auth.uid() check already in the function body is now
+--     the real enforcement of that, not just a defensive extra.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.submit_application(
+  p_event_id uuid,
+  p_event_slug text,
+  p_full_name text,
+  p_owa text,
+  p_year_of_study text,
+  p_user_id uuid DEFAULT NULL,
+  p_student_id text DEFAULT NULL,
+  p_course_of_study text DEFAULT NULL,
+  p_school_name text DEFAULT NULL,
+  p_region text DEFAULT NULL,
+  p_attachment_path text DEFAULT NULL,
+  p_attachment_name text DEFAULT NULL,
+  p_dietary_medical_info text DEFAULT NULL,
+  p_visitor_count integer DEFAULT NULL
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_status text;
+BEGIN
+  IF p_user_id IS NOT NULL AND p_user_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'You can only submit an application as yourself';
+  END IF;
+
+  INSERT INTO public.applications (
+    event_id, event_slug, full_name, owa, year_of_study,
+    student_id, course_of_study, school_name, region,
+    user_id, status, attachment_path, attachment_name,
+    dietary_medical_info, visitor_count
+  ) VALUES (
+    p_event_id, p_event_slug, p_full_name, p_owa, p_year_of_study,
+    p_student_id, p_course_of_study, p_school_name, p_region,
+    p_user_id, 'pending', p_attachment_path, p_attachment_name,
+    p_dietary_medical_info, p_visitor_count
+  )
+  RETURNING status INTO v_status;
+
+  RETURN v_status;
+END;
+$$;

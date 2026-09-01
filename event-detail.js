@@ -593,23 +593,26 @@
                     const visitorsRaw = oneClick.querySelector('#af-oc-visitors')?.value.trim() || '';
                     const visitors = visitorsRaw === '' ? null : Math.max(0, parseInt(visitorsRaw, 10) || 0);
 
-                    const { data: created, error } = await db.from('applications').insert({
-                        event_id:        event.id,
-                        event_slug:      event.slug || null,
-                        full_name:       profile.full_name,
-                        student_id:      profile.student_id,
-                        owa:             profile.owa,
-                        year_of_study:   profile.year_of_study,
-                        course_of_study: profile.course_of_study,
-                        school_name:     profile.school_name,
-                        region:          profile.region,
-                        user_id:         session.user.id,
-                        status:          'pending',
-                        attachment_path: attachment?.path || null,
-                        attachment_name: attachment?.name || null,
-                        dietary_medical_info: dietary,
-                        visitor_count:   visitors,
-                    }).select('status').single();
+                    // Routed through an RPC rather than a raw table insert — see
+                    // SQL step 64 for why: PostgREST's insert().select() wraps the
+                    // INSERT in a SELECT that's subject to SELECT-policy checks a
+                    // plain INSERT...RETURNING never needs.
+                    const { data: status, error } = await db.rpc('submit_application', {
+                        p_event_id:        event.id,
+                        p_event_slug:      event.slug || null,
+                        p_full_name:       profile.full_name,
+                        p_owa:             profile.owa,
+                        p_year_of_study:   profile.year_of_study,
+                        p_user_id:         session.user.id,
+                        p_student_id:      profile.student_id,
+                        p_course_of_study: profile.course_of_study,
+                        p_school_name:     profile.school_name,
+                        p_region:          profile.region,
+                        p_attachment_path: attachment?.path || null,
+                        p_attachment_name: attachment?.name || null,
+                        p_dietary_medical_info: dietary,
+                        p_visitor_count:   visitors,
+                    });
 
                     if (error) {
                         errEl.textContent = error.message;
@@ -619,7 +622,7 @@
                     } else {
                         oneClick.hidden  = true;
                         let waitlistPosition = null;
-                        if (created?.status === 'waitlisted') {
+                        if (status === 'waitlisted') {
                             const { data: pos } = await db.rpc('my_waitlist_position', { p_event_id: event.id });
                             waitlistPosition = pos || null;
                         }
@@ -630,12 +633,12 @@
                             attachmentName: attachment?.name || null,
                             dietary, visitors,
                             waitlistPosition,
-                        }, created?.status);
+                        }, status);
                         successEl.hidden = false;
                         // Auto-approval (see assign_application_status trigger) can
                         // happen right on insert — show the payment panel immediately
                         // instead of making them reload to see it.
-                        if (created?.status === 'approved') setupPaymentSection();
+                        if (status === 'approved') setupPaymentSection();
                     }
                 });
             }
@@ -724,23 +727,27 @@
                 }
             }
 
-            const { data: created, error: submitErr } = await db.from('applications').insert({
-                event_id:        event.id,
-                event_slug:      event.slug || null,
-                full_name:       name,
-                student_id:      sid,
-                owa,
-                year_of_study:   year,
-                course_of_study: course,
-                school_name:     school,
-                region,
-                user_id:         null,
-                status:          'pending',
-                attachment_path: attachment?.path || null,
-                attachment_name: attachment?.name || null,
-                dietary_medical_info: dietary,
-                visitor_count: visitors,
-            }).select('status').single();
+            // Routed through an RPC rather than a raw table insert — see
+            // SQL step 64 for why: PostgREST's insert().select() wraps the
+            // INSERT in a SELECT that's subject to SELECT-policy checks a
+            // plain INSERT...RETURNING never needs. This is what was
+            // actually causing the guest "row-level security" error —
+            // nothing to do with which fields were filled in.
+            const { data: status, error: submitErr } = await db.rpc('submit_application', {
+                p_event_id:        event.id,
+                p_event_slug:      event.slug || null,
+                p_full_name:       name,
+                p_owa:             owa,
+                p_year_of_study:   year,
+                p_student_id:      sid,
+                p_course_of_study: course,
+                p_school_name:     school,
+                p_region:          region,
+                p_attachment_path: attachment?.path || null,
+                p_attachment_name: attachment?.name || null,
+                p_dietary_medical_info: dietary,
+                p_visitor_count:   visitors,
+            });
 
             if (submitErr) {
                 fail(submitErr.message);
@@ -751,12 +758,12 @@
                     name, studentId: sid, owa: isUnm ? owa : null, email: isUnm ? null : owa,
                     year, course, school, region,
                     attachmentName: attachment?.name || null, dietary, visitors,
-                }, created?.status);
+                }, status);
                 successEl.hidden = false;
                 // Auto-approval (see assign_application_status trigger) can
                 // happen right on insert — show the payment panel immediately
                 // instead of making them reload to see it.
-                if (created?.status === 'approved') setupPaymentSection();
+                if (status === 'approved') setupPaymentSection();
             }
         });
     }
