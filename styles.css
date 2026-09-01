@@ -1267,8 +1267,15 @@ svg {
         cursor: zoom-out;
     }
     .lightbox__img {
-        max-width: 100%;
-        max-height: 100%;
+        /* Percentages here don't work: .lightbox is a grid container with no
+           explicit track sizes, so its implicit row/column auto-size to fit
+           their content — meaning max-width/height:100% have no definite
+           size to resolve against and get ignored, letting the image render
+           at its raw natural pixel size instead of being capped to the
+           viewport. Viewport units sidestep that, matching the container's
+           own 4vw padding. */
+        max-width: 92vw;
+        max-height: 92vh;
         object-fit: contain;
         border-radius: 4px;
         cursor: default;
@@ -4271,15 +4278,6 @@ body:has(.ab-bar) .ep-years-outer {
 }
 
 .ep-card__ctrl--major.is-active:hover { background: hsl(45 85% 25% / 0.8); }
-
-.ep-card__ctrl--del {
-    color: hsl(5, 80%, 68%);
-    border-color: hsl(5, 60%, 40%);
-    background: hsl(5 70% 18% / 0.6);
-    margin-inline-start: auto;
-}
-
-.ep-card__ctrl--del:hover { background: hsl(5 70% 26% / 0.7); }
 
 .ep-card__ctrl--year {
     appearance: none;

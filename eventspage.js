@@ -369,8 +369,7 @@
                     ${groups.map(g =>
                         `<option value="${esc(g.id)}"${g.id === ev.group_id ? ' selected' : ''}>${esc(g.name)}</option>`
                     ).join('')}
-                </select>
-                <button class="ep-card__ctrl ep-card__ctrl--del">Delete</button>`;
+                </select>`;
 
             ctrl.querySelector('.ep-card__ctrl--status').addEventListener('click', async () => {
                 const next = STATUS_NEXT[status];
@@ -404,16 +403,6 @@
                     const grid = document.getElementById('js-events-grid');
                     if (!grid.querySelector('.ep-card')) renderEvents();
                 }
-            });
-
-            ctrl.querySelector('.ep-card__ctrl--del').addEventListener('click', async () => {
-                if (!confirm(`Delete "${ev.title}"?\n\nThis cannot be undone.`)) return;
-                const { error } = await db.from('events').delete().eq('id', ev.id);
-                if (error) { alert(error.message); return; }
-                events = events.filter(e => e.id !== ev.id);
-                // One fewer event can reshuffle every small/small/big slot
-                // after it, not just remove this one tile.
-                renderEvents();
             });
 
             card.appendChild(ctrl);
