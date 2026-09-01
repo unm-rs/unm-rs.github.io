@@ -1221,8 +1221,8 @@
             + (editable ? '' : ' event-pay--embedded');
 
         const priceParts = [];
-        if (event.price_member)    priceParts.push(`Members ${esc(event.price_member)}`);
-        if (event.price_nonmember) priceParts.push(`Non-members ${esc(event.price_nonmember)}`);
+        if (event.price_member)    priceParts.push(esc(event.price_member));
+        if (event.price_nonmember) priceParts.push(esc(event.price_nonmember));
         const priceBit  = priceParts.length ? `: ${priceParts.join(' · ')}` : '';
         const hasContent = event.payment_qr_url || event.payment_details;
 
