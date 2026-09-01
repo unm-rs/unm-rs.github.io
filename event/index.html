@@ -188,6 +188,11 @@
                         <textarea class="apply-input" id="af-dietary" rows="2" placeholder="e.g. Vegetarian, nut allergy, etc. Let us know if there's anything we should be aware of!"></textarea>
                         <p class="apply-hint">This event provides food, so we're asking in case anything needs accommodating.</p>
                     </div>
+                    <div class="apply-field" id="af-visitors-field" hidden>
+                        <label class="apply-label" for="af-visitors">Number of Visitors (excluding yourself)</label>
+                        <input class="apply-input" type="number" id="af-visitors" min="0" inputmode="numeric" placeholder="0">
+                        <p class="apply-hint">This event allows visitors — let us know how many you're bringing.</p>
+                    </div>
                     <div id="af-error" class="apply-error" hidden></div>
                     <button type="submit" class="apply-submit" id="af-submit">Submit Application</button>
                 </form>

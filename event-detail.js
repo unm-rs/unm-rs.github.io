@@ -342,6 +342,11 @@
         const dietaryFieldEl = document.getElementById('af-dietary-field');
         if (dietaryFieldEl) dietaryFieldEl.hidden = !event.provides_food;
 
+        // Mod-toggled per event — only ask how many visitors when the
+        // event actually allows people to bring some along.
+        const visitorsFieldEl = document.getElementById('af-visitors-field');
+        if (visitorsFieldEl) visitorsFieldEl.hidden = !event.include_visitors;
+
         const MAX_ATTACHMENT_BYTES     = 20 * 1024 * 1024;
         const ALLOWED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif',
                                            'video/mp4', 'video/quicktime', 'video/webm'];
@@ -390,6 +395,9 @@
                 ['Region', details.region],
                 ['Dietary / medical', details.dietary],
             ].filter(([, v]) => v);
+            // Not folded into the filter above — 0 is a meaningful, explicitly
+            // entered answer here, but falsy, so it'd otherwise get dropped.
+            if (details.visitors != null) rows.push(['Visitors', String(details.visitors)]);
             if (details.attachmentName) rows.push(['Attachment', details.attachmentName]);
             if (status === 'waitlisted' && details.waitlistPosition) {
                 rows.unshift(['Position', `#${details.waitlistPosition} in line`]);
@@ -536,6 +544,12 @@
                         <textarea class="apply-input" id="af-oc-dietary" rows="2" placeholder="e.g. Vegetarian, nut allergy, etc. Let us know if there's anything we should be aware of!"></textarea>
                         <p class="apply-hint">This event provides food, so we're asking in case anything needs accommodating.</p>
                     </div>` : ''}
+                    ${event.include_visitors ? `
+                    <div class="apply-field">
+                        <label class="apply-label" for="af-oc-visitors">Number of Visitors (excluding yourself)</label>
+                        <input class="apply-input" type="number" id="af-oc-visitors" min="0" inputmode="numeric" placeholder="0">
+                        <p class="apply-hint">This event allows visitors — let us know how many you're bringing.</p>
+                    </div>` : ''}
                     ${privacyNoticeHtml('af-oc')}
                     <div id="af-err" class="apply-error" hidden></div>
                     <button class="apply-submit" id="af-btn">Apply as ${esc(profile.full_name)}</button>`;
@@ -576,6 +590,8 @@
                     }
 
                     const dietary = oneClick.querySelector('#af-oc-dietary')?.value.trim() || null;
+                    const visitorsRaw = oneClick.querySelector('#af-oc-visitors')?.value.trim() || '';
+                    const visitors = visitorsRaw === '' ? null : Math.max(0, parseInt(visitorsRaw, 10) || 0);
 
                     const { data: created, error } = await db.from('applications').insert({
                         event_id:        event.id,
@@ -585,11 +601,14 @@
                         owa:             profile.owa,
                         year_of_study:   profile.year_of_study,
                         course_of_study: profile.course_of_study,
+                        school_name:     profile.school_name,
+                        region:          profile.region,
                         user_id:         session.user.id,
                         status:          'pending',
                         attachment_path: attachment?.path || null,
                         attachment_name: attachment?.name || null,
                         dietary_medical_info: dietary,
+                        visitor_count:   visitors,
                     }).select('status').single();
 
                     if (error) {
@@ -609,7 +628,7 @@
                             year: profile.year_of_study, course: profile.course_of_study,
                             school: profile.school_name, region: profile.region,
                             attachmentName: attachment?.name || null,
-                            dietary,
+                            dietary, visitors,
                             waitlistPosition,
                         }, created?.status);
                         successEl.hidden = false;
@@ -664,6 +683,8 @@
             const name   = document.getElementById('af-name').value.trim();
             const file   = document.getElementById('af-file').files[0] || null;
             const dietary = document.getElementById('af-dietary')?.value.trim() || null;
+            const visitorsRaw = document.getElementById('af-visitors')?.value.trim() || '';
+            const visitors = visitorsRaw === '' ? null : Math.max(0, parseInt(visitorsRaw, 10) || 0);
 
             let sid = null, owa = '', year = '', course = null, school = null, region = null;
             if (isUnm) {
@@ -718,6 +739,7 @@
                 attachment_path: attachment?.path || null,
                 attachment_name: attachment?.name || null,
                 dietary_medical_info: dietary,
+                visitor_count: visitors,
             }).select('status').single();
 
             if (submitErr) {
@@ -728,7 +750,7 @@
                 renderConfirmation({
                     name, studentId: sid, owa: isUnm ? owa : null, email: isUnm ? null : owa,
                     year, course, school, region,
-                    attachmentName: attachment?.name || null, dietary,
+                    attachmentName: attachment?.name || null, dietary, visitors,
                 }, created?.status);
                 successEl.hidden = false;
                 // Auto-approval (see assign_application_status trigger) can
@@ -756,6 +778,10 @@
                             <input type="checkbox" id="ap-food-toggle"${event.provides_food ? ' checked' : ''}>
                             This event provides food
                         </label>
+                        <label class="ap-file-toggle">
+                            <input type="checkbox" id="ap-visitors-toggle"${event.include_visitors ? ' checked' : ''}>
+                            Include visitors
+                        </label>
                         <label class="ap-cap-field">
                             Max participants
                             <input type="number" id="ap-max" min="0" inputmode="numeric"
@@ -781,6 +807,13 @@
             const { error } = await db.from('events').update({ provides_food: checked }).eq('id', event.id);
             if (error) { alert(error.message); e.target.checked = !checked; return; }
             event.provides_food = checked;
+        });
+
+        panel.querySelector('#ap-visitors-toggle').addEventListener('change', async e => {
+            const checked = e.target.checked;
+            const { error } = await db.from('events').update({ include_visitors: checked }).eq('id', event.id);
+            if (error) { alert(error.message); e.target.checked = !checked; return; }
+            event.include_visitors = checked;
         });
 
         panel.querySelector('#ap-max').addEventListener('change', async e => {
@@ -895,6 +928,7 @@
                         <span class="ap-card__meta">${esc(app.owa)}</span>
                         <span class="ap-card__meta">${esc(app.year_of_study)} · ${esc(app.course_of_study)}</span>`}
                     ${app.dietary_medical_info ? `<p class="ap-card__dietary">🍽️ ${esc(app.dietary_medical_info)}</p>` : ''}
+                    ${app.visitor_count != null ? `<p class="ap-card__meta">👥 +${esc(String(app.visitor_count))} visitor${app.visitor_count === 1 ? '' : 's'}</p>` : ''}
                     ${app.attachment_path ? `
                         <button type="button" class="ap-card__attachment" data-id="${id}" onclick="window.__apAdmin.viewAttach(this.dataset.id)">
                             📎 ${esc(app.attachment_name || 'Attachment')}

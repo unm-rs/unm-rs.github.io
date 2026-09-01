@@ -1575,3 +1575,15 @@ ALTER TABLE public.applications
 ALTER TABLE public.applications
   ADD COLUMN IF NOT EXISTS school_name text,
   ADD COLUMN IF NOT EXISTS region      text;
+
+-- ============================================================
+-- 62. Events can be toggled to "include visitors" (mod-controlled,
+--     same pattern as provides_food). When on, the application form
+--     additionally asks how many visitors the applicant is bringing
+--     along, not counting themselves.
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS include_visitors boolean NOT NULL DEFAULT false;
+
+ALTER TABLE public.applications
+  ADD COLUMN IF NOT EXISTS visitor_count integer;
