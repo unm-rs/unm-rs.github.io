@@ -532,7 +532,7 @@
                     ${event.provides_food ? `
                     <div class="apply-field">
                         <label class="apply-label" for="af-oc-dietary">Dietary restrictions / medical conditions (optional)</label>
-                        <textarea class="apply-input" id="af-oc-dietary" rows="2" placeholder="e.g. Vegetarian, nut allergy, none — let us know if there's anything we should be aware of"></textarea>
+                        <textarea class="apply-input" id="af-oc-dietary" rows="2" placeholder="e.g. Vegetarian, nut allergy, etc. Let us know if there's anything we should be aware of!"></textarea>
                         <p class="apply-hint">This event provides food, so we're asking in case anything needs accommodating.</p>
                     </div>` : ''}
                     ${privacyNoticeHtml('af-oc')}
