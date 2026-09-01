@@ -52,13 +52,42 @@
             <div class="event-hero__content">
                 <h1 class="event-hero__title" id="js-title">Loading…</h1>
                 <div class="event-hero__meta" id="js-datetime" hidden>
-                    <span class="event-hero__meta-item" id="js-type-value">—</span>
-                    <span class="event-hero__meta-sep">&middot;</span><span class="event-hero__meta-item" id="js-date-value">—</span>
-                    <span class="event-hero__meta-sep event-hero__meta-sep--range" id="js-enddate-sep" hidden>&ndash;</span><span class="event-hero__meta-item" id="js-enddate-value" hidden>—</span>
-                    <span class="event-hero__meta-sep">&middot;</span><span class="event-hero__meta-item" id="js-time-value">—</span>
-                    <span class="event-hero__meta-sep event-hero__meta-sep--range" id="js-endtime-sep" hidden>&ndash;</span><span class="event-hero__meta-item" id="js-endtime-value" hidden>—</span>
-                    <span class="event-hero__meta-sep" id="js-venue-sep" hidden>&middot;</span><span class="event-hero__meta-item" id="js-venue-value" hidden>—</span>
-                    <span class="event-hero__meta-sep" id="js-price-sep" hidden>&middot;</span><span class="event-hero__meta-item" id="js-price-value" hidden>—</span>
+                    <div class="event-hero__meta-cell">
+                        <span class="event-hero__meta-label">Format</span>
+                        <span class="event-hero__meta-item" id="js-type-value">—</span>
+                    </div>
+                    <div class="event-hero__meta-cell">
+                        <span class="event-hero__meta-label">Date</span>
+                        <span class="event-hero__meta-item" id="js-date-value">—</span>
+                    </div>
+                    <div class="event-hero__meta-cell" hidden>
+                        <span class="event-hero__meta-label">End date</span>
+                        <span class="event-hero__meta-item" id="js-enddate-value">—</span>
+                    </div>
+                    <div class="event-hero__meta-cell">
+                        <span class="event-hero__meta-label">Time</span>
+                        <span class="event-hero__meta-item" id="js-time-value">—</span>
+                    </div>
+                    <div class="event-hero__meta-cell" hidden>
+                        <span class="event-hero__meta-label">End time</span>
+                        <span class="event-hero__meta-item" id="js-endtime-value">—</span>
+                    </div>
+                    <div class="event-hero__meta-cell" hidden>
+                        <span class="event-hero__meta-label">Venue</span>
+                        <span class="event-hero__meta-item" id="js-venue-value">—</span>
+                    </div>
+                    <div class="event-hero__meta-cell" hidden>
+                        <span class="event-hero__meta-label">Member price</span>
+                        <span class="event-hero__meta-item" id="js-pricemem-value">—</span>
+                    </div>
+                    <div class="event-hero__meta-cell" hidden>
+                        <span class="event-hero__meta-label">Non-member price</span>
+                        <span class="event-hero__meta-item" id="js-pricenon-value">—</span>
+                    </div>
+                    <div class="event-hero__meta-cell" hidden>
+                        <span class="event-hero__meta-label">S-CPD points</span>
+                        <span class="event-hero__meta-item" id="js-scpd-value">0</span>
+                    </div>
                 </div>
                 <div class="event-hero__actions">
                     <a href="#apply-form" class="event-hero__join-btn">Join Now</a>
