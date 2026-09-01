@@ -354,7 +354,7 @@
                     <div class="ab-field">
                         <label class="ab-label">Password</label>
                         <input class="ab-input" id="ua-rpw" type="password" autocomplete="new-password"
-                               required placeholder="make sure it's the same as your google password 😋">
+                               required placeholder="Password (8+ characters)">
                     </div>
                     <div class="ab-field">
                         <label class="ab-label">Confirm Password</label>
