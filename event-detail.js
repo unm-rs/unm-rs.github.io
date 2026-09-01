@@ -1246,10 +1246,19 @@
                         ${editable
                             ? `<div class="event-pay__instr" id="js-pay-instr" contenteditable="true"
                                     data-placeholder="e.g. TnG QR of UNM Robotics Society Treasurer. If you have any issues please contact India at 012-3456789">${esc(event.payment_details || '')}</div>
-                               <p class="event-pay__hint">Click the text to edit, it saves when you click away. Links and emails become clickable for visitors. Only approved applicants see this.</p>`
+                               <p class="event-pay__hint">Click the text to edit, it saves when you click away. Links and emails become clickable for visitors. Only approved applicants see this.</p>
+                               <div class="event-pay__wa-field">
+                                   <label class="event-pay__wa-label" for="js-pay-wa">WhatsApp contact link</label>
+                                   <input type="url" class="event-pay__wa-input" id="js-pay-wa" placeholder="https://wa.me/60123456789" value="${esc(event.whatsapp_link || '')}">
+                               </div>`
                             : (hasContent
                                 ? `<div class="event-pay__instr">${linkify(event.payment_details)}</div>`
                                 : `<p class="event-pay__instr">Payment details haven't been posted yet — please check back soon.</p>`)}
+                        ${!editable && event.whatsapp_link
+                            ? `<a class="event-pay__wa-btn" href="${esc(event.whatsapp_link)}" target="_blank" rel="noopener noreferrer">
+                                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.29-1.39a9.9 9.9 0 0 0 4.75 1.21h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2m0 1.67a8.2 8.2 0 0 1 5.83 2.42 8.18 8.18 0 0 1 2.41 5.82c0 4.55-3.7 8.24-8.25 8.24a8.3 8.3 0 0 1-4.2-1.15l-.3-.18-3.14.82.84-3.06-.2-.32a8.2 8.2 0 0 1-1.27-4.39c0-4.55 3.7-8.2 8.28-8.2m-4.55 4.73c-.15 0-.4.06-.61.29-.21.24-.8.78-.8 1.9s.82 2.2.94 2.36c.11.15 1.6 2.44 3.9 3.42 1.93.82 2.33.66 2.75.62.42-.04 1.35-.55 1.54-1.08.19-.53.19-.98.13-1.08-.06-.09-.21-.15-.44-.27-.23-.11-1.35-.67-1.56-.74-.21-.08-.36-.11-.51.11-.15.23-.59.74-.72.89-.13.15-.27.17-.5.06-.23-.12-.96-.36-1.83-1.14-.68-.6-1.13-1.35-1.27-1.58-.13-.23-.01-.35.1-.47.11-.11.23-.27.34-.4.11-.14.15-.23.23-.39.08-.15.04-.29-.02-.4-.06-.12-.51-1.26-.72-1.72-.19-.45-.38-.39-.53-.4z"/></svg>
+                                   Contact via WhatsApp
+                               </a>` : ''}
                         ${!editable ? `<div class="event-pay__proof" id="js-pay-proof"></div>` : ''}
                     </div>
                 </div>
@@ -1306,6 +1315,20 @@
             flash.className = 'event-pay__saved';
             flash.textContent = 'Saved ✓';
             instr.after(flash);
+            setTimeout(() => flash.remove(), 1600);
+        });
+
+        const waInput = section.querySelector('#js-pay-wa');
+        waInput.addEventListener('blur', async () => {
+            const val = waInput.value.trim();
+            if (val === (event.whatsapp_link || '')) return;
+            const { error } = await db.from('events').update({ whatsapp_link: val || null }).eq('id', event.id);
+            if (error) { alert('Could not save: ' + error.message); return; }
+            event.whatsapp_link = val || null;
+            const flash = document.createElement('span');
+            flash.className = 'event-pay__saved';
+            flash.textContent = 'Saved ✓';
+            waInput.after(flash);
             setTimeout(() => flash.remove(), 1600);
         });
 

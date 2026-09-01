@@ -1526,3 +1526,15 @@ CREATE POLICY "Users delete own payment proof"
 ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS price_member    text,
   ADD COLUMN IF NOT EXISTS price_nonmember text;
+
+-- ============================================================
+-- 58. WhatsApp contact link on the payment panel — a mod-set URL,
+--     shown as a green "Contact via WhatsApp" button on the
+--     payment card so an approved applicant can reach the
+--     treasurer if something goes wrong. Same visibility rule as
+--     the rest of the payment panel (event.payment_required,
+--     applicant already approved), and sits above the
+--     proof-of-payment upload so it's still there after they pay.
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS whatsapp_link text;

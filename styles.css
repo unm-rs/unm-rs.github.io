@@ -1638,6 +1638,51 @@ svg {
         margin-block-start: 8px;
     }
 
+    .event-pay__wa-field {
+        margin-block-start: 16px;
+    }
+
+    .event-pay__wa-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        color: hsl(152, 15%, 38%);
+        margin-block-end: 6px;
+    }
+
+    .event-pay__wa-input {
+        font-family: inherit;
+        font-size: var(--fs-14);
+        width: 100%;
+        max-width: 340px;
+        padding: 8px 12px;
+        border: 1px dashed hsl(152, 40%, 62%);
+        border-radius: 8px;
+        color: var(--color-text-dark);
+        background: #fff;
+
+        &:focus { outline: none; border-style: solid; border-color: hsl(152, 55%, 42%); }
+    }
+
+    /* Green with black text, per spec — a WhatsApp-branded contact button
+       on the payment card. Sits between the instructions and the proof-of-
+       payment upload so it's visible before AND after the applicant pays. */
+    .event-pay__wa-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-block-start: 16px;
+        padding: 10px 20px;
+        border-radius: 999px;
+        background: hsl(142, 70%, 49%);
+        color: hsl(0, 0%, 0%);
+        font-weight: 700;
+        font-size: var(--fs-14);
+        text-decoration: none;
+        transition: background 0.15s;
+    }
+    .event-pay__wa-btn:hover { background: hsl(142, 70%, 44%); }
+
     .event-pay__saved {
         display: inline-block;
         margin-block-start: 8px;
