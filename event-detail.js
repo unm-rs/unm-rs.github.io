@@ -1313,7 +1313,7 @@
             event.payment_details = val || null;
             const flash = document.createElement('span');
             flash.className = 'event-pay__saved';
-            flash.textContent = 'Saved ✓';
+            flash.textContent = 'Saved';
             instr.after(flash);
             setTimeout(() => flash.remove(), 1600);
         });
@@ -1327,7 +1327,7 @@
             event.whatsapp_link = val || null;
             const flash = document.createElement('span');
             flash.className = 'event-pay__saved';
-            flash.textContent = 'Saved ✓';
+            flash.textContent = 'Saved';
             waInput.after(flash);
             setTimeout(() => flash.remove(), 1600);
         });
@@ -1654,7 +1654,7 @@
         saveBtn.disabled    = false;
         saveBtn.textContent = 'Save Changes';
         isDirty = false;
-        saveBar.querySelector('.edit-savebar__msg').textContent = 'Saved ✓';
+        saveBar.querySelector('.edit-savebar__msg').textContent = 'Saved';
         document.title = `${titleEl.textContent.trim()}`;
         setTimeout(() => {
             saveBar.hidden = true;
