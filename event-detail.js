@@ -383,6 +383,7 @@
                 ['Name', details.name],
                 ['Student ID', details.studentId],
                 ['OWA', details.owa],
+                ['Email', details.email],
                 ['Year', details.year],
                 ['Course', details.course],
                 ['School', details.school],
@@ -636,6 +637,21 @@
 
         document.getElementById('af-error').insertAdjacentHTML('beforebegin', privacyNoticeHtml('af'));
 
+        // Same "are you a UNM student?" branch as the registration flow —
+        // external applicants give school/region instead of student ID/
+        // course of study. See openRegisterModal() in user-auth.js.
+        const studentFieldsEl  = document.getElementById('af-student-fields');
+        const externalFieldsEl = document.getElementById('af-external-fields');
+        const affiliationRadios = document.querySelectorAll('input[name="af-affiliation"]');
+        const isUnmChoice = () => document.querySelector('input[name="af-affiliation"]:checked')?.value !== 'no';
+        const syncAffiliationFields = () => {
+            const isUnm = isUnmChoice();
+            if (studentFieldsEl)  studentFieldsEl.hidden  = !isUnm;
+            if (externalFieldsEl) externalFieldsEl.hidden = isUnm;
+        };
+        affiliationRadios.forEach(r => r.addEventListener('change', syncAffiliationFields));
+        syncAffiliationFields();
+
         applyForm.addEventListener('submit', async e => {
             e.preventDefault();
             const errEl  = document.getElementById('af-error');
@@ -644,13 +660,23 @@
             submit.disabled    = true;
             submit.textContent = 'Submitting…';
 
+            const isUnm  = isUnmChoice();
             const name   = document.getElementById('af-name').value.trim();
-            const sid    = document.getElementById('af-sid').value.trim();
-            const owa    = document.getElementById('af-owa').value.trim();
-            const year   = document.getElementById('af-year').value;
-            const course = document.getElementById('af-course').value.trim();
             const file   = document.getElementById('af-file').files[0] || null;
             const dietary = document.getElementById('af-dietary')?.value.trim() || null;
+
+            let sid = null, owa = '', year = '', course = null, school = null, region = null;
+            if (isUnm) {
+                sid    = document.getElementById('af-sid').value.trim();
+                owa    = document.getElementById('af-owa').value.trim();
+                year   = document.getElementById('af-year').value;
+                course = document.getElementById('af-course').value.trim();
+            } else {
+                owa    = document.getElementById('af-xemail').value.trim();
+                school = document.getElementById('af-xschool').value.trim();
+                region = document.getElementById('af-xregion').value.trim();
+                year   = document.getElementById('af-xyear').value.trim();
+            }
 
             const fail = msg => {
                 errEl.textContent  = msg;
@@ -659,7 +685,9 @@
                 submit.textContent = 'Submit Application';
             };
 
-            if (!name || !sid || !owa || !year || !course) { fail('Please fill in all fields.'); return; }
+            if (!name || !owa || !year) { fail('Please fill in all fields.'); return; }
+            if (isUnm  && (!sid || !course))          { fail('Please fill in all fields.'); return; }
+            if (!isUnm && (!school || !region))       { fail('Please fill in all fields.'); return; }
             if (!document.getElementById('af-consent')?.checked) { fail(CONSENT_ERR); return; }
             if (fileRequired && !file) { fail('Please attach a file to apply.'); return; }
             const fileErr = validateAttachment(file);
@@ -683,6 +711,8 @@
                 owa,
                 year_of_study:   year,
                 course_of_study: course,
+                school_name:     school,
+                region,
                 user_id:         null,
                 status:          'pending',
                 attachment_path: attachment?.path || null,
@@ -695,7 +725,11 @@
             } else {
                 applyForm.hidden = true;
                 banner.remove();
-                renderConfirmation({ name, studentId: sid, owa, year, course, attachmentName: attachment?.name || null, dietary }, created?.status);
+                renderConfirmation({
+                    name, studentId: sid, owa: isUnm ? owa : null, email: isUnm ? null : owa,
+                    year, course, school, region,
+                    attachmentName: attachment?.name || null, dietary,
+                }, created?.status);
                 successEl.hidden = false;
                 // Auto-approval (see assign_application_status trigger) can
                 // happen right on insert — show the payment panel immediately
@@ -853,9 +887,13 @@
                         <span class="ap-status ap-status--${app.status}">${label}</span>
                     </div>
                     <strong class="ap-card__name">${esc(app.full_name)}</strong>
-                    <span class="ap-card__meta">${esc(app.student_id)}</span>
-                    <span class="ap-card__meta">${esc(app.owa)}</span>
-                    <span class="ap-card__meta">${esc(app.year_of_study)} · ${esc(app.course_of_study)}</span>
+                    ${app.school_name || app.region ? `
+                        <span class="ap-card__meta">${esc(app.owa)}</span>
+                        <span class="ap-card__meta">${esc(app.school_name)} · ${esc(app.region)}</span>
+                        <span class="ap-card__meta">${esc(app.year_of_study)}</span>` : `
+                        <span class="ap-card__meta">${esc(app.student_id)}</span>
+                        <span class="ap-card__meta">${esc(app.owa)}</span>
+                        <span class="ap-card__meta">${esc(app.year_of_study)} · ${esc(app.course_of_study)}</span>`}
                     ${app.dietary_medical_info ? `<p class="ap-card__dietary">🍽️ ${esc(app.dietary_medical_info)}</p>` : ''}
                     ${app.attachment_path ? `
                         <button type="button" class="ap-card__attachment" data-id="${id}" onclick="window.__apAdmin.viewAttach(this.dataset.id)">

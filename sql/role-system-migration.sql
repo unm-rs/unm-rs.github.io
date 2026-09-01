@@ -1564,3 +1564,14 @@ ALTER TABLE public.events
 
 ALTER TABLE public.applications
   ADD COLUMN IF NOT EXISTS dietary_medical_info text;
+
+-- ============================================================
+-- 61. Guest (not-signed-in) applicants now get the same "are you a
+--     UNM student?" branch the registration flow has — external
+--     applicants give school_name/region instead of
+--     student_id/course_of_study (owa is reused as a plain contact
+--     email for both branches, no separate column needed).
+-- ============================================================
+ALTER TABLE public.applications
+  ADD COLUMN IF NOT EXISTS school_name text,
+  ADD COLUMN IF NOT EXISTS region      text;

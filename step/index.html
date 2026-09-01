@@ -121,29 +121,62 @@
                         <label class="apply-label" for="af-name">Full Name</label>
                         <input class="apply-input" type="text" id="af-name" required placeholder="Your full name">
                     </div>
-                    <div class="apply-field">
-                        <label class="apply-label" for="af-sid">Student ID</label>
-                        <input class="apply-input" type="text" id="af-sid" required placeholder="e.g. 20123456">
+                    <div class="apply-field apply-affiliation">
+                        <label class="apply-label">Are you a student at the University of Nottingham Malaysia?</label>
+                        <div class="apply-affiliation__choices">
+                            <label class="apply-affiliation__choice">
+                                <input type="radio" name="af-affiliation" value="yes" id="af-aff-yes" checked>
+                                Yes, I'm a UNM student
+                            </label>
+                            <label class="apply-affiliation__choice">
+                                <input type="radio" name="af-affiliation" value="no" id="af-aff-no">
+                                No, I'm from elsewhere
+                            </label>
+                        </div>
                     </div>
-                    <div class="apply-field">
-                        <label class="apply-label" for="af-owa">OWA</label>
-                        <input class="apply-input" type="email" id="af-owa" required placeholder="yourOWA@nottingham.edu.my">
+                    <div id="af-student-fields">
+                        <div class="apply-field">
+                            <label class="apply-label" for="af-sid">Student ID</label>
+                            <input class="apply-input" type="text" id="af-sid" placeholder="e.g. 20123456">
+                        </div>
+                        <div class="apply-field">
+                            <label class="apply-label" for="af-owa">OWA</label>
+                            <input class="apply-input" type="email" id="af-owa" placeholder="yourOWA@nottingham.edu.my">
+                        </div>
+                        <div class="apply-field">
+                            <label class="apply-label" for="af-year">Year of Study</label>
+                            <select class="apply-input apply-select" id="af-year">
+                                <option value="" disabled selected>Select your year…</option>
+                                <option value="Foundation">Foundation</option>
+                                <option value="Year 1">Year 1</option>
+                                <option value="Year 2">Year 2</option>
+                                <option value="Year 3">Year 3</option>
+                                <option value="Year 4">Year 4</option>
+                                <option value="Postgraduate">Postgraduate</option>
+                            </select>
+                        </div>
+                        <div class="apply-field">
+                            <label class="apply-label" for="af-course">Course of Study</label>
+                            <input class="apply-input" type="text" id="af-course" placeholder="e.g. Electrical and Electronic Engineering">
+                        </div>
                     </div>
-                    <div class="apply-field">
-                        <label class="apply-label" for="af-year">Year of Study</label>
-                        <select class="apply-input apply-select" id="af-year" required>
-                            <option value="" disabled selected>Select your year…</option>
-                            <option value="Foundation">Foundation</option>
-                            <option value="Year 1">Year 1</option>
-                            <option value="Year 2">Year 2</option>
-                            <option value="Year 3">Year 3</option>
-                            <option value="Year 4">Year 4</option>
-                            <option value="Postgraduate">Postgraduate</option>
-                        </select>
-                    </div>
-                    <div class="apply-field">
-                        <label class="apply-label" for="af-course">Course of Study</label>
-                        <input class="apply-input" type="text" id="af-course" required placeholder="e.g. Electrical and Electronic Engineering">
+                    <div id="af-external-fields" hidden>
+                        <div class="apply-field">
+                            <label class="apply-label" for="af-xemail">Email</label>
+                            <input class="apply-input" type="email" id="af-xemail" placeholder="you@example.com">
+                        </div>
+                        <div class="apply-field">
+                            <label class="apply-label" for="af-xschool">School / Institution</label>
+                            <input class="apply-input" type="text" id="af-xschool" placeholder="e.g. Taylor's University">
+                        </div>
+                        <div class="apply-field">
+                            <label class="apply-label" for="af-xregion">Region</label>
+                            <input class="apply-input" type="text" id="af-xregion" placeholder="e.g. Selangor, Malaysia">
+                        </div>
+                        <div class="apply-field">
+                            <label class="apply-label" for="af-xyear">Year of Study</label>
+                            <input class="apply-input" type="text" id="af-xyear" placeholder="e.g. Form 5, Year 1, Foundation, Diploma Year 2…">
+                        </div>
                     </div>
                     <div class="apply-field" id="af-file-field">
                         <label class="apply-label" for="af-file" id="af-file-label">Attachment</label>
