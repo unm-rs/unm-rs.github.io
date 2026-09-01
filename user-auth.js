@@ -405,7 +405,7 @@
                                placeholder="e.g. Selangor, Malaysia">
                     </div>
                     <div class="ab-field">
-                        <label class="ab-label">Year of Study <small>type anything — covers school &amp; university</small></label>
+                        <label class="ab-label">Year of Study <small>covers all years of study</small></label>
                         <input class="ab-input" id="ua-xyear" type="text" required
                                placeholder="e.g. Form 5, Year 1, Foundation, Diploma Year 2…">
                     </div>
@@ -667,7 +667,7 @@
                         <input class="ab-input" id="ua-pregion" type="text" value="${esc(p.region || '')}">
                     </div>
                     <div class="ab-field">
-                        <label class="ab-label">Year of Study <small>type anything — covers school &amp; university</small></label>
+                        <label class="ab-label">Year of Study <small>covers all years of study</small></label>
                         <input class="ab-input" id="ua-pxyear" type="text" value="${esc(p.year_of_study || '')}"
                                placeholder="e.g. Form 5, Year 1, Foundation, Diploma Year 2…">
                     </div>`}
