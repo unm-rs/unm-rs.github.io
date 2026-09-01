@@ -1551,3 +1551,16 @@ ALTER TABLE public.user_profiles
   ADD COLUMN IF NOT EXISTS is_unm_student boolean NOT NULL DEFAULT true,
   ADD COLUMN IF NOT EXISTS school_name    text,
   ADD COLUMN IF NOT EXISTS region         text;
+
+-- ============================================================
+-- 60. Events can be toggled as "provides food" (mod-controlled,
+--     same pattern as application_file_required). When on, the
+--     application form additionally asks for dietary restrictions
+--     / medical conditions the organizers should know about —
+--     optional, free text, stored per-application.
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS provides_food boolean NOT NULL DEFAULT false;
+
+ALTER TABLE public.applications
+  ADD COLUMN IF NOT EXISTS dietary_medical_info text;

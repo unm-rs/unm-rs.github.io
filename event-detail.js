@@ -337,6 +337,11 @@
         if (fileLabelEl)  fileLabelEl.textContent = fileRequired ? 'Attachment (required)' : 'Attachment (optional)';
         if (staticFileEl) staticFileEl.required = fileRequired;
 
+        // Mod-toggled per event — only ask for dietary/medical info when
+        // there's actually food involved.
+        const dietaryFieldEl = document.getElementById('af-dietary-field');
+        if (dietaryFieldEl) dietaryFieldEl.hidden = !event.provides_food;
+
         const MAX_ATTACHMENT_BYTES     = 20 * 1024 * 1024;
         const ALLOWED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif',
                                            'video/mp4', 'video/quicktime', 'video/webm'];
@@ -382,6 +387,7 @@
                 ['Course', details.course],
                 ['School', details.school],
                 ['Region', details.region],
+                ['Dietary / medical', details.dietary],
             ].filter(([, v]) => v);
             if (details.attachmentName) rows.push(['Attachment', details.attachmentName]);
             if (status === 'waitlisted' && details.waitlistPosition) {
@@ -428,10 +434,11 @@
             oneClick.className = 'apply-oneclick';
 
             // External (non-UNM) members carry school/region instead of
-            // student_id/owa/year/course — see the registration flow.
+            // student_id/owa/course — both paths keep year_of_study, just as
+            // a free-text field on the external side. See the registration flow.
             const isUnmStudent = profile?.is_unm_student !== false;
-            const incomplete = !profile?.full_name || (isUnmStudent
-                ? (!profile?.student_id || !profile?.owa || !profile?.year_of_study || !profile?.course_of_study)
+            const incomplete = !profile?.full_name || !profile?.year_of_study || (isUnmStudent
+                ? (!profile?.student_id || !profile?.owa || !profile?.course_of_study)
                 : (!profile?.school_name || !profile?.region));
 
             const { data: existing } = await db
@@ -514,13 +521,20 @@
                         ${isUnmStudent
                             ? `<span class="apply-identity__meta">${esc(profile.student_id)} · ${esc(profile.owa)}</span>
                                <span class="apply-identity__meta">${esc(profile.year_of_study)} · ${esc(profile.course_of_study)}</span>`
-                            : `<span class="apply-identity__meta">${esc(profile.school_name)} · ${esc(profile.region)}</span>`}
+                            : `<span class="apply-identity__meta">${esc(profile.school_name)} · ${esc(profile.region)}</span>
+                               <span class="apply-identity__meta">${esc(profile.year_of_study)}</span>`}
                     </div>
                     <div class="apply-field">
                         <label class="apply-label" for="af-oc-file">Attachment${fileRequired ? ' (required)' : ' (optional)'}</label>
                         <input class="apply-input apply-file-input" type="file" id="af-oc-file" accept="application/pdf,image/*,video/*">
                         <p class="apply-hint">PDF, image, or video — up to 20MB.</p>
                     </div>
+                    ${event.provides_food ? `
+                    <div class="apply-field">
+                        <label class="apply-label" for="af-oc-dietary">Dietary restrictions / medical conditions (optional)</label>
+                        <textarea class="apply-input" id="af-oc-dietary" rows="2" placeholder="e.g. Vegetarian, nut allergy, none — let us know if there's anything we should be aware of"></textarea>
+                        <p class="apply-hint">This event provides food, so we're asking in case anything needs accommodating.</p>
+                    </div>` : ''}
                     ${privacyNoticeHtml('af-oc')}
                     <div id="af-err" class="apply-error" hidden></div>
                     <button class="apply-submit" id="af-btn">Apply as ${esc(profile.full_name)}</button>`;
@@ -560,6 +574,8 @@
                         }
                     }
 
+                    const dietary = oneClick.querySelector('#af-oc-dietary')?.value.trim() || null;
+
                     const { data: created, error } = await db.from('applications').insert({
                         event_id:        event.id,
                         event_slug:      event.slug || null,
@@ -572,6 +588,7 @@
                         status:          'pending',
                         attachment_path: attachment?.path || null,
                         attachment_name: attachment?.name || null,
+                        dietary_medical_info: dietary,
                     }).select('status').single();
 
                     if (error) {
@@ -591,6 +608,7 @@
                             year: profile.year_of_study, course: profile.course_of_study,
                             school: profile.school_name, region: profile.region,
                             attachmentName: attachment?.name || null,
+                            dietary,
                             waitlistPosition,
                         }, created?.status);
                         successEl.hidden = false;
@@ -632,6 +650,7 @@
             const year   = document.getElementById('af-year').value;
             const course = document.getElementById('af-course').value.trim();
             const file   = document.getElementById('af-file').files[0] || null;
+            const dietary = document.getElementById('af-dietary')?.value.trim() || null;
 
             const fail = msg => {
                 errEl.textContent  = msg;
@@ -668,6 +687,7 @@
                 status:          'pending',
                 attachment_path: attachment?.path || null,
                 attachment_name: attachment?.name || null,
+                dietary_medical_info: dietary,
             }).select('status').single();
 
             if (submitErr) {
@@ -675,7 +695,7 @@
             } else {
                 applyForm.hidden = true;
                 banner.remove();
-                renderConfirmation({ name, studentId: sid, owa, year, course, attachmentName: attachment?.name || null }, created?.status);
+                renderConfirmation({ name, studentId: sid, owa, year, course, attachmentName: attachment?.name || null, dietary }, created?.status);
                 successEl.hidden = false;
                 // Auto-approval (see assign_application_status trigger) can
                 // happen right on insert — show the payment panel immediately
@@ -698,6 +718,10 @@
                             <input type="checkbox" id="ap-file-required"${event.application_file_required ? ' checked' : ''}>
                             Require an attachment to apply
                         </label>
+                        <label class="ap-file-toggle">
+                            <input type="checkbox" id="ap-food-toggle"${event.provides_food ? ' checked' : ''}>
+                            This event provides food
+                        </label>
                         <label class="ap-cap-field">
                             Max participants
                             <input type="number" id="ap-max" min="0" inputmode="numeric"
@@ -716,6 +740,13 @@
             const { error } = await db.from('events').update({ application_file_required: checked }).eq('id', event.id);
             if (error) { alert(error.message); e.target.checked = !checked; return; }
             event.application_file_required = checked;
+        });
+
+        panel.querySelector('#ap-food-toggle').addEventListener('change', async e => {
+            const checked = e.target.checked;
+            const { error } = await db.from('events').update({ provides_food: checked }).eq('id', event.id);
+            if (error) { alert(error.message); e.target.checked = !checked; return; }
+            event.provides_food = checked;
         });
 
         panel.querySelector('#ap-max').addEventListener('change', async e => {
@@ -825,6 +856,7 @@
                     <span class="ap-card__meta">${esc(app.student_id)}</span>
                     <span class="ap-card__meta">${esc(app.owa)}</span>
                     <span class="ap-card__meta">${esc(app.year_of_study)} · ${esc(app.course_of_study)}</span>
+                    ${app.dietary_medical_info ? `<p class="ap-card__dietary">🍽️ ${esc(app.dietary_medical_info)}</p>` : ''}
                     ${app.attachment_path ? `
                         <button type="button" class="ap-card__attachment" data-id="${id}" onclick="window.__apAdmin.viewAttach(this.dataset.id)">
                             📎 ${esc(app.attachment_name || 'Attachment')}

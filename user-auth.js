@@ -405,6 +405,11 @@
                                placeholder="e.g. Selangor, Malaysia">
                     </div>
                     <div class="ab-field">
+                        <label class="ab-label">Year of Study <small>type anything — covers school &amp; university</small></label>
+                        <input class="ab-input" id="ua-xyear" type="text" required
+                               placeholder="e.g. Form 5, Year 1, Foundation, Diploma Year 2…">
+                    </div>
+                    <div class="ab-field">
                         <label class="ab-label">Password</label>
                         <input class="ab-input" id="ua-xpw" type="password" autocomplete="new-password"
                                required placeholder="Password (8+ characters)">
@@ -528,10 +533,11 @@
             const email  = overlay.querySelector('#ua-xemail').value.trim();
             const school = overlay.querySelector('#ua-xschool').value.trim();
             const region = overlay.querySelector('#ua-xregion').value.trim();
+            const year   = overlay.querySelector('#ua-xyear').value.trim();
             const pw     = overlay.querySelector('#ua-xpw').value;
             const pw2    = overlay.querySelector('#ua-xpw2').value;
 
-            if (!fname || !email || !school || !region || !pw || !pw2) {
+            if (!fname || !email || !school || !region || !year || !pw || !pw2) {
                 errEl.textContent  = 'Please fill in all fields.';
                 errEl.hidden       = false;
                 submit.disabled    = false;
@@ -568,6 +574,7 @@
                     is_unm_student: false,
                     school_name:    school,
                     region,
+                    year_of_study:  year,
                 });
             }
 
@@ -658,6 +665,11 @@
                     <div class="ab-field">
                         <label class="ab-label">Region</label>
                         <input class="ab-input" id="ua-pregion" type="text" value="${esc(p.region || '')}">
+                    </div>
+                    <div class="ab-field">
+                        <label class="ab-label">Year of Study <small>type anything — covers school &amp; university</small></label>
+                        <input class="ab-input" id="ua-pxyear" type="text" value="${esc(p.year_of_study || '')}"
+                               placeholder="e.g. Form 5, Year 1, Foundation, Diploma Year 2…">
                     </div>`}
                     <div id="ua-perr" class="ab-error" hidden></div>
                     <p id="ua-pok" style="font-size:13px;color:hsl(140,60%,48%)" hidden>Saved ✓</p>
@@ -704,8 +716,9 @@
                     year_of_study:   overlay.querySelector('#ua-pyear').value,
                     course_of_study: overlay.querySelector('#ua-pcourse').value.trim(),
                 } : {
-                    school_name: overlay.querySelector('#ua-pschool').value.trim(),
-                    region:      overlay.querySelector('#ua-pregion').value.trim(),
+                    school_name:   overlay.querySelector('#ua-pschool').value.trim(),
+                    region:        overlay.querySelector('#ua-pregion').value.trim(),
+                    year_of_study: overlay.querySelector('#ua-pxyear').value.trim(),
                 }),
             };
 

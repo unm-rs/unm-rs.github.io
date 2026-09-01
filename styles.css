@@ -5127,6 +5127,16 @@ body:has(.ab-bar) .ep-years-outer {
     text-overflow: ellipsis;
 }
 
+.ap-card__dietary {
+    font-size: 12px;
+    line-height: 1.4;
+    color: hsl(45, 70%, 62%);
+    background: hsl(45, 70%, 20% / 0.25);
+    border-radius: 5px;
+    padding: 6px 8px;
+    white-space: pre-wrap;
+}
+
 .ap-card__actions {
     display: flex;
     gap: 5px;
