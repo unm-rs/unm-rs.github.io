@@ -4859,6 +4859,19 @@ body:has(.ab-bar) .ep-years-outer {
     margin-block-end: 12px;
 }
 
+.ua-affiliation-q {
+    font-size: 15px;
+    line-height: 1.5;
+    color: hsl(220, 14%, 85%);
+    margin-block-end: 20px;
+}
+
+.ua-affiliation-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .ua-confirm-icon {
     font-size: 40px;
     margin-block-end: 12px;

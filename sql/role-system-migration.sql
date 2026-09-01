@@ -1538,3 +1538,16 @@ ALTER TABLE public.events
 -- ============================================================
 ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS whatsapp_link text;
+
+-- ============================================================
+-- 59. Registration now asks "are you a UNM student?" up front.
+--     Yes keeps the existing student_id/owa/year_of_study/
+--     course_of_study fields; No collects school_name + region
+--     instead. Existing rows default to true (they all came
+--     through the student-only form up to this point) so nothing
+--     currently "complete" becomes incomplete.
+-- ============================================================
+ALTER TABLE public.user_profiles
+  ADD COLUMN IF NOT EXISTS is_unm_student boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS school_name    text,
+  ADD COLUMN IF NOT EXISTS region         text;

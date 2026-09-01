@@ -322,7 +322,19 @@
                     <h2 class="ab-modal__title">Create Account</h2>
                     <button class="ab-modal__close" id="ua-rc">✕</button>
                 </div>
-                <form class="ab-form" id="ua-reg-form" novalidate>
+
+                <div id="ua-step-affiliation">
+                    <p class="ua-affiliation-q">Are you a student at the University of Nottingham Malaysia?</p>
+                    <div class="ua-affiliation-choices">
+                        <button type="button" class="ab-form-btn ab-form-btn--primary" id="ua-aff-yes">Yes, I'm a UNM student</button>
+                        <button type="button" class="ab-form-btn ab-form-btn--ghost" id="ua-aff-no">No, I'm from elsewhere</button>
+                    </div>
+                    <button type="button" class="ab-form-btn ab-form-btn--ghost" id="ua-to-login" style="width:100%;margin-block-start:16px">
+                        Already have an account? Sign in
+                    </button>
+                </div>
+
+                <form class="ab-form" id="ua-reg-form-student" novalidate hidden>
                     <div class="ab-field">
                         <label class="ab-label">Full Name</label>
                         <input class="ab-input" id="ua-rfname" type="text" required placeholder="Your full name">
@@ -366,22 +378,83 @@
                         <button type="submit" class="ab-form-btn ab-form-btn--primary" id="ua-rsubmit">
                             Create Account
                         </button>
-                        <button type="button" class="ab-form-btn ab-form-btn--ghost" id="ua-to-login">
-                            Already have an account? Sign in
+                        <button type="button" class="ab-form-btn ab-form-btn--ghost" id="ua-r-back">
+                            Back
+                        </button>
+                    </div>
+                </form>
+
+                <form class="ab-form" id="ua-reg-form-external" novalidate hidden>
+                    <div class="ab-field">
+                        <label class="ab-label">Full Name</label>
+                        <input class="ab-input" id="ua-xfname" type="text" required placeholder="Your full name">
+                    </div>
+                    <div class="ab-field">
+                        <label class="ab-label">Email</label>
+                        <input class="ab-input" id="ua-xemail" type="email" autocomplete="email" required
+                               placeholder="you@example.com">
+                    </div>
+                    <div class="ab-field">
+                        <label class="ab-label">School / Institution</label>
+                        <input class="ab-input" id="ua-xschool" type="text" required
+                               placeholder="e.g. Taylor's University">
+                    </div>
+                    <div class="ab-field">
+                        <label class="ab-label">Region</label>
+                        <input class="ab-input" id="ua-xregion" type="text" required
+                               placeholder="e.g. Selangor, Malaysia">
+                    </div>
+                    <div class="ab-field">
+                        <label class="ab-label">Password</label>
+                        <input class="ab-input" id="ua-xpw" type="password" autocomplete="new-password"
+                               required placeholder="Password (8+ characters)">
+                    </div>
+                    <div class="ab-field">
+                        <label class="ab-label">Confirm Password</label>
+                        <input class="ab-input" id="ua-xpw2" type="password" autocomplete="new-password"
+                               required placeholder="Retype your password">
+                    </div>
+                    <div id="ua-xerr" class="ab-error" hidden></div>
+                    <div class="ab-form-actions" style="flex-direction:column;gap:10px">
+                        <button type="submit" class="ab-form-btn ab-form-btn--primary" id="ua-xsubmit">
+                            Create Account
+                        </button>
+                        <button type="button" class="ab-form-btn ab-form-btn--ghost" id="ua-x-back">
+                            Back
                         </button>
                     </div>
                 </form>
             </div>`;
 
         document.body.appendChild(overlay);
-        overlay.querySelector('#ua-rfname').focus();
+        overlay.querySelector('#ua-aff-yes').focus();
 
         const close = () => overlay.remove();
         overlay.querySelector('#ua-rc').addEventListener('click', close);
         onOverlayClick(overlay, close);
         overlay.querySelector('#ua-to-login').addEventListener('click', () => { close(); openLoginModal(); });
 
-        overlay.querySelector('#ua-reg-form').addEventListener('submit', async e => {
+        const stepAff      = overlay.querySelector('#ua-step-affiliation');
+        const formStudent  = overlay.querySelector('#ua-reg-form-student');
+        const formExternal = overlay.querySelector('#ua-reg-form-external');
+
+        const showStep = step => {
+            stepAff.hidden      = step !== 'affiliation';
+            formStudent.hidden  = step !== 'student';
+            formExternal.hidden = step !== 'external';
+            overlay.querySelector(
+                step === 'affiliation' ? '#ua-aff-yes'
+                : step === 'student'   ? '#ua-rfname'
+                                        : '#ua-xfname'
+            )?.focus();
+        };
+
+        overlay.querySelector('#ua-aff-yes').addEventListener('click', () => showStep('student'));
+        overlay.querySelector('#ua-aff-no').addEventListener('click', () => showStep('external'));
+        overlay.querySelector('#ua-r-back').addEventListener('click', () => showStep('affiliation'));
+        overlay.querySelector('#ua-x-back').addEventListener('click', () => showStep('affiliation'));
+
+        formStudent.addEventListener('submit', async e => {
             e.preventDefault();
             const errEl  = overlay.querySelector('#ua-rerr');
             const submit = overlay.querySelector('#ua-rsubmit');
@@ -435,6 +508,66 @@
                     owa:             email,
                     year_of_study:   year,
                     course_of_study: course,
+                    is_unm_student:  true,
+                });
+            }
+
+            close();
+            showConfirmation(authData.session);
+        });
+
+        formExternal.addEventListener('submit', async e => {
+            e.preventDefault();
+            const errEl  = overlay.querySelector('#ua-xerr');
+            const submit = overlay.querySelector('#ua-xsubmit');
+            errEl.hidden      = true;
+            submit.disabled   = true;
+            submit.textContent = 'Creating…';
+
+            const fname  = overlay.querySelector('#ua-xfname').value.trim();
+            const email  = overlay.querySelector('#ua-xemail').value.trim();
+            const school = overlay.querySelector('#ua-xschool').value.trim();
+            const region = overlay.querySelector('#ua-xregion').value.trim();
+            const pw     = overlay.querySelector('#ua-xpw').value;
+            const pw2    = overlay.querySelector('#ua-xpw2').value;
+
+            if (!fname || !email || !school || !region || !pw || !pw2) {
+                errEl.textContent  = 'Please fill in all fields.';
+                errEl.hidden       = false;
+                submit.disabled    = false;
+                submit.textContent = 'Create Account';
+                return;
+            }
+
+            if (pw !== pw2) {
+                errEl.textContent  = 'Passwords do not match.';
+                errEl.hidden       = false;
+                submit.disabled    = false;
+                submit.textContent = 'Create Account';
+                overlay.querySelector('#ua-xpw2').focus();
+                return;
+            }
+
+            const { data: authData, error: signUpErr } = await db.auth.signUp({
+                email, password: pw,
+                options: { data: { role: 'member' } },
+            });
+
+            if (signUpErr) {
+                errEl.textContent  = signUpErr.message;
+                errEl.hidden       = false;
+                submit.disabled    = false;
+                submit.textContent = 'Create Account';
+                return;
+            }
+
+            if (authData.user) {
+                await db.from('user_profiles').upsert({
+                    id:             authData.user.id,
+                    full_name:      fname,
+                    is_unm_student: false,
+                    school_name:    school,
+                    region,
                 });
             }
 
@@ -472,6 +605,10 @@
     function openAccountModal() {
         if (!session) return;
         const p = userProfile || {};
+        // Set once at registration (see openRegisterModal) — legacy rows and
+        // anyone who registered before this existed default to true, same
+        // as the DB column's own default.
+        const isUnmStudent = p.is_unm_student !== false;
 
         const overlay = makeOverlay();
         overlay.innerHTML = `
@@ -492,6 +629,7 @@
                         <label class="ab-label">Nickname <small>shown in forums &amp; reviews</small></label>
                         <input class="ab-input" id="ua-pnickname" type="text" value="${esc(p.nickname || '')}" placeholder="e.g. Randy">
                     </div>
+                    ${isUnmStudent ? `
                     <div class="ab-field">
                         <label class="ab-label">Student ID</label>
                         <input class="ab-input" id="ua-psid" type="text" value="${esc(p.student_id || '')}">
@@ -512,7 +650,15 @@
                     <div class="ab-field">
                         <label class="ab-label">Course of Study</label>
                         <input class="ab-input" id="ua-pcourse" type="text" value="${esc(p.course_of_study || '')}">
+                    </div>` : `
+                    <div class="ab-field">
+                        <label class="ab-label">School / Institution</label>
+                        <input class="ab-input" id="ua-pschool" type="text" value="${esc(p.school_name || '')}">
                     </div>
+                    <div class="ab-field">
+                        <label class="ab-label">Region</label>
+                        <input class="ab-input" id="ua-pregion" type="text" value="${esc(p.region || '')}">
+                    </div>`}
                     <div id="ua-perr" class="ab-error" hidden></div>
                     <p id="ua-pok" style="font-size:13px;color:hsl(140,60%,48%)" hidden>Saved ✓</p>
                     <div class="ab-form-actions">
@@ -549,13 +695,18 @@
             btn.textContent   = 'Saving…';
 
             const updates = {
-                id:              session.user.id,
-                full_name:       overlay.querySelector('#ua-pfname').value.trim(),
-                nickname:        overlay.querySelector('#ua-pnickname').value.trim() || null,
-                student_id:      overlay.querySelector('#ua-psid').value.trim(),
-                owa:             overlay.querySelector('#ua-powa').value.trim(),
-                year_of_study:   overlay.querySelector('#ua-pyear').value,
-                course_of_study: overlay.querySelector('#ua-pcourse').value.trim(),
+                id:        session.user.id,
+                full_name: overlay.querySelector('#ua-pfname').value.trim(),
+                nickname:  overlay.querySelector('#ua-pnickname').value.trim() || null,
+                ...(isUnmStudent ? {
+                    student_id:      overlay.querySelector('#ua-psid').value.trim(),
+                    owa:             overlay.querySelector('#ua-powa').value.trim(),
+                    year_of_study:   overlay.querySelector('#ua-pyear').value,
+                    course_of_study: overlay.querySelector('#ua-pcourse').value.trim(),
+                } : {
+                    school_name: overlay.querySelector('#ua-pschool').value.trim(),
+                    region:      overlay.querySelector('#ua-pregion').value.trim(),
+                }),
             };
 
             const { error } = await db.from('user_profiles').upsert(updates);

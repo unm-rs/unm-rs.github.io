@@ -371,13 +371,18 @@
 
             const summaryEl = document.getElementById('af-summary');
             if (!summaryEl) return;
+            // Filtered rather than fixed — external (non-UNM) applicants carry
+            // school/region instead of student ID/OWA/year/course, and either
+            // set can be entirely absent depending on how the applicant applied.
             const rows = [
                 ['Name', details.name],
                 ['Student ID', details.studentId],
                 ['OWA', details.owa],
                 ['Year', details.year],
                 ['Course', details.course],
-            ];
+                ['School', details.school],
+                ['Region', details.region],
+            ].filter(([, v]) => v);
             if (details.attachmentName) rows.push(['Attachment', details.attachmentName]);
             if (status === 'waitlisted' && details.waitlistPosition) {
                 rows.unshift(['Position', `#${details.waitlistPosition} in line`]);
@@ -422,7 +427,12 @@
             const oneClick = document.createElement('div');
             oneClick.className = 'apply-oneclick';
 
-            const incomplete = !profile?.full_name || !profile?.student_id || !profile?.owa || !profile?.year_of_study || !profile?.course_of_study;
+            // External (non-UNM) members carry school/region instead of
+            // student_id/owa/year/course — see the registration flow.
+            const isUnmStudent = profile?.is_unm_student !== false;
+            const incomplete = !profile?.full_name || (isUnmStudent
+                ? (!profile?.student_id || !profile?.owa || !profile?.year_of_study || !profile?.course_of_study)
+                : (!profile?.school_name || !profile?.region));
 
             const { data: existing } = await db
                 .from('applications')
@@ -440,13 +450,15 @@
                     const { data: pos } = await db.rpc('my_waitlist_position', { p_event_id: event.id });
                     const rows = [];
                     if (pos) rows.push(['Position', `#${pos} in line`]);
-                    rows.push(
+                    rows.push(...[
                         ['Name', profile.full_name],
                         ['Student ID', profile.student_id],
                         ['OWA', profile.owa],
                         ['Year', profile.year_of_study],
                         ['Course', profile.course_of_study],
-                    );
+                        ['School', profile.school_name],
+                        ['Region', profile.region],
+                    ].filter(([, v]) => v));
 
                     oneClick.innerHTML = `
                         <div class="apply-success apply-success--waitlisted">
@@ -499,8 +511,10 @@
                     <div class="apply-identity">
                         <span class="apply-identity__label">You're applying as</span>
                         <span class="apply-identity__name">${esc(profile.full_name)}</span>
-                        <span class="apply-identity__meta">${esc(profile.student_id)} · ${esc(profile.owa)}</span>
-                        <span class="apply-identity__meta">${esc(profile.year_of_study)} · ${esc(profile.course_of_study)}</span>
+                        ${isUnmStudent
+                            ? `<span class="apply-identity__meta">${esc(profile.student_id)} · ${esc(profile.owa)}</span>
+                               <span class="apply-identity__meta">${esc(profile.year_of_study)} · ${esc(profile.course_of_study)}</span>`
+                            : `<span class="apply-identity__meta">${esc(profile.school_name)} · ${esc(profile.region)}</span>`}
                     </div>
                     <div class="apply-field">
                         <label class="apply-label" for="af-oc-file">Attachment${fileRequired ? ' (required)' : ' (optional)'}</label>
@@ -575,6 +589,7 @@
                         renderConfirmation({
                             name: profile.full_name, studentId: profile.student_id, owa: profile.owa,
                             year: profile.year_of_study, course: profile.course_of_study,
+                            school: profile.school_name, region: profile.region,
                             attachmentName: attachment?.name || null,
                             waitlistPosition,
                         }, created?.status);
