@@ -548,7 +548,7 @@
                     <div class="apply-field">
                         <label class="apply-label" for="af-oc-visitors">Number of Visitors (excluding yourself)</label>
                         <input class="apply-input" type="number" id="af-oc-visitors" min="0" inputmode="numeric" placeholder="0">
-                        <p class="apply-hint">This event allows visitors — let us know how many you're bringing.</p>
+                        <p class="apply-hint">This event allows visitors! Let us know how many you're bringing.</p>
                     </div>` : ''}
                     ${privacyNoticeHtml('af-oc')}
                     <div id="af-err" class="apply-error" hidden></div>
