@@ -1042,6 +1042,7 @@ svg {
             outline: none;
             transition: border-color 0.15s, box-shadow 0.15s;
             width: 100%;
+            resize: none; /* textarea uses (e.g. dietary/medical field) — keep it a fixed box like every other field */
 
             &:focus {
                 border-color: hsl(220, 70%, 52%);
