@@ -329,6 +329,33 @@
         const successEl  = document.getElementById('af-success');
         if (!applyForm) return;
 
+        // Signing in from the gate below reloads the page (see user-auth.js),
+        // and the browser then restores the pre-reload scroll offset — which
+        // on mobile lands somewhere down by the footer. Flag the intent before
+        // the reload and scroll back to the form once it's rendered.
+        const SCROLL_KEY = 'af-scroll-to-apply';
+        let returningFromSignIn = false;
+        try {
+            returningFromSignIn = sessionStorage.getItem(SCROLL_KEY) === String(event.id);
+            if (returningFromSignIn) sessionStorage.removeItem(SCROLL_KEY);
+        } catch {}
+        if (returningFromSignIn) {
+            try { history.scrollRestoration = 'manual'; } catch {}
+        }
+
+        function scrollToApplySection() {
+            const target = document.getElementById('apply-form');
+            if (!target) return;
+            // let the rest of the page (payment panel, gallery, images…) settle
+            setTimeout(() => {
+                const cs   = getComputedStyle(document.documentElement);
+                const navH = parseFloat(cs.getPropertyValue('--topnav-height')) || 0;
+                const barH = parseFloat(cs.getPropertyValue('--admin-bar-height')) || 0;
+                const y    = target.getBoundingClientRect().top + window.scrollY - navH - barH - 12;
+                window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+            }, 250);
+        }
+
         // Mods control optional-vs-mandatory per event; the field itself
         // always shows.
         const fileRequired = !!event.application_file_required;
@@ -362,6 +389,21 @@
         if (staticVisitorsInput) staticVisitorsInput.max = String(MAX_VISITORS);
         const staticVisitorsHint = visitorsFieldEl?.querySelector('.apply-hint');
         if (staticVisitorsHint) staticVisitorsHint.textContent = VISITORS_HINT;
+
+        // Tell people when they've gone over the limit rather than silently
+        // clamping the number behind their back.
+        function validateVisitors(raw) {
+            if (raw === '') return null;
+            const n = Number(raw);
+            if (!Number.isInteger(n) || n < 0) return 'Please enter a whole number of visitors.';
+            if (n > MAX_VISITORS) {
+                return MAX_VISITORS === 0
+                    ? "This event doesn't allow visitors."
+                    : `You can bring at most ${MAX_VISITORS} visitor${MAX_VISITORS === 1 ? '' : 's'}.`;
+            }
+            return null;
+        }
+        const parseVisitors = raw => (raw === '' ? null : Number(raw));
 
         const MAX_ATTACHMENT_BYTES     = 20 * 1024 * 1024;
         const ALLOWED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif',
@@ -590,6 +632,10 @@
                     const fileErr = validateAttachment(file);
                     if (fileErr) { errEl.textContent = fileErr; errEl.hidden = false; return; }
 
+                    const visitorsRaw = oneClick.querySelector('#af-oc-visitors')?.value.trim() || '';
+                    const visitorsErr = validateVisitors(visitorsRaw);
+                    if (visitorsErr) { errEl.textContent = visitorsErr; errEl.hidden = false; return; }
+
                     btn.disabled    = true;
                     btn.textContent = 'Applying…';
 
@@ -606,9 +652,8 @@
                         }
                     }
 
-                    const dietary = oneClick.querySelector('#af-oc-dietary')?.value.trim() || null;
-                    const visitorsRaw = oneClick.querySelector('#af-oc-visitors')?.value.trim() || '';
-                    const visitors = visitorsRaw === '' ? null : Math.min(MAX_VISITORS, Math.max(0, parseInt(visitorsRaw, 10) || 0));
+                    const dietary  = oneClick.querySelector('#af-oc-dietary')?.value.trim() || null;
+                    const visitors = parseVisitors(visitorsRaw);
 
                     // Routed through an RPC rather than a raw table insert — see
                     // SQL step 64 for why: PostgREST's insert().select() wraps the
@@ -661,6 +706,7 @@
             }
 
             applyForm.after(oneClick);
+            if (returningFromSignIn) scrollToApplySection();
             return;
         }
 
@@ -678,6 +724,12 @@
             <p class="apply-signin-gate__hint">Not a member yet? You can create an account from the sign-in window.</p>`;
         applyForm.after(gate);
         gate.querySelector('#af-gate-signin').addEventListener('click', () => {
+            // Remembered across the post-login reload so we can land back here
+            // instead of wherever the browser restores the scroll to.
+            try {
+                sessionStorage.setItem(SCROLL_KEY, String(event.id));
+                history.scrollRestoration = 'manual';
+            } catch {}
             document.dispatchEvent(new CustomEvent('ua:open-login'));
         });
         return;
@@ -726,7 +778,7 @@
             const file   = document.getElementById('af-file').files[0] || null;
             const dietary = document.getElementById('af-dietary')?.value.trim() || null;
             const visitorsRaw = document.getElementById('af-visitors')?.value.trim() || '';
-            const visitors = visitorsRaw === '' ? null : Math.min(MAX_VISITORS, Math.max(0, parseInt(visitorsRaw, 10) || 0));
+            const visitors    = parseVisitors(visitorsRaw);
 
             let sid = null, owa = '', year = '', course = null, school = null, region = null;
             if (isUnm) {
@@ -755,6 +807,8 @@
             if (fileRequired && !file) { fail('Please attach a file to apply.'); return; }
             const fileErr = validateAttachment(file);
             if (fileErr) { fail(fileErr); return; }
+            const visitorsErr = validateVisitors(visitorsRaw);
+            if (visitorsErr) { fail(visitorsErr); return; }
 
             let attachment = null;
             if (file) {
