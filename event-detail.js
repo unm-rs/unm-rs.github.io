@@ -345,7 +345,7 @@
         // Mod-toggled per event — whether visitors are allowed at all, and
         // how many each applicant may bring (defaults to 2).
         const MAX_VISITORS  = Number.isFinite(event.max_visitors) ? event.max_visitors : 2;
-        const VISITORS_HINT = `This event allows visitors (parents / guardians)! Let us know how many you're bringing — up to ${MAX_VISITORS}.`;
+        const VISITORS_HINT = `This event allows visitors (parents / guardians)! Let us know how many you're bringing (up to ${MAX_VISITORS}).`;
 
         const visitorsFieldEl = document.getElementById('af-visitors-field');
         if (visitorsFieldEl) visitorsFieldEl.hidden = !event.include_visitors;
