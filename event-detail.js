@@ -344,6 +344,7 @@
 
         // Mod-toggled per event — only ask how many visitors when the
         // event actually allows people to bring some along.
+        const MAX_VISITORS = 2;
         const visitorsFieldEl = document.getElementById('af-visitors-field');
         if (visitorsFieldEl) visitorsFieldEl.hidden = !event.include_visitors;
 
@@ -547,8 +548,8 @@
                     ${event.include_visitors ? `
                     <div class="apply-field">
                         <label class="apply-label" for="af-oc-visitors">Number of Visitors (excluding yourself)</label>
-                        <input class="apply-input" type="number" id="af-oc-visitors" min="0" inputmode="numeric" placeholder="0">
-                        <p class="apply-hint">This event allows visitors! Let us know how many you're bringing.</p>
+                        <input class="apply-input" type="number" id="af-oc-visitors" min="0" max="2" inputmode="numeric" placeholder="0">
+                        <p class="apply-hint">This event allows visitors (parents / guardians)! Let us know how many you're bringing — up to 2.</p>
                     </div>` : ''}
                     ${privacyNoticeHtml('af-oc')}
                     <div id="af-err" class="apply-error" hidden></div>
@@ -591,7 +592,7 @@
 
                     const dietary = oneClick.querySelector('#af-oc-dietary')?.value.trim() || null;
                     const visitorsRaw = oneClick.querySelector('#af-oc-visitors')?.value.trim() || '';
-                    const visitors = visitorsRaw === '' ? null : Math.max(0, parseInt(visitorsRaw, 10) || 0);
+                    const visitors = visitorsRaw === '' ? null : Math.min(MAX_VISITORS, Math.max(0, parseInt(visitorsRaw, 10) || 0));
 
                     // Routed through an RPC rather than a raw table insert — see
                     // SQL step 64 for why: PostgREST's insert().select() wraps the
@@ -709,7 +710,7 @@
             const file   = document.getElementById('af-file').files[0] || null;
             const dietary = document.getElementById('af-dietary')?.value.trim() || null;
             const visitorsRaw = document.getElementById('af-visitors')?.value.trim() || '';
-            const visitors = visitorsRaw === '' ? null : Math.max(0, parseInt(visitorsRaw, 10) || 0);
+            const visitors = visitorsRaw === '' ? null : Math.min(MAX_VISITORS, Math.max(0, parseInt(visitorsRaw, 10) || 0));
 
             let sid = null, owa = '', year = '', course = null, school = null, region = null;
             if (isUnm) {
