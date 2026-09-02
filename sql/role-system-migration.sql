@@ -1736,3 +1736,12 @@ BEGIN
   RETURN v_status;
 END;
 $$;
+
+-- ============================================================
+-- 66. Mods can also cap HOW MANY visitors an applicant may bring,
+--     on top of the include_visitors toggle from step 62.
+--     Defaults to 2 (the value the form was hardcoded to).
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS max_visitors integer NOT NULL DEFAULT 2
+    CHECK (max_visitors >= 0);

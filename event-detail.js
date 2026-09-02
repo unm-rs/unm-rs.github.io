@@ -342,11 +342,17 @@
         const dietaryFieldEl = document.getElementById('af-dietary-field');
         if (dietaryFieldEl) dietaryFieldEl.hidden = !event.provides_food;
 
-        // Mod-toggled per event — only ask how many visitors when the
-        // event actually allows people to bring some along.
-        const MAX_VISITORS = 2;
+        // Mod-toggled per event — whether visitors are allowed at all, and
+        // how many each applicant may bring (defaults to 2).
+        const MAX_VISITORS  = Number.isFinite(event.max_visitors) ? event.max_visitors : 2;
+        const VISITORS_HINT = `This event allows visitors (parents / guardians)! Let us know how many you're bringing — up to ${MAX_VISITORS}.`;
+
         const visitorsFieldEl = document.getElementById('af-visitors-field');
         if (visitorsFieldEl) visitorsFieldEl.hidden = !event.include_visitors;
+        const staticVisitorsInput = document.getElementById('af-visitors');
+        if (staticVisitorsInput) staticVisitorsInput.max = String(MAX_VISITORS);
+        const staticVisitorsHint = visitorsFieldEl?.querySelector('.apply-hint');
+        if (staticVisitorsHint) staticVisitorsHint.textContent = VISITORS_HINT;
 
         const MAX_ATTACHMENT_BYTES     = 20 * 1024 * 1024;
         const ALLOWED_ATTACHMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif',
@@ -548,8 +554,8 @@
                     ${event.include_visitors ? `
                     <div class="apply-field">
                         <label class="apply-label" for="af-oc-visitors">Number of Visitors (excluding yourself)</label>
-                        <input class="apply-input" type="number" id="af-oc-visitors" min="0" max="2" inputmode="numeric" placeholder="0">
-                        <p class="apply-hint">This event allows visitors (parents / guardians)! Let us know how many you're bringing — up to 2.</p>
+                        <input class="apply-input" type="number" id="af-oc-visitors" min="0" max="${MAX_VISITORS}" inputmode="numeric" placeholder="0">
+                        <p class="apply-hint">${esc(VISITORS_HINT)}</p>
                     </div>` : ''}
                     ${privacyNoticeHtml('af-oc')}
                     <div id="af-err" class="apply-error" hidden></div>
@@ -813,6 +819,11 @@
                             Include visitors
                         </label>
                         <label class="ap-cap-field">
+                            Max visitors each
+                            <input type="number" id="ap-maxvisitors" min="0" inputmode="numeric"
+                                   value="${event.max_visitors ?? 2}">
+                        </label>
+                        <label class="ap-cap-field">
                             Max participants
                             <input type="number" id="ap-max" min="0" inputmode="numeric"
                                    value="${event.max_participants ?? ''}" placeholder="∞">
@@ -844,6 +855,14 @@
             const { error } = await db.from('events').update({ include_visitors: checked }).eq('id', event.id);
             if (error) { alert(error.message); e.target.checked = !checked; return; }
             event.include_visitors = checked;
+        });
+
+        panel.querySelector('#ap-maxvisitors').addEventListener('change', async e => {
+            const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+            e.target.value = val;
+            const { error } = await db.from('events').update({ max_visitors: val }).eq('id', event.id);
+            if (error) { alert(error.message); e.target.value = event.max_visitors ?? 2; return; }
+            event.max_visitors = val;
         });
 
         panel.querySelector('#ap-max').addEventListener('change', async e => {
