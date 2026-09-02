@@ -337,6 +337,15 @@
         if (fileLabelEl)  fileLabelEl.textContent = fileRequired ? 'Attachment (required)' : 'Attachment (optional)';
         if (staticFileEl) staticFileEl.required = fileRequired;
 
+        // Mod-written instructions for what to attach, shown as a callout
+        // right above the file picker.
+        const attachHint  = (event.attachment_hint || '').trim();
+        const attachNoteEl = document.getElementById('af-attach-note');
+        if (attachNoteEl) {
+            attachNoteEl.textContent = attachHint;
+            attachNoteEl.hidden      = !attachHint;
+        }
+
         // Mod-toggled per event — only ask for dietary/medical info when
         // there's actually food involved.
         const dietaryFieldEl = document.getElementById('af-dietary-field');
@@ -542,6 +551,7 @@
                     </div>
                     <div class="apply-field">
                         <label class="apply-label" for="af-oc-file">Attachment${fileRequired ? ' (required)' : ' (optional)'}</label>
+                        ${attachHint ? `<p class="apply-attach-note">${esc(attachHint)}</p>` : ''}
                         <input class="apply-input apply-file-input" type="file" id="af-oc-file" accept="application/pdf,image/*,video/*">
                         <p class="apply-hint">PDF, image, or video — up to 20MB.</p>
                     </div>
@@ -810,6 +820,12 @@
                             <input type="checkbox" id="ap-file-required"${event.application_file_required ? ' checked' : ''}>
                             Require an attachment to apply
                         </label>
+                        <label class="ap-cap-field ap-cap-field--wide">
+                            What should they attach?
+                            <input type="text" id="ap-attach-hint" maxlength="200"
+                                   placeholder="e.g. Attach your signed indemnity form and a photo of your student ID"
+                                   value="${esc(event.attachment_hint || '')}">
+                        </label>
                         <label class="ap-file-toggle">
                             <input type="checkbox" id="ap-food-toggle"${event.provides_food ? ' checked' : ''}>
                             This event provides food
@@ -855,6 +871,13 @@
             const { error } = await db.from('events').update({ include_visitors: checked }).eq('id', event.id);
             if (error) { alert(error.message); e.target.checked = !checked; return; }
             event.include_visitors = checked;
+        });
+
+        panel.querySelector('#ap-attach-hint').addEventListener('change', async e => {
+            const val = e.target.value.trim();
+            const { error } = await db.from('events').update({ attachment_hint: val || null }).eq('id', event.id);
+            if (error) { alert(error.message); e.target.value = event.attachment_hint || ''; return; }
+            event.attachment_hint = val || null;
         });
 
         panel.querySelector('#ap-maxvisitors').addEventListener('change', async e => {

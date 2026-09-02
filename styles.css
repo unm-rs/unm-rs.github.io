@@ -1123,6 +1123,21 @@ svg {
             color: hsl(220, 14%, 55%);
         }
 
+        /* Mod-written "what to attach" instructions — deliberately louder
+           than .apply-hint so nobody misses it. */
+        .apply-attach-note {
+            font-size: var(--fs-15);
+            font-weight: 600;
+            line-height: 1.5;
+            color: hsl(40, 55%, 24%);
+            background: hsl(45, 92%, 94%);
+            border: 1px solid hsl(45, 75%, 78%);
+            border-left-width: 4px;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-block: 2px 4px;
+        }
+
         .apply-file-input {
             padding: 10px 14px;
             cursor: pointer;
@@ -5103,6 +5118,16 @@ body:has(.ab-bar) .ep-years-outer {
         accent-color: hsl(45, 95%, 55%);
     }
     input:focus { outline: 1px solid hsl(45, 70%, 45%); }
+}
+
+/* Free-text settings (e.g. "what should they attach?") need a real field,
+   not the 74px number box. */
+.ap-cap-field--wide {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+
+    input { width: 100%; min-width: 240px; }
 }
 
 .ap-sections {

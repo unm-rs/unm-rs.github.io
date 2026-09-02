@@ -1745,3 +1745,13 @@ $$;
 ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS max_visitors integer NOT NULL DEFAULT 2
     CHECK (max_visitors >= 0);
+
+-- ============================================================
+-- 67. Mods can spell out WHAT to attach, not just whether an
+--     attachment is required (step 43). Free text shown as a
+--     callout right above the file picker on the apply form —
+--     e.g. "Attach your signed indemnity form and a photo of
+--     your student ID". NULL = no extra instructions.
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS attachment_hint text;
