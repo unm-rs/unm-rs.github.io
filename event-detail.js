@@ -647,6 +647,26 @@
             return;
         }
 
+        // Applying always needs an account — it's what ties an application to
+        // a person so they can track its status (and, for paid events, submit
+        // proof of payment). Guests get a sign-in prompt instead of the form.
+        applyForm.hidden = true;
+        const gate = document.createElement('div');
+        gate.className = 'apply-signin-gate';
+        gate.innerHTML = `
+            <p class="apply-signin-gate__msg">You'll need an account to apply for this event! With an account, you can apply with your saved details and track your application status.</p>
+            <button type="button" class="apply-submit" id="af-gate-signin">Sign in to apply</button>
+            <p class="apply-signin-gate__hint">Not a member yet? You can create an account from the sign-in window.</p>`;
+        applyForm.after(gate);
+        gate.querySelector('#af-gate-signin').addEventListener('click', () => {
+            document.dispatchEvent(new CustomEvent('ua:open-login'));
+        });
+        return;
+
+        // --- Guest application path -------------------------------------
+        // Unreachable while the sign-in gate above is unconditional. Kept so
+        // guest applications can be switched back on by removing the `return`
+        // above (or gating the block on e.g. `if (event.payment_required)`).
         const banner = document.createElement('div');
         banner.className = 'apply-signin-banner';
         banner.innerHTML = `
