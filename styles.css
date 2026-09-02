@@ -5003,6 +5003,175 @@ body:has(.ab-bar) .ep-years-outer {
     color: hsl(220, 14%, 30%);
 }
 
+.apply-privacy__more {
+    font-size: 12px;
+    line-height: 1.5;
+    color: hsl(220, 14%, 42%);
+    font-weight: 600;
+
+    a { color: hsl(232, 62%, 52%); text-decoration: underline; }
+}
+
+/* ---- Legal / policy pages (see /privacy/) ---------------------------- */
+.legal {
+    background: #fff;
+    padding-block: clamp(72px, 10vw, 120px) clamp(56px, 8vw, 96px);
+    padding-inline: clamp(20px, 5vw, 40px);
+}
+
+.legal__inner {
+    max-width: 78ch;
+    margin-inline: auto;
+    color: hsl(220, 14%, 22%);
+    font-size: var(--fs-16);
+    line-height: 1.7;
+}
+
+.legal__eyebrow {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: hsl(232, 62%, 50%);
+}
+
+.legal__title {
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--color-text-dark);
+    margin-block: 8px 10px;
+}
+
+.legal__lede {
+    font-size: clamp(1rem, 2.2vw, 1.2rem);
+    color: hsl(220, 14%, 42%);
+    margin-block-end: 32px;
+}
+
+.legal__meta {
+    display: grid;
+    gap: 0;
+    border: 1px solid hsl(220, 14%, 88%);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-block-end: 40px;
+
+    > div {
+        display: grid;
+        grid-template-columns: minmax(120px, 200px) 1fr;
+        gap: 16px;
+        padding: 12px 18px;
+        border-block-end: 1px solid hsl(220, 14%, 92%);
+    }
+    > div:last-child { border-block-end: none; }
+
+    dt { font-weight: 700; color: hsl(220, 14%, 38%); font-size: var(--fs-14); }
+    dd { color: var(--color-text-dark); font-size: var(--fs-14); }
+
+    @media (width < calc(600 / 16 * 1rem)) {
+        > div { grid-template-columns: 1fr; gap: 2px; }
+    }
+}
+
+.legal__toc {
+    background: hsl(220, 24%, 97%);
+    border: 1px solid hsl(220, 14%, 89%);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-block-end: 44px;
+
+    ol { margin: 0; padding-inline-start: 1.3em; }
+    li { margin-block: 4px; }
+    a { color: hsl(232, 62%, 48%); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+}
+
+.legal__toc-title {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: hsl(220, 14%, 48%);
+    margin-block-end: 10px;
+}
+
+.legal__section {
+    scroll-margin-top: calc(var(--topnav-height, 64px) + var(--admin-bar-height, 0px) + 16px);
+    margin-block-end: 44px;
+
+    h2 {
+        font-size: clamp(1.25rem, 3vw, 1.6rem);
+        font-weight: 800;
+        color: var(--color-text-dark);
+        line-height: 1.25;
+        margin-block-end: 14px;
+        padding-block-end: 10px;
+        border-block-end: 2px solid hsl(220, 14%, 90%);
+    }
+    h3 {
+        font-size: var(--fs-16);
+        font-weight: 800;
+        color: var(--color-text-dark);
+        margin-block: 24px 8px;
+    }
+    p { margin-block-end: 14px; }
+    ul, ol { margin-block-end: 16px; padding-inline-start: 1.4em; }
+    li { margin-block: 6px; }
+    a { color: hsl(232, 62%, 48%); }
+    code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.9em;
+        background: hsl(220, 20%, 95%);
+        border-radius: 4px;
+        padding: 1px 5px;
+    }
+}
+
+.legal__callout {
+    background: hsl(45, 92%, 95%);
+    border: 1px solid hsl(45, 75%, 80%);
+    border-left-width: 4px;
+    border-radius: 6px;
+    padding: 14px 18px;
+    color: hsl(40, 45%, 22%);
+}
+
+.legal__table-wrap {
+    overflow-x: auto;
+    margin-block-end: 18px;
+}
+
+.legal__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-14);
+    min-width: 480px;
+
+    th, td {
+        text-align: left;
+        vertical-align: top;
+        padding: 10px 14px;
+        border: 1px solid hsl(220, 14%, 88%);
+    }
+    th {
+        background: hsl(220, 24%, 96%);
+        font-weight: 800;
+        color: var(--color-text-dark);
+    }
+}
+
+.legal__contact {
+    font-style: normal;
+    background: hsl(220, 24%, 97%);
+    border-left: 4px solid hsl(232, 62%, 62%);
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    margin-block: 16px 20px;
+    line-height: 1.7;
+}
+
 .apply-signin-gate__hint {
     max-width: 480px;
     font-size: var(--fs-16);

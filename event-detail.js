@@ -480,6 +480,10 @@
                         <a href="mailto:data-protection@nottingham.ac.uk">data-protection@nottingham.ac.uk</a>.
                         You can also view our <a href="https://www.nottingham.edu.my/Utilities/DataProtection.aspx" target="_blank" rel="noopener noreferrer">data protection policies</a> for the United Kingdom, China and Malaysia.
                     </p>
+                    <p class="apply-privacy__more">
+                        For full details of what we collect, who can see it and how long we keep it, read the
+                        Society's <a href="/privacy/" target="_blank" rel="noopener">Privacy Policy &amp; Personal Data Protection Notice</a>.
+                    </p>
                     <label class="apply-privacy__consent">
                         <input type="checkbox" id="${prefix}-consent">
                         <span>I have read and understood the above and consent to my details being recorded and used as described.</span>
