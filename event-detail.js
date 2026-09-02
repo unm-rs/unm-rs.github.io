@@ -654,8 +654,10 @@
         const gate = document.createElement('div');
         gate.className = 'apply-signin-gate';
         gate.innerHTML = `
-            <p class="apply-signin-gate__msg">You'll need an account to apply for this event! With an account, you can apply with your saved details and track your application status.</p>
-            <button type="button" class="apply-submit" id="af-gate-signin">Sign in to apply</button>
+            <div class="apply-signin-gate__box">
+                <p class="apply-signin-gate__msg">You'll need an account to apply for this event! With an account, you can apply with your saved details and track your application status.</p>
+                <button type="button" class="apply-submit" id="af-gate-signin">Sign in to apply</button>
+            </div>
             <p class="apply-signin-gate__hint">Not a member yet? You can create an account from the sign-in window.</p>`;
         applyForm.after(gate);
         gate.querySelector('#af-gate-signin').addEventListener('click', () => {
