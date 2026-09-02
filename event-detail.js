@@ -551,9 +551,9 @@
                     </div>
                     <div class="apply-field">
                         <label class="apply-label" for="af-oc-file">Attachment${fileRequired ? ' (required)' : ' (optional)'}</label>
+                        ${attachHint ? `<p class="apply-attach-note">${esc(attachHint)}</p>` : ''}
                         <input class="apply-input apply-file-input" type="file" id="af-oc-file" accept="application/pdf,image/*,video/*">
                         <p class="apply-hint">PDF, image, or video — up to 20MB.</p>
-                        ${attachHint ? `<p class="apply-attach-note">${esc(attachHint)}</p>` : ''}
                     </div>
                     ${event.provides_food ? `
                     <div class="apply-field">
