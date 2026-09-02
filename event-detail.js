@@ -667,7 +667,10 @@
                         p_event_id:        event.id,
                         p_event_slug:      event.slug || null,
                         p_full_name:       profile.full_name,
-                        p_owa:             profile.owa,
+                        // External members registered before owa was stored have
+                        // none on their profile — fall back to their sign-in
+                        // email so the NOT NULL on applications.owa is satisfied.
+                        p_owa:             profile.owa || session.user.email,
                         p_year_of_study:   profile.year_of_study,
                         p_user_id:         session.user.id,
                         p_student_id:      profile.student_id,

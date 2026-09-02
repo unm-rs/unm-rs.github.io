@@ -58,6 +58,9 @@
     function render() {
         const name     = profile.full_name || '';
         const initials = getInitials(name || session.user.email);
+        // Two registration paths (see openRegisterModal in user-auth.js).
+        // Accounts created before the split have no flag — treat as UNM.
+        const isUnmStudent = profile.is_unm_student !== false;
 
         root.innerHTML = `
             <!-- Banner -->
@@ -134,6 +137,7 @@
                 <h2 class="pf-section__title">Profile Details</h2>
                 ${isEditing ? `
                     <div class="pf-fields">
+                        ${isUnmStudent ? `
                         <div class="pf-field">
                             <label class="pf-field__label" for="pf-sid">Student ID</label>
                             <input class="pf-field__input" id="pf-sid" type="text"
@@ -143,30 +147,58 @@
                             <label class="pf-field__label" for="pf-owa">OWA Email</label>
                             <input class="pf-field__input" id="pf-owa" type="email"
                                    value="${esc(profile.owa || '')}" placeholder="yourOWA@nottingham.edu.my">
+                        </div>` : `
+                        <div class="pf-field">
+                            <label class="pf-field__label" for="pf-owa">Email</label>
+                            <input class="pf-field__input" id="pf-owa" type="email"
+                                   value="${esc(profile.owa || session.user.email || '')}" placeholder="you@example.com">
                         </div>
                         <div class="pf-field">
+                            <label class="pf-field__label" for="pf-school">School / Institution</label>
+                            <input class="pf-field__input" id="pf-school" type="text"
+                                   value="${esc(profile.school_name || '')}" placeholder="e.g. Taylor's University">
+                        </div>
+                        <div class="pf-field">
+                            <label class="pf-field__label" for="pf-region">Region</label>
+                            <input class="pf-field__input" id="pf-region" type="text"
+                                   value="${esc(profile.region || '')}" placeholder="e.g. Selangor, Malaysia">
+                        </div>`}
+                        <div class="pf-field">
                             <label class="pf-field__label" for="pf-year">Year of Study</label>
+                            ${isUnmStudent ? `
                             <select class="pf-field__input" id="pf-year">
                                 <option value="">Select year…</option>
                                 ${['Foundation Year','Year 1','Year 2','Year 3','Year 4','Postgraduate'].map(y =>
                                     `<option${profile.year_of_study === y ? ' selected' : ''}>${y}</option>`
                                 ).join('')}
-                            </select>
+                            </select>` : `
+                            <input class="pf-field__input" id="pf-year" type="text"
+                                   value="${esc(profile.year_of_study || '')}"
+                                   placeholder="e.g. Form 5, Year 1, Foundation, Diploma Year 2…">`}
                         </div>
+                        ${isUnmStudent ? `
                         <div class="pf-field">
                             <label class="pf-field__label" for="pf-course">Course of Study</label>
                             <input class="pf-field__input" id="pf-course" type="text"
                                    value="${esc(profile.course_of_study || '')}"
                                    placeholder="e.g. Bachelor of Computer Science">
-                        </div>
+                        </div>` : ''}
                     </div>` : `
                     <dl class="pf-detail-grid">
-                        ${detailRow('Student ID',   profile.student_id)}
-                        ${detailRow('OWA Email',    profile.owa)}
-                        ${detailRow('Year',         profile.year_of_study)}
-                        ${detailRow('Course',       profile.course_of_study)}
+                        ${isUnmStudent
+                            ? `${detailRow('Student ID', profile.student_id)}
+                               ${detailRow('OWA Email',  profile.owa)}
+                               ${detailRow('Year',       profile.year_of_study)}
+                               ${detailRow('Course',     profile.course_of_study)}`
+                            : `${detailRow('Email',              profile.owa)}
+                               ${detailRow('School / Institution', profile.school_name)}
+                               ${detailRow('Region',             profile.region)}
+                               ${detailRow('Year',               profile.year_of_study)}`}
                     </dl>
-                    ${!profile.student_id && !profile.owa ? `<p class="pf-detail-empty">No details added yet.</p>` : ''}`}
+                    ${(isUnmStudent
+                        ? (!profile.student_id && !profile.owa)
+                        : (!profile.owa && !profile.school_name && !profile.region))
+                        ? `<p class="pf-detail-empty">No details added yet.</p>` : ''}`}
             </section>
 
             `;
@@ -265,18 +297,28 @@
             bannerUrl = result.url;
         }
 
+        // Only write the fields the account's own registration path uses, so
+        // switching branches can't blank out the other one's data.
+        const isUnmStudent = profile.is_unm_student !== false;
+
         const updates = {
-            id:              session.user.id,
-            full_name:       document.getElementById('pf-name')?.value.trim()     || null,
-            nickname:        document.getElementById('pf-nickname')?.value.trim() || null,
-            bio:             document.getElementById('pf-bio')?.value.trim()      || null,
-            student_id:      document.getElementById('pf-sid')?.value.trim()      || null,
-            owa:             document.getElementById('pf-owa')?.value.trim()      || null,
-            year_of_study:   document.getElementById('pf-year')?.value            || null,
-            course_of_study: document.getElementById('pf-course')?.value.trim()   || null,
-            avatar_url:      avatarUrl,
-            banner_url:      bannerUrl,
+            id:            session.user.id,
+            full_name:     document.getElementById('pf-name')?.value.trim()     || null,
+            nickname:      document.getElementById('pf-nickname')?.value.trim() || null,
+            bio:           document.getElementById('pf-bio')?.value.trim()      || null,
+            owa:           document.getElementById('pf-owa')?.value.trim()      || null,
+            year_of_study: document.getElementById('pf-year')?.value.trim()     || null,
+            avatar_url:    avatarUrl,
+            banner_url:    bannerUrl,
         };
+
+        if (isUnmStudent) {
+            updates.student_id      = document.getElementById('pf-sid')?.value.trim()    || null;
+            updates.course_of_study = document.getElementById('pf-course')?.value.trim() || null;
+        } else {
+            updates.school_name = document.getElementById('pf-school')?.value.trim() || null;
+            updates.region      = document.getElementById('pf-region')?.value.trim() || null;
+        }
 
         const { error } = await db.from('user_profiles').upsert(updates);
 
@@ -373,7 +415,7 @@
 
         const { data: p } = await db
             .from('user_profiles')
-            .select('full_name, avatar_url, banner_url, bio, owa, course_of_study, year_of_study, role')
+            .select('full_name, avatar_url, banner_url, bio, course_of_study, year_of_study, school_name, region, is_unm_student, role')
             .eq('id', userId)
             .single();
 
@@ -434,11 +476,15 @@
             <section class="pf-section">
                 <h2 class="pf-section__title">Profile Details</h2>
                 <dl class="pf-detail-grid">
-                    ${detailRow('OWA Email', p.owa)}
-                    ${detailRow('Year',      p.year_of_study)}
-                    ${detailRow('Course',    p.course_of_study)}
+                    ${p.is_unm_student !== false
+                        ? `${detailRow('Year',   p.year_of_study)}
+                           ${detailRow('Course', p.course_of_study)}`
+                        : `${detailRow('Year',                p.year_of_study)}
+                           ${detailRow('School / Institution', p.school_name)}
+                           ${detailRow('Region',              p.region)}`}
                 </dl>
-                ${!p.owa && !p.year_of_study && !p.course_of_study ? `<p class="pf-detail-empty">No details added yet.</p>` : ''}
+                ${!p.year_of_study && !p.course_of_study && !p.school_name && !p.region
+                    ? `<p class="pf-detail-empty">No details added yet.</p>` : ''}
             </section>`;
 
         document.getElementById('pf-tag-add-btn')?.addEventListener('click', () => {

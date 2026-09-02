@@ -575,6 +575,10 @@
                     school_name:    school,
                     region,
                     year_of_study:  year,
+                    // `owa` doubles as the contact email for both branches
+                    // (see SQL step 61) — applications.owa is NOT NULL, so an
+                    // external member with no owa can't apply at all.
+                    owa:            email,
                 });
             }
 

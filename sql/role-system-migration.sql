@@ -1755,3 +1755,25 @@ ALTER TABLE public.events
 -- ============================================================
 ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS attachment_hint text;
+
+-- ============================================================
+-- 68. External (non-UNM) members were registered without an `owa`
+--     — the external branch of openRegisterModal() never wrote one
+--     (see user-auth.js). applications.owa is NOT NULL and doubles
+--     as the contact email for both branches (step 61), so every
+--     external member's application failed with
+--     "null value in column owa ... violates not-null constraint".
+--
+--     Registration now stores it going forward; this backfills the
+--     accounts already created, from their sign-in email.
+-- ============================================================
+UPDATE public.user_profiles p
+SET owa = u.email
+FROM auth.users u
+WHERE u.id = p.id
+  AND p.is_unm_student IS FALSE
+  AND (p.owa IS NULL OR btrim(p.owa) = '');
+
+-- Sanity check — should return zero rows once the backfill has run:
+-- SELECT id, full_name, owa FROM public.user_profiles
+-- WHERE is_unm_student IS FALSE AND (owa IS NULL OR btrim(owa) = '');
