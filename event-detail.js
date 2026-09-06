@@ -316,6 +316,12 @@
         // Past events can't be joined — drop the apply form entirely; the
         // gallery below takes its place.
         if (applySection) applySection.hidden = true;
+    } else if (event.applications_locked) {
+        // Admin-locked, independent of capacity — swap the form out for a
+        // plain notice instead of hiding the whole section, so #apply-form
+        // (the hero's "Join Now" link, and anyone with it bookmarked) still
+        // scrolls to something that explains why there's no form here.
+        showLockedNotice();
     } else {
         setupApplyForm(session, isLoggedIn);
     }
@@ -323,6 +329,19 @@
     setupGallery();
     setupEventDocuments();
     setupPaymentSection();
+
+    function showLockedNotice() {
+        if (!applySection) return;
+        document.getElementById('js-apply-heading')?.setAttribute('hidden', '');
+        document.getElementById('js-apply-form')?.setAttribute('hidden', '');
+        const message = (event.applications_locked_message || '').trim() || 'This event is full.';
+        const notice = document.createElement('div');
+        notice.className = 'apply-locked';
+        notice.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <p class="apply-locked__msg">${esc(message)}</p>`;
+        applySection.querySelector('.apply-inner')?.appendChild(notice);
+    }
 
     async function setupApplyForm(session, isLoggedIn) {
         const applyForm  = document.getElementById('js-apply-form');
@@ -904,6 +923,16 @@
                 <div class="approvals-panel__head">
                     <h2 class="approvals-panel__title">Applications</h2>
                     <div class="ap-settings">
+                        <label class="ap-file-toggle ap-file-toggle--danger">
+                            <input type="checkbox" id="ap-lock-toggle"${event.applications_locked ? ' checked' : ''}>
+                            Lock applications (stop accepting new ones)
+                        </label>
+                        <label class="ap-cap-field ap-cap-field--wide">
+                            Message shown to visitors while locked
+                            <input type="text" id="ap-lock-message" maxlength="200"
+                                   placeholder="e.g. This event is full"
+                                   value="${esc(event.applications_locked_message || '')}">
+                        </label>
                         <label class="ap-file-toggle">
                             <input type="checkbox" id="ap-file-required"${event.application_file_required ? ' checked' : ''}>
                             Require an attachment to apply
@@ -943,6 +972,20 @@
             </div>`;
 
         document.querySelector('.event-detail')?.after(panel);
+
+        panel.querySelector('#ap-lock-toggle').addEventListener('change', async e => {
+            const checked = e.target.checked;
+            const { error } = await db.from('events').update({ applications_locked: checked }).eq('id', event.id);
+            if (error) { alert(error.message); e.target.checked = !checked; return; }
+            event.applications_locked = checked;
+        });
+
+        panel.querySelector('#ap-lock-message').addEventListener('change', async e => {
+            const val = e.target.value.trim();
+            const { error } = await db.from('events').update({ applications_locked_message: val || null }).eq('id', event.id);
+            if (error) { alert(error.message); e.target.value = event.applications_locked_message || ''; return; }
+            event.applications_locked_message = val || null;
+        });
 
         panel.querySelector('#ap-file-required').addEventListener('change', async e => {
             const checked = e.target.checked;

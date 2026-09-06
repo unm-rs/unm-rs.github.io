@@ -5010,6 +5010,34 @@ body:has(.ab-bar) .ep-years-outer {
     color: hsl(220, 14%, 30%);
 }
 
+/* Admin-locked applications (see event-detail.js's applications_locked
+   branch) — same card language as .apply-signin-gate, swapped in where
+   the form would otherwise be. */
+.apply-locked {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    max-width: 580px;
+    margin-inline: auto;
+    padding: clamp(28px, 5vw, 44px) clamp(24px, 5vw, 46px);
+    text-align: center;
+    background: #fff;
+    border: 1px solid hsl(220, 14%, 87%);
+    border-radius: 14px;
+    box-shadow: 0 2px 12px hsl(220 20% 40% / 0.07);
+    color: hsl(220, 14%, 45%);
+}
+
+.apply-locked__msg {
+    max-width: 100%;
+    font-size: clamp(1.1rem, 2.4vw, 1.35rem);
+    font-weight: 600;
+    line-height: 1.55;
+    color: hsl(220, 14%, 30%);
+}
+
 .apply-privacy__more {
     font-size: 12px;
     line-height: 1.5;
@@ -5234,6 +5262,16 @@ body:has(.ab-bar) .ep-years-outer {
     user-select: none;
 
     input { accent-color: hsl(45, 95%, 55%); cursor: pointer; }
+}
+
+/* Locking is the one toggle here that actively turns visitors away —
+   worth a visual nudge so it doesn't read as just another checkbox in
+   the list. */
+.ap-file-toggle--danger {
+    color: hsl(5, 75%, 72%);
+    font-weight: 600;
+
+    input { accent-color: hsl(5, 68%, 56%); }
 }
 
 .ap-card__attachment {

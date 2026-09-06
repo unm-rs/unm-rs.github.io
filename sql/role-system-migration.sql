@@ -1876,3 +1876,83 @@ DROP POLICY IF EXISTS "Admins delete event images" ON storage.objects;
 CREATE POLICY "Admins delete event images"
   ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'event-images' AND public.is_admin());
+
+-- ============================================================
+-- 71. Admins can manually lock an event's applications — independent
+--     of the automatic capacity/waitlist system (step 54), for reasons
+--     that have nothing to do with the seat count (a deadline's
+--     passed, the venue fell through, etc.). Same on/off +
+--     free-text-message shape as attachment_hint (step 67): the
+--     message is only shown once the toggle is on, and a NULL/blank
+--     one falls back to a default client-side.
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS applications_locked boolean NOT NULL DEFAULT false;
+
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS applications_locked_message text;
+
+-- ============================================================
+-- 72. Enforce the lock from step 71 inside submit_application() itself,
+--     not just by hiding the form client-side — otherwise it's purely
+--     cosmetic and anyone calling the RPC directly (e.g. from the
+--     browser console) could still submit an application while
+--     "locked". Same argument list as before, so this is a straight
+--     CREATE OR REPLACE (no DROP needed — see step 65's note on why
+--     that only applies when the signature itself changes).
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.submit_application(
+  p_event_id uuid,
+  p_event_slug text,
+  p_full_name text,
+  p_owa text,
+  p_year_of_study text,
+  p_user_id uuid DEFAULT NULL,
+  p_student_id text DEFAULT NULL,
+  p_course_of_study text DEFAULT NULL,
+  p_school_name text DEFAULT NULL,
+  p_region text DEFAULT NULL,
+  p_attachment_path text DEFAULT NULL,
+  p_attachment_name text DEFAULT NULL,
+  p_dietary_medical_info text DEFAULT NULL,
+  p_visitor_count integer DEFAULT NULL,
+  p_phone_number text DEFAULT NULL
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_status  text;
+  v_locked  boolean;
+  v_message text;
+BEGIN
+  SELECT applications_locked, applications_locked_message
+    INTO v_locked, v_message
+    FROM public.events WHERE id = p_event_id;
+
+  IF v_locked THEN
+    RAISE EXCEPTION '%', COALESCE(NULLIF(btrim(v_message), ''), 'Applications for this event are locked.');
+  END IF;
+
+  IF p_user_id IS NOT NULL AND p_user_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'You can only submit an application as yourself';
+  END IF;
+
+  INSERT INTO public.applications (
+    event_id, event_slug, full_name, owa, year_of_study,
+    student_id, course_of_study, school_name, region,
+    user_id, status, attachment_path, attachment_name,
+    dietary_medical_info, visitor_count, phone_number
+  ) VALUES (
+    p_event_id, p_event_slug, p_full_name, p_owa, p_year_of_study,
+    p_student_id, p_course_of_study, p_school_name, p_region,
+    p_user_id, 'pending', p_attachment_path, p_attachment_name,
+    p_dietary_medical_info, p_visitor_count, p_phone_number
+  )
+  RETURNING status INTO v_status;
+
+  RETURN v_status;
+END;
+$$;
