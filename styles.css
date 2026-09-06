@@ -878,6 +878,35 @@ svg {
             }
         }
 
+        /* Secondary to Join Now — translucent instead of solid white, so
+           they read as "extra" actions rather than competing with it. */
+        .event-hero__map-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 16px;
+            background: hsl(0 0% 100% / 0.14);
+            border: 1px solid hsl(0 0% 100% / 0.35);
+            border-radius: 999px;
+            color: hsl(0 0% 100%);
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            white-space: nowrap;
+            backdrop-filter: blur(6px);
+            transition: background 0.15s;
+
+            svg { flex-shrink: 0; }
+            &:hover { background: hsl(0 0% 100% / 0.26); }
+        }
+
+        /* Admin-only placeholder for an unset link — dashed border marks
+           it as "nothing here yet, click to add" rather than a real button. */
+        .event-hero__map-btn--empty {
+            border-style: dashed;
+            color: hsl(0 0% 100% / 0.75);
+        }
+
         .event-hero__scroll-btn {
             display: none;
             position: absolute;
@@ -918,6 +947,7 @@ svg {
             .event-hero__meta-label  { font-size: 9.5px; }
             .event-hero__meta-item   { font-size: 14px; }
             .event-hero__join-btn    { padding: 10px 22px; font-size: 15px; }
+            .event-hero__map-btn     { padding: 8px 14px; font-size: 13px; }
         }
     }
 

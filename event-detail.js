@@ -234,6 +234,52 @@
         }
     }
 
+    // Google Maps / Waze buttons next to Join Now — shown to everyone once
+    // a link is set, and to admins even when it isn't (as a "+ Add ... link"
+    // placeholder they can click to set one). Saved immediately on entry,
+    // like the payment panel's WhatsApp link, rather than staged behind the
+    // Save Changes button below.
+    function setupMapLinkBtn(btn, key, label) {
+        if (!btn) return;
+        const labelEl = btn.querySelector('.event-hero__map-btn-label');
+
+        function render() {
+            const url = event[key];
+            if (url) {
+                btn.href = url;
+                btn.classList.remove('event-hero__map-btn--empty');
+                labelEl.textContent = label;
+                btn.hidden = false;
+            } else if (isAdmin) {
+                btn.removeAttribute('href');
+                btn.classList.add('event-hero__map-btn--empty');
+                labelEl.textContent = `Add ${label} link`;
+                btn.hidden = false;
+            } else {
+                btn.hidden = true;
+            }
+        }
+        render();
+
+        if (!isAdmin) return;
+
+        btn.addEventListener('click', async e => {
+            e.preventDefault();
+            const next = prompt(`${label} link (leave blank to remove)`, event[key] || '');
+            if (next === null) return; // cancelled
+            const value = next.trim() || null;
+            if (value === (event[key] || null)) return;
+
+            const { error } = await db.from('events').update({ [key]: value }).eq('id', event.id);
+            if (error) { alert(error.message); return; }
+            event[key] = value;
+            render();
+        });
+    }
+
+    setupMapLinkBtn(document.getElementById('js-maps-btn'), 'google_maps_link', 'Maps');
+    setupMapLinkBtn(document.getElementById('js-waze-btn'), 'waze_link', 'Waze');
+
     function editField(kind) {
         const el = elFor(kind);
         let input;

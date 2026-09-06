@@ -1956,3 +1956,16 @@ BEGIN
   RETURN v_status;
 END;
 $$;
+
+-- ============================================================
+-- 73. Google Maps / Waze links for the event hero — two small buttons
+--     next to Join Now, shown only once a mod has set the matching
+--     link (admins always see a "+ Add ... link" placeholder instead,
+--     the same idea as the venue field being editable-when-empty for
+--     them but hidden entirely for everyone else).
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS google_maps_link text;
+
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS waze_link text;
