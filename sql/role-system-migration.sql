@@ -1777,3 +1777,85 @@ WHERE u.id = p.id
 -- Sanity check — should return zero rows once the backfill has run:
 -- SELECT id, full_name, owa FROM public.user_profiles
 -- WHERE is_unm_student IS FALSE AND (owa IS NULL OR btrim(owa) = '');
+
+-- ============================================================
+-- 69. Events can be toggled to require a phone number to apply — same
+--     admin-toggle pattern as provides_food (step 60) and
+--     include_visitors (step 62), shown right above the dietary field
+--     on the apply form. Unlike those two, "requires" means what it
+--     says: when the toggle is on, the field is mandatory, not merely
+--     offered.
+--
+--     submit_application() gains a new trailing parameter — since that
+--     changes its argument list, CREATE OR REPLACE would create a
+--     second overloaded function instead of replacing the existing
+--     one (Postgres treats a different arg list as a different
+--     function), and PostgREST's rpc() calls would then start failing
+--     with "function name is not unique" whenever a caller omits the
+--     new param. Drop the old 14-arg version first so only one survives.
+--
+--     Run the DROP and the CREATE as two separate executions (paste +
+--     run one, then the other) — combining a DROP and a CREATE of the
+--     same function in one execution has been unreliable in the SQL
+--     editor before (see step 24).
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS requires_phone boolean NOT NULL DEFAULT false;
+
+ALTER TABLE public.applications
+  ADD COLUMN IF NOT EXISTS phone_number text;
+
+-- ---- run the statement below by itself, then run everything after it ----
+DROP FUNCTION IF EXISTS public.submit_application(
+  uuid, text, text, text, text, uuid, text, text, text, text, text, text, text, integer
+);
+
+CREATE FUNCTION public.submit_application(
+  p_event_id uuid,
+  p_event_slug text,
+  p_full_name text,
+  p_owa text,
+  p_year_of_study text,
+  p_user_id uuid DEFAULT NULL,
+  p_student_id text DEFAULT NULL,
+  p_course_of_study text DEFAULT NULL,
+  p_school_name text DEFAULT NULL,
+  p_region text DEFAULT NULL,
+  p_attachment_path text DEFAULT NULL,
+  p_attachment_name text DEFAULT NULL,
+  p_dietary_medical_info text DEFAULT NULL,
+  p_visitor_count integer DEFAULT NULL,
+  p_phone_number text DEFAULT NULL
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_status text;
+BEGIN
+  IF p_user_id IS NOT NULL AND p_user_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'You can only submit an application as yourself';
+  END IF;
+
+  INSERT INTO public.applications (
+    event_id, event_slug, full_name, owa, year_of_study,
+    student_id, course_of_study, school_name, region,
+    user_id, status, attachment_path, attachment_name,
+    dietary_medical_info, visitor_count, phone_number
+  ) VALUES (
+    p_event_id, p_event_slug, p_full_name, p_owa, p_year_of_study,
+    p_student_id, p_course_of_study, p_school_name, p_region,
+    p_user_id, 'pending', p_attachment_path, p_attachment_name,
+    p_dietary_medical_info, p_visitor_count, p_phone_number
+  )
+  RETURNING status INTO v_status;
+
+  RETURN v_status;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.submit_application(
+  uuid, text, text, text, text, uuid, text, text, text, text, text, text, text, integer, text
+) TO anon, authenticated;

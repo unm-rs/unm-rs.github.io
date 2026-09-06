@@ -373,6 +373,15 @@
             attachNoteEl.hidden      = !attachHint;
         }
 
+        // Mod-toggled per event — unlike the dietary/visitors toggles below,
+        // "requires" means what it says: when on, the field is mandatory,
+        // not merely offered.
+        const phoneRequired = !!event.requires_phone;
+        const phoneFieldEl  = document.getElementById('af-phone-field');
+        const staticPhoneEl = document.getElementById('af-phone');
+        if (phoneFieldEl)  phoneFieldEl.hidden = !phoneRequired;
+        if (staticPhoneEl) staticPhoneEl.required = phoneRequired;
+
         // Mod-toggled per event — only ask for dietary/medical info when
         // there's actually food involved.
         const dietaryFieldEl = document.getElementById('af-dietary-field');
@@ -451,6 +460,7 @@
                 ['Course', details.course],
                 ['School', details.school],
                 ['Region', details.region],
+                ['Phone Number', details.phone],
                 ['Dietary / medical', details.dietary],
             ].filter(([, v]) => v);
             // Not folded into the filter above — 0 is a meaningful, explicitly
@@ -601,6 +611,12 @@
                         <input class="apply-input apply-file-input" type="file" id="af-oc-file" accept="application/pdf,image/*,video/*">
                         <p class="apply-hint">PDF, image, or video — up to 20MB.</p>
                     </div>
+                    ${phoneRequired ? `
+                    <div class="apply-field">
+                        <label class="apply-label" for="af-oc-phone">Phone Number</label>
+                        <input class="apply-input" type="tel" id="af-oc-phone" required placeholder="e.g. 012-3456789">
+                        <p class="apply-hint">This event requires a contact number to apply.</p>
+                    </div>` : ''}
                     ${event.provides_food ? `
                     <div class="apply-field">
                         <label class="apply-label" for="af-oc-dietary">Dietary restrictions / medical conditions (optional)</label>
@@ -635,6 +651,13 @@
                     }
                     const fileErr = validateAttachment(file);
                     if (fileErr) { errEl.textContent = fileErr; errEl.hidden = false; return; }
+
+                    const phone = oneClick.querySelector('#af-oc-phone')?.value.trim() || '';
+                    if (phoneRequired && !phone) {
+                        errEl.textContent = 'Please provide a phone number to apply.';
+                        errEl.hidden      = false;
+                        return;
+                    }
 
                     const visitorsRaw = oneClick.querySelector('#af-oc-visitors')?.value.trim() || '';
                     const visitorsErr = validateVisitors(visitorsRaw);
@@ -681,6 +704,7 @@
                         p_attachment_name: attachment?.name || null,
                         p_dietary_medical_info: dietary,
                         p_visitor_count:   visitors,
+                        p_phone_number:    phone || null,
                     });
 
                     if (error) {
@@ -700,7 +724,7 @@
                             year: profile.year_of_study, course: profile.course_of_study,
                             school: profile.school_name, region: profile.region,
                             attachmentName: attachment?.name || null,
-                            dietary, visitors,
+                            phone: phone || null, dietary, visitors,
                             waitlistPosition,
                         }, status);
                         successEl.hidden = false;
@@ -783,6 +807,7 @@
             const isUnm  = isUnmChoice();
             const name   = document.getElementById('af-name').value.trim();
             const file   = document.getElementById('af-file').files[0] || null;
+            const phone   = document.getElementById('af-phone')?.value.trim() || null;
             const dietary = document.getElementById('af-dietary')?.value.trim() || null;
             const visitorsRaw = document.getElementById('af-visitors')?.value.trim() || '';
             const visitors    = parseVisitors(visitorsRaw);
@@ -811,6 +836,7 @@
             if (isUnm  && (!sid || !course))          { fail('Please fill in all fields.'); return; }
             if (!isUnm && (!school || !region))       { fail('Please fill in all fields.'); return; }
             if (!document.getElementById('af-consent')?.checked) { fail(CONSENT_ERR); return; }
+            if (phoneRequired && !phone) { fail('Please provide a phone number to apply.'); return; }
             if (fileRequired && !file) { fail('Please attach a file to apply.'); return; }
             const fileErr = validateAttachment(file);
             if (fileErr) { fail(fileErr); return; }
@@ -847,6 +873,7 @@
                 p_attachment_name: attachment?.name || null,
                 p_dietary_medical_info: dietary,
                 p_visitor_count:   visitors,
+                p_phone_number:    phone,
             });
 
             if (submitErr) {
@@ -857,7 +884,7 @@
                 renderConfirmation({
                     name, studentId: sid, owa: isUnm ? owa : null, email: isUnm ? null : owa,
                     year, course, school, region,
-                    attachmentName: attachment?.name || null, dietary, visitors,
+                    attachmentName: attachment?.name || null, phone, dietary, visitors,
                 }, status);
                 successEl.hidden = false;
                 // Auto-approval (see assign_application_status trigger) can
@@ -886,6 +913,10 @@
                             <input type="text" id="ap-attach-hint" maxlength="200"
                                    placeholder="e.g. Attach your signed indemnity form and a photo of your student ID"
                                    value="${esc(event.attachment_hint || '')}">
+                        </label>
+                        <label class="ap-file-toggle">
+                            <input type="checkbox" id="ap-phone-toggle"${event.requires_phone ? ' checked' : ''}>
+                            Require a phone number to apply
                         </label>
                         <label class="ap-file-toggle">
                             <input type="checkbox" id="ap-food-toggle"${event.provides_food ? ' checked' : ''}>
@@ -918,6 +949,13 @@
             const { error } = await db.from('events').update({ application_file_required: checked }).eq('id', event.id);
             if (error) { alert(error.message); e.target.checked = !checked; return; }
             event.application_file_required = checked;
+        });
+
+        panel.querySelector('#ap-phone-toggle').addEventListener('change', async e => {
+            const checked = e.target.checked;
+            const { error } = await db.from('events').update({ requires_phone: checked }).eq('id', event.id);
+            if (error) { alert(error.message); e.target.checked = !checked; return; }
+            event.requires_phone = checked;
         });
 
         panel.querySelector('#ap-food-toggle').addEventListener('change', async e => {
@@ -1060,6 +1098,7 @@
                         <span class="ap-card__meta">${esc(app.student_id)}</span>
                         <span class="ap-card__meta">${esc(app.owa)}</span>
                         <span class="ap-card__meta">${esc(app.year_of_study)} · ${esc(app.course_of_study)}</span>`}
+                    ${app.phone_number ? `<p class="ap-card__meta">📞 ${esc(app.phone_number)}</p>` : ''}
                     ${app.dietary_medical_info ? `<p class="ap-card__dietary">🍽️ ${esc(app.dietary_medical_info)}</p>` : ''}
                     ${app.visitor_count != null ? `<p class="ap-card__meta">👥 +${esc(String(app.visitor_count))} visitor${app.visitor_count === 1 ? '' : 's'}</p>` : ''}
                     ${app.attachment_path ? `
