@@ -334,7 +334,7 @@
         if (!applySection) return;
         document.getElementById('js-apply-heading')?.setAttribute('hidden', '');
         document.getElementById('js-apply-form')?.setAttribute('hidden', '');
-        const message = (event.applications_locked_message || '').trim() || 'This event is full.';
+        const message = (event.applications_locked_message || '').trim() || 'This event is no longer accepting new applications.';
         const notice = document.createElement('div');
         notice.className = 'apply-locked';
         notice.innerHTML = `
