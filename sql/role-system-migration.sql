@@ -1859,3 +1859,20 @@ $$;
 GRANT EXECUTE ON FUNCTION public.submit_application(
   uuid, text, text, text, text, uuid, text, text, text, text, text, text, text, integer, text
 ) TO anon, authenticated;
+
+-- ============================================================
+-- 70. Admins can delete files in the `event-images` bucket. Nothing
+--     that writes there — event banners, hero images, committee
+--     photos, product photos, about-page images — has ever been able
+--     to clean up the file it replaces, since the only existing DELETE
+--     policy on this bucket is scoped to a member's own avatar/banner
+--     (step 27a). Every other path in this bucket is admin-written, so
+--     gate this the same way every other admin-only write already is.
+--     event-detail.js's Remove/Change Image now calls this for the
+--     event banner specifically; the same gap exists for the other
+--     upload sites above but isn't fixed here.
+-- ============================================================
+DROP POLICY IF EXISTS "Admins delete event images" ON storage.objects;
+CREATE POLICY "Admins delete event images"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'event-images' AND public.is_admin());

@@ -1718,15 +1718,21 @@
     descEl.dataset.placeholder     = 'Click to add a description…';
     outcomesEl.dataset.placeholder = 'Click to add learning outcomes…';
 
-    const imgBtn = document.getElementById('js-img-btn');
+    const imgBtn       = document.getElementById('js-img-btn');
+    const removeImgBtn = document.getElementById('js-img-remove');
     imgBtn.hidden = false;
 
-    // The overlay topnav floats on top of the hero, so this button needs to
+    // The overlay topnav floats on top of the hero, so these buttons need to
     // sit below it (plus the admin bar, when present) instead of at a fixed
-    // 16px from the hero's own top edge.
+    // 16px from the hero's own top edge — and the remove button, when
+    // shown, stacks directly under Change Image rather than at that same
+    // fixed offset.
     function positionImgBtn() {
         const nav = document.querySelector('.topnav');
-        if (nav) imgBtn.style.top = `${nav.getBoundingClientRect().height + 12}px`;
+        if (!nav) return;
+        const top = nav.getBoundingClientRect().height + 12;
+        imgBtn.style.top = `${top}px`;
+        if (removeImgBtn) removeImgBtn.style.top = `${top + imgBtn.getBoundingClientRect().height + 8}px`;
     }
     positionImgBtn();
     window.addEventListener('resize', positionImgBtn);
@@ -1836,6 +1842,31 @@
     let currentImgUrl         = event.image_url          || null;
     let currentImgUrlMobile   = event.image_url_mobile    || null;
     let currentImgUrlPortrait = event.image_url_portrait  || null;
+    // What's actually saved right now — compared against current*ImgUrl on
+    // save so a replaced or removed banner's old file(s) can be cleaned up
+    // from storage instead of sitting there as an orphan forever.
+    let savedImgUrl         = currentImgUrl;
+    let savedImgUrlMobile   = currentImgUrlMobile;
+    let savedImgUrlPortrait = currentImgUrlPortrait;
+
+    function storagePathFromUrl(url) {
+        const marker = '/event-images/';
+        const idx = url.indexOf(marker);
+        return idx === -1 ? null : decodeURIComponent(url.slice(idx + marker.length));
+    }
+
+    // Best-effort — same reasoning as profile.js's own cleanup: don't hold
+    // up (or fail) the save over a file that couldn't be deleted.
+    function cleanupReplacedImages(oldUrls, newUrls) {
+        const paths = oldUrls
+            .filter((old, i) => old && old !== newUrls[i])
+            .map(storagePathFromUrl)
+            .filter(Boolean);
+        if (!paths.length) return;
+        db.storage.from('event-images').remove(paths).then(({ error }) => {
+            if (error) console.error('Failed to clean up old event image(s):', error.message);
+        });
+    }
 
     function markDirty() {
         if (isDirty) return;
@@ -1843,6 +1874,25 @@
         saveBar.hidden = false;
         document.body.style.paddingBottom = '72px';
     }
+
+    // Shown once there's an image to remove — either already saved, or just
+    // picked and staged (not yet persisted until Save Changes is clicked).
+    function updateRemoveBtnVisibility() {
+        if (removeImgBtn) removeImgBtn.hidden = !currentImgUrl && !pendingImgFiles;
+    }
+    updateRemoveBtnVisibility();
+
+    removeImgBtn?.addEventListener('click', () => {
+        if (!confirm("Remove this event's banner image?")) return;
+        pendingImgFiles       = null;
+        currentImgUrl         = null;
+        currentImgUrlMobile   = null;
+        currentImgUrlPortrait = null;
+        bgEl.style.removeProperty('--hero-bg-desktop');
+        bgEl.style.removeProperty('--hero-bg-mobile');
+        updateRemoveBtnVisibility();
+        markDirty();
+    });
 
     titleEl.addEventListener('input',    markDirty);
     descEl.addEventListener('input',     markDirty);
@@ -1869,6 +1919,7 @@
         pendingImgFiles = crops;
         bgEl.style.setProperty('--hero-bg-desktop', `url('${URL.createObjectURL(crops[0])}')`);
         bgEl.style.setProperty('--hero-bg-mobile',  `url('${URL.createObjectURL(crops[1])}')`);
+        updateRemoveBtnVisibility();
         markDirty();
     });
 
@@ -1934,6 +1985,14 @@
             alert('Save failed: ' + error.message);
             return;
         }
+
+        cleanupReplacedImages(
+            [savedImgUrl, savedImgUrlMobile, savedImgUrlPortrait],
+            [currentImgUrl, currentImgUrlMobile, currentImgUrlPortrait],
+        );
+        savedImgUrl         = currentImgUrl;
+        savedImgUrlMobile   = currentImgUrlMobile;
+        savedImgUrlPortrait = currentImgUrlPortrait;
 
         // If the URL this event lives at just changed (slug set, changed,
         // or cleared back to the temporary id-based one), jump there

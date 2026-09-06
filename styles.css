@@ -1799,6 +1799,13 @@ svg {
         &:hover { background: hsl(0 0% 0% / 0.75); }
     }
 
+    .event-hero__img-btn--remove {
+        border-color: hsl(5 70% 55% / 0.4);
+        color: hsl(5 85% 78%);
+
+        &:hover { background: hsl(5 70% 40% / 0.55); }
+    }
+
     .fmt-toolbar {
         position: absolute;
         z-index: 9000;
