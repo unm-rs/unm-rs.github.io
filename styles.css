@@ -1082,6 +1082,13 @@ svg {
             &::placeholder { color: hsl(220, 10%, 68%); }
         }
 
+        /* Long-answer custom questions (see wireCustomQuestions in
+           event-detail.js): JS sets the height as you type, so the scrollbar
+           it would otherwise flash has to stay out of the way. */
+        .apply-input--autogrow {
+            overflow-y: hidden;
+        }
+
         .apply-affiliation__choices {
             display: flex;
             flex-wrap: wrap;
@@ -5518,6 +5525,19 @@ body:has(.ab-bar) .ep-years-outer {
         color: hsl(220, 14%, 92%);
     }
     input[type="text"]:focus { outline: 1px solid hsl(45, 70%, 45%); }
+}
+
+.ap-question-type {
+    font: inherit;
+    font-size: 12px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1px solid hsl(233, 18%, 26%);
+    background: hsl(233, 22%, 10%);
+    color: hsl(220, 14%, 82%);
+    cursor: pointer;
+
+    &:focus { outline: 1px solid hsl(45, 70%, 45%); }
 }
 
 .ap-question-req {

@@ -536,12 +536,38 @@
         const customQuestions = (Array.isArray(event.custom_questions) ? event.custom_questions : [])
             .filter(q => q && String(q.label || '').trim());
 
+        // Short = a single-line input; long = a textarea that starts one line
+        // tall and grows as it's typed into (see wireCustomQuestions). Both
+        // are full-width .apply-input, so the two read as the same box —
+        // only the height behaviour differs.
         function customQuestionsHtml(prefix) {
             return customQuestions.map((q, i) => `
                 <div class="apply-field">
                     <label class="apply-label" for="${prefix}-cq-${i}">${esc(q.label)}${q.required ? '' : ' (optional)'}</label>
-                    <textarea class="apply-input" id="${prefix}-cq-${i}" rows="2"></textarea>
+                    ${q.long
+                        ? `<textarea class="apply-input apply-input--autogrow" id="${prefix}-cq-${i}" rows="1"></textarea>`
+                        : `<input class="apply-input" type="text" id="${prefix}-cq-${i}">`}
                 </div>`).join('');
+        }
+
+        // Call once the markup above is actually in the document.
+        function wireCustomQuestions(prefix) {
+            customQuestions.forEach((q, i) => {
+                if (!q.long) return;
+                const el = document.getElementById(`${prefix}-cq-${i}`);
+                if (!el) return;
+                // box-sizing is border-box site-wide, so scrollHeight leaves the
+                // borders out — add them back or every grow step loses 3px and
+                // the textarea starts scrolling instead of expanding.
+                const cs      = getComputedStyle(el);
+                const borderY = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+                const grow = () => {
+                    el.style.height = 'auto';
+                    el.style.height = `${el.scrollHeight + borderY}px`;
+                };
+                el.addEventListener('input', grow);
+                grow(); // collapse to its one-line starting height
+            });
         }
 
         // Returns { answers } or { error } — answers keep their question's
@@ -903,6 +929,7 @@
             }
 
             applyForm.after(oneClick);
+            wireCustomQuestions('af-oc'); // needs to be in the document first
             if (returningFromSignIn) scrollToApplySection();
             return;
         }
@@ -963,7 +990,10 @@
         syncAffiliationFields();
 
         const customFieldsEl = document.getElementById('af-custom-fields');
-        if (customFieldsEl) customFieldsEl.innerHTML = customQuestionsHtml('af');
+        if (customFieldsEl) {
+            customFieldsEl.innerHTML = customQuestionsHtml('af');
+            wireCustomQuestions('af');
+        }
 
         applyForm.addEventListener('submit', async e => {
             e.preventDefault();
@@ -1201,6 +1231,7 @@
             const payload = questions.map(q => ({
                 label:    String(q.label || '').trim(),
                 required: !!q.required,
+                long:     !!q.long,
             }));
             const { error } = await db.from('events').update({ custom_questions: payload }).eq('id', event.id);
             if (error) { alert(error.message); return false; }
@@ -1214,6 +1245,10 @@
                     <div class="ap-question-row">
                         <input type="text" class="ap-question-label" data-idx="${i}" maxlength="160"
                                placeholder="e.g. Additional details" value="${esc(q.label || '')}">
+                        <select class="ap-question-type" data-type="${i}" aria-label="Answer length">
+                            <option value="short"${q.long ? '' : ' selected'}>Short answer</option>
+                            <option value="long"${q.long ? ' selected' : ''}>Long answer</option>
+                        </select>
                         <label class="ap-question-req">
                             <input type="checkbox" data-req="${i}"${q.required ? ' checked' : ''}>
                             Required
@@ -1227,6 +1262,17 @@
                 input.addEventListener('change', async () => {
                     questions[Number(input.dataset.idx)].label = input.value.trim();
                     await saveQuestions();
+                });
+            });
+            questionsList.querySelectorAll('[data-type]').forEach(select => {
+                select.addEventListener('change', async () => {
+                    const q    = questions[Number(select.dataset.type)];
+                    const prev = !!q.long;
+                    q.long = select.value === 'long';
+                    if (!await saveQuestions()) {
+                        q.long = prev;
+                        select.value = prev ? 'long' : 'short';
+                    }
                 });
             });
             questionsList.querySelectorAll('[data-req]').forEach(box => {
