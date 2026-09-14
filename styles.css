@@ -5398,16 +5398,27 @@ body:has(.ab-bar) .ep-years-outer {
     flex-wrap: wrap;
 }
 
+/* flex-start rather than center: some of these labels are long enough to
+   wrap ("Use an external form (Microsoft Forms, Google Forms…)"), and
+   centering floats the box into the vertical middle of the wrapped text
+   instead of leaving it on the first line. The margin puts it back on that
+   line's optical centre, so single-line rows look unchanged. */
 .ap-file-toggle {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     font-size: 13px;
+    line-height: 1.45;
     color: hsl(220, 14%, 65%);
     cursor: pointer;
     user-select: none;
 
-    input { accent-color: hsl(45, 95%, 55%); cursor: pointer; }
+    input {
+        flex-shrink: 0;
+        margin-block-start: 0.18em;
+        accent-color: hsl(45, 95%, 55%);
+        cursor: pointer;
+    }
 }
 
 /* Locking is the one toggle here that actively turns visitors away —
@@ -5544,12 +5555,16 @@ body:has(.ab-bar) .ep-years-outer {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-shrink: 0;
     font-size: 12px;
     color: hsl(220, 14%, 60%);
     cursor: pointer;
     user-select: none;
+    white-space: nowrap;
 
-    input { accent-color: hsl(45, 95%, 55%); cursor: pointer; }
+    /* Sits in a wrapping row next to a flex:1 text input — without this the
+       box itself gets squeezed narrower than the label beside it. */
+    input { flex-shrink: 0; accent-color: hsl(45, 95%, 55%); cursor: pointer; }
 }
 
 .ap-question-del {
