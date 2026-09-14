@@ -244,7 +244,7 @@
         const labelEl = btn.querySelector('.event-hero__map-btn-label');
 
         function render() {
-            const url = event[key];
+            const url = safeUrl(event[key]);
             if (url) {
                 btn.href = url;
                 btn.classList.remove('event-hero__map-btn--empty');
@@ -268,6 +268,7 @@
             const next = prompt(`${label} link (leave blank to remove)`, event[key] || '');
             if (next === null) return; // cancelled
             const value = next.trim() || null;
+            if (value && !safeUrl(value)) { alert('Please enter a link starting with http:// or https://'); return; }
             if (value === (event[key] || null)) return;
 
             const { error } = await db.from('events').update({ [key]: value }).eq('id', event.id);
@@ -368,6 +369,11 @@
         // (the hero's "Join Now" link, and anyone with it bookmarked) still
         // scrolls to something that explains why there's no form here.
         showLockedNotice();
+    } else if (event.external_form_enabled && safeUrl(event.external_form_url)) {
+        // This event collects applications somewhere else entirely (MS
+        // Forms etc.) — our own form never renders, and nothing lands in
+        // `applications`. Checked after the lock so locking still wins.
+        showExternalFormNotice();
     } else {
         setupApplyForm(session, isLoggedIn);
     }
@@ -375,6 +381,66 @@
     setupGallery();
     setupEventDocuments();
     setupPaymentSection();
+
+    // Every URL rendered into an href/src here is mod-entered free text.
+    // Anything that isn't plainly http(s) — `javascript:` above all — is
+    // treated as unset rather than trusted into the DOM.
+    function safeUrl(url) {
+        const s = String(url || '').trim();
+        return /^https?:\/\//i.test(s) ? s : '';
+    }
+
+    function showExternalFormNotice() {
+        if (!applySection) return;
+        const url = safeUrl(event.external_form_url);
+        document.getElementById('js-apply-form')?.setAttribute('hidden', '');
+
+        const box = document.createElement('div');
+        box.className = 'apply-external';
+        box.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+            <p class="apply-external__msg">Applications for this event are handled through an external form.</p>
+            <button type="button" class="apply-submit" id="js-xform-open">Open Application Form</button>
+            <p class="apply-external__hint">
+                Form not loading? <a href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open it in a new tab instead</a>.
+            </p>`;
+        applySection.querySelector('.apply-inner')?.appendChild(box);
+        box.querySelector('#js-xform-open').addEventListener('click', () => openExternalFormModal(url));
+    }
+
+    // Popup rather than an inline iframe so the form gets real room on a
+    // phone. The "open in a new tab" escape hatch in the header matters:
+    // an org-restricted Microsoft form needs third-party cookies to sign
+    // the visitor in, which some browsers block outright inside an iframe.
+    function openExternalFormModal(url) {
+        const overlay = document.createElement('div');
+        overlay.className = 'xform-overlay';
+        overlay.innerHTML = `
+            <div class="xform-modal" role="dialog" aria-modal="true" aria-label="Application form">
+                <div class="xform-modal__head">
+                    <span class="xform-modal__title">Application Form</span>
+                    <span class="xform-modal__actions">
+                        <a class="xform-modal__link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+                        <button type="button" class="xform-modal__close" aria-label="Close form">&times;</button>
+                    </span>
+                </div>
+                <iframe class="xform-modal__frame" src="${esc(url)}" title="Application form" allowfullscreen></iframe>
+            </div>`;
+        document.body.appendChild(overlay);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const close = () => {
+            overlay.remove();
+            document.body.style.overflow = prevOverflow;
+            document.removeEventListener('keydown', onKey);
+        };
+        function onKey(e) { if (e.key === 'Escape') close(); }
+        document.addEventListener('keydown', onKey);
+        overlay.addEventListener('click', e => {
+            if (e.target === overlay || e.target.closest('.xform-modal__close')) close();
+        });
+    }
 
     function showLockedNotice() {
         if (!applySection) return;
@@ -464,6 +530,34 @@
         const staticVisitorsHint = visitorsFieldEl?.querySelector('.apply-hint');
         if (staticVisitorsHint) staticVisitorsHint.textContent = VISITORS_HINT;
 
+        // Mod-defined extra questions (see SQL step 75). Blank-label rows are
+        // dropped rather than rendered as an unlabelled box — a mod can leave
+        // a half-typed row sitting in the editor.
+        const customQuestions = (Array.isArray(event.custom_questions) ? event.custom_questions : [])
+            .filter(q => q && String(q.label || '').trim());
+
+        function customQuestionsHtml(prefix) {
+            return customQuestions.map((q, i) => `
+                <div class="apply-field">
+                    <label class="apply-label" for="${prefix}-cq-${i}">${esc(q.label)}${q.required ? '' : ' (optional)'}</label>
+                    <textarea class="apply-input" id="${prefix}-cq-${i}" rows="2"></textarea>
+                </div>`).join('');
+        }
+
+        // Returns { answers } or { error } — answers keep their question's
+        // wording alongside them so a later edit to the question can't
+        // relabel what someone already submitted.
+        function collectCustomAnswers(prefix) {
+            const answers = [];
+            for (let i = 0; i < customQuestions.length; i++) {
+                const q   = customQuestions[i];
+                const val = (document.getElementById(`${prefix}-cq-${i}`)?.value || '').trim();
+                if (q.required && !val) return { error: `Please answer: ${String(q.label).trim()}` };
+                if (val) answers.push({ label: String(q.label).trim(), answer: val });
+            }
+            return { answers: answers.length ? answers : null };
+        }
+
         // Tell people when they've gone over the limit rather than silently
         // clamping the number behind their back.
         function validateVisitors(raw) {
@@ -531,6 +625,7 @@
             // Not folded into the filter above — 0 is a meaningful, explicitly
             // entered answer here, but falsy, so it'd otherwise get dropped.
             if (details.visitors != null) rows.push(['Visitors', String(details.visitors)]);
+            (details.customAnswers || []).forEach(a => rows.push([a.label, a.answer]));
             if (details.attachmentName) rows.push(['Attachment', details.attachmentName]);
             if (status === 'waitlisted' && details.waitlistPosition) {
                 rows.unshift(['Position', `#${details.waitlistPosition} in line`]);
@@ -694,6 +789,7 @@
                         <input class="apply-input" type="number" id="af-oc-visitors" min="0" max="${MAX_VISITORS}" inputmode="numeric" placeholder="0">
                         <p class="apply-hint">${esc(VISITORS_HINT)}</p>
                     </div>` : ''}
+                    ${customQuestionsHtml('af-oc')}
                     ${privacyNoticeHtml('af-oc')}
                     <div id="af-err" class="apply-error" hidden></div>
                     <button class="apply-submit" id="af-btn">Apply as ${esc(profile.full_name)}</button>`;
@@ -727,6 +823,9 @@
                     const visitorsRaw = oneClick.querySelector('#af-oc-visitors')?.value.trim() || '';
                     const visitorsErr = validateVisitors(visitorsRaw);
                     if (visitorsErr) { errEl.textContent = visitorsErr; errEl.hidden = false; return; }
+
+                    const custom = collectCustomAnswers('af-oc');
+                    if (custom.error) { errEl.textContent = custom.error; errEl.hidden = false; return; }
 
                     btn.disabled    = true;
                     btn.textContent = 'Applying…';
@@ -770,6 +869,7 @@
                         p_dietary_medical_info: dietary,
                         p_visitor_count:   visitors,
                         p_phone_number:    phone || null,
+                        p_custom_answers:  custom.answers,
                     });
 
                     if (error) {
@@ -790,6 +890,7 @@
                             school: profile.school_name, region: profile.region,
                             attachmentName: attachment?.name || null,
                             phone: phone || null, dietary, visitors,
+                            customAnswers: custom.answers,
                             waitlistPosition,
                         }, status);
                         successEl.hidden = false;
@@ -861,6 +962,9 @@
         affiliationRadios.forEach(r => r.addEventListener('change', syncAffiliationFields));
         syncAffiliationFields();
 
+        const customFieldsEl = document.getElementById('af-custom-fields');
+        if (customFieldsEl) customFieldsEl.innerHTML = customQuestionsHtml('af');
+
         applyForm.addEventListener('submit', async e => {
             e.preventDefault();
             const errEl  = document.getElementById('af-error');
@@ -907,6 +1011,8 @@
             if (fileErr) { fail(fileErr); return; }
             const visitorsErr = validateVisitors(visitorsRaw);
             if (visitorsErr) { fail(visitorsErr); return; }
+            const custom = collectCustomAnswers('af');
+            if (custom.error) { fail(custom.error); return; }
 
             let attachment = null;
             if (file) {
@@ -939,6 +1045,7 @@
                 p_dietary_medical_info: dietary,
                 p_visitor_count:   visitors,
                 p_phone_number:    phone,
+                p_custom_answers:  custom.answers,
             });
 
             if (submitErr) {
@@ -950,6 +1057,7 @@
                     name, studentId: sid, owa: isUnm ? owa : null, email: isUnm ? null : owa,
                     year, course, school, region,
                     attachmentName: attachment?.name || null, phone, dietary, visitors,
+                    customAnswers: custom.answers,
                 }, status);
                 successEl.hidden = false;
                 // Auto-approval (see assign_application_status trigger) can
@@ -1011,6 +1119,32 @@
                             <input type="number" id="ap-max" min="0" inputmode="numeric"
                                    value="${event.max_participants ?? ''}" placeholder="∞">
                         </label>
+
+                        <div class="ap-subsection">
+                            <p class="ap-subsection__title">Extra questions</p>
+                            <p class="ap-subsection__hint">Each one shows up as a text box on the apply form.</p>
+                            <div id="ap-questions-list"></div>
+                            <button type="button" class="ap-question-add" id="ap-question-add">+ Add question</button>
+                        </div>
+
+                        <div class="ap-subsection">
+                            <p class="ap-subsection__title">External form</p>
+                            <label class="ap-file-toggle">
+                                <input type="checkbox" id="ap-xform-toggle"${event.external_form_enabled ? ' checked' : ''}>
+                                Use an external form (Microsoft Forms, Google Forms…)
+                            </label>
+                            <label class="ap-cap-field ap-cap-field--wide">
+                                Form link
+                                <input type="url" id="ap-xform-url" maxlength="500"
+                                       placeholder="https://forms.office.com/..."
+                                       value="${esc(event.external_form_url || '')}">
+                            </label>
+                            <p class="ap-subsection__hint">
+                                Replaces the form above with a button that opens this link in a popup.
+                                Responses go to that form's own spreadsheet, <strong>not</strong> to this page —
+                                no approvals, waitlist or payment tracking for them.
+                            </p>
+                        </div>
                     </div>
                     <div class="approvals-panel__counts" id="ap-counts"></div>
                 </div>
@@ -1031,6 +1165,93 @@
             const { error } = await db.from('events').update({ applications_locked_message: val || null }).eq('id', event.id);
             if (error) { alert(error.message); e.target.value = event.applications_locked_message || ''; return; }
             event.applications_locked_message = val || null;
+        });
+
+        panel.querySelector('#ap-xform-toggle').addEventListener('change', async e => {
+            const checked = e.target.checked;
+            if (checked && !safeUrl(event.external_form_url)) {
+                alert('Add the form link first — it needs to start with http:// or https://');
+                e.target.checked = false;
+                return;
+            }
+            const { error } = await db.from('events').update({ external_form_enabled: checked }).eq('id', event.id);
+            if (error) { alert(error.message); e.target.checked = !checked; return; }
+            event.external_form_enabled = checked;
+        });
+
+        panel.querySelector('#ap-xform-url').addEventListener('change', async e => {
+            const val = e.target.value.trim();
+            if (val && !safeUrl(val)) {
+                alert('Please enter a link starting with http:// or https://');
+                e.target.value = event.external_form_url || '';
+                return;
+            }
+            const { error } = await db.from('events').update({ external_form_url: val || null }).eq('id', event.id);
+            if (error) { alert(error.message); e.target.value = event.external_form_url || ''; return; }
+            event.external_form_url = val || null;
+        });
+
+        // ---- Extra questions editor ----------------------------------
+        // The whole array is rewritten on every change rather than diffed —
+        // it's a handful of rows edited by one person, so the simplest
+        // correct thing wins over a partial update.
+        let questions = Array.isArray(event.custom_questions) ? [...event.custom_questions] : [];
+        const questionsList = panel.querySelector('#ap-questions-list');
+
+        async function saveQuestions() {
+            const payload = questions.map(q => ({
+                label:    String(q.label || '').trim(),
+                required: !!q.required,
+            }));
+            const { error } = await db.from('events').update({ custom_questions: payload }).eq('id', event.id);
+            if (error) { alert(error.message); return false; }
+            event.custom_questions = payload;
+            return true;
+        }
+
+        function renderQuestions() {
+            questionsList.innerHTML = questions.length
+                ? questions.map((q, i) => `
+                    <div class="ap-question-row">
+                        <input type="text" class="ap-question-label" data-idx="${i}" maxlength="160"
+                               placeholder="e.g. Additional details" value="${esc(q.label || '')}">
+                        <label class="ap-question-req">
+                            <input type="checkbox" data-req="${i}"${q.required ? ' checked' : ''}>
+                            Required
+                        </label>
+                        <button type="button" class="ap-question-del" data-del="${i}"
+                                title="Remove question" aria-label="Remove question">&times;</button>
+                    </div>`).join('')
+                : `<p class="ap-subsection__hint">No extra questions yet.</p>`;
+
+            questionsList.querySelectorAll('.ap-question-label').forEach(input => {
+                input.addEventListener('change', async () => {
+                    questions[Number(input.dataset.idx)].label = input.value.trim();
+                    await saveQuestions();
+                });
+            });
+            questionsList.querySelectorAll('[data-req]').forEach(box => {
+                box.addEventListener('change', async () => {
+                    questions[Number(box.dataset.req)].required = box.checked;
+                    if (!await saveQuestions()) box.checked = !box.checked;
+                });
+            });
+            questionsList.querySelectorAll('[data-del]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const i = Number(btn.dataset.del);
+                    if (!confirm(`Remove the question "${questions[i].label || 'Untitled'}"?\n\nAnswers already submitted keep their own copy of the wording.`)) return;
+                    const removed = questions.splice(i, 1);
+                    if (await saveQuestions()) renderQuestions();
+                    else questions.splice(i, 0, ...removed);
+                });
+            });
+        }
+        renderQuestions();
+
+        panel.querySelector('#ap-question-add').addEventListener('click', () => {
+            questions.push({ label: '', required: false });
+            renderQuestions();
+            questionsList.querySelector('.ap-question-row:last-child .ap-question-label')?.focus();
         });
 
         panel.querySelector('#ap-file-required').addEventListener('change', async e => {
@@ -1188,6 +1409,8 @@
                         <span class="ap-card__meta">${esc(app.owa)}</span>
                         <span class="ap-card__meta">${esc(app.year_of_study)} · ${esc(app.course_of_study)}</span>`}
                     ${app.phone_number ? `<p class="ap-card__meta">📞 ${esc(app.phone_number)}</p>` : ''}
+                    ${(Array.isArray(app.custom_answers) ? app.custom_answers : []).map(a => `
+                        <p class="ap-card__answer"><strong>${esc(a.label)}</strong> ${esc(a.answer)}</p>`).join('')}
                     ${app.dietary_medical_info ? `<p class="ap-card__dietary">🍽️ ${esc(app.dietary_medical_info)}</p>` : ''}
                     ${app.visitor_count != null ? `<p class="ap-card__meta">👥 +${esc(String(app.visitor_count))} visitor${app.visitor_count === 1 ? '' : 's'}</p>` : ''}
                     ${app.attachment_path ? `

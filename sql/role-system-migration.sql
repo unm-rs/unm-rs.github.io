@@ -1969,3 +1969,113 @@ ALTER TABLE public.events
 
 ALTER TABLE public.events
   ADD COLUMN IF NOT EXISTS waze_link text;
+
+-- ============================================================
+-- 74. Hand an event's applications off to an external form (Microsoft
+--     Forms, Google Forms, …) instead of the built-in one. When the
+--     toggle is on and a URL is set, the apply section shows a button
+--     that opens that form in a popup iframe rather than rendering our
+--     own form at all.
+--
+--     NOTE what this trades away: responses land in Microsoft's/
+--     Google's own spreadsheet, NOT in public.applications — so an
+--     event using this gets no approvals panel, no capacity/waitlist
+--     handling, no payment-proof flow, and no "you've already applied"
+--     state. It's for events run entirely outside this system.
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS external_form_enabled boolean NOT NULL DEFAULT false;
+
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS external_form_url text;
+
+-- ============================================================
+-- 75. Mod-defined extra questions on the built-in apply form — a mod
+--     types a question ("Additional details", "T-shirt size", …) and
+--     applicants get a text box for it.
+--
+--     Answers are stored as a self-contained array of
+--     [{ "label": "...", "answer": "..." }] rather than keyed by
+--     question id, deliberately: a mod renaming or deleting a question
+--     later must not orphan or silently relabel answers that were
+--     already submitted against the old wording.
+-- ============================================================
+ALTER TABLE public.events
+  ADD COLUMN IF NOT EXISTS custom_questions jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+ALTER TABLE public.applications
+  ADD COLUMN IF NOT EXISTS custom_answers jsonb;
+
+-- ============================================================
+-- 76. submit_application() carries the step-75 answers. Another
+--     trailing parameter, so this is the same DROP-then-CREATE dance
+--     as step 69 (CREATE OR REPLACE would leave a second overloaded
+--     function behind and break every call with "function name is not
+--     unique").
+--
+--     Run the DROP by itself, then run everything after it.
+-- ============================================================
+DROP FUNCTION IF EXISTS public.submit_application(
+  uuid, text, text, text, text, uuid, text, text, text, text, text, text, text, integer, text
+);
+
+CREATE FUNCTION public.submit_application(
+  p_event_id uuid,
+  p_event_slug text,
+  p_full_name text,
+  p_owa text,
+  p_year_of_study text,
+  p_user_id uuid DEFAULT NULL,
+  p_student_id text DEFAULT NULL,
+  p_course_of_study text DEFAULT NULL,
+  p_school_name text DEFAULT NULL,
+  p_region text DEFAULT NULL,
+  p_attachment_path text DEFAULT NULL,
+  p_attachment_name text DEFAULT NULL,
+  p_dietary_medical_info text DEFAULT NULL,
+  p_visitor_count integer DEFAULT NULL,
+  p_phone_number text DEFAULT NULL,
+  p_custom_answers jsonb DEFAULT NULL
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_status  text;
+  v_locked  boolean;
+  v_message text;
+BEGIN
+  SELECT applications_locked, applications_locked_message
+    INTO v_locked, v_message
+    FROM public.events WHERE id = p_event_id;
+
+  IF v_locked THEN
+    RAISE EXCEPTION '%', COALESCE(NULLIF(btrim(v_message), ''), 'Applications for this event are locked.');
+  END IF;
+
+  IF p_user_id IS NOT NULL AND p_user_id IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'You can only submit an application as yourself';
+  END IF;
+
+  INSERT INTO public.applications (
+    event_id, event_slug, full_name, owa, year_of_study,
+    student_id, course_of_study, school_name, region,
+    user_id, status, attachment_path, attachment_name,
+    dietary_medical_info, visitor_count, phone_number, custom_answers
+  ) VALUES (
+    p_event_id, p_event_slug, p_full_name, p_owa, p_year_of_study,
+    p_student_id, p_course_of_study, p_school_name, p_region,
+    p_user_id, 'pending', p_attachment_path, p_attachment_name,
+    p_dietary_medical_info, p_visitor_count, p_phone_number, p_custom_answers
+  )
+  RETURNING status INTO v_status;
+
+  RETURN v_status;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.submit_application(
+  uuid, text, text, text, text, uuid, text, text, text, text, text, text, text, integer, text, jsonb
+) TO anon, authenticated;
