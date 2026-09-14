@@ -1124,7 +1124,7 @@
                             <p class="ap-subsection__title">Extra questions</p>
                             <p class="ap-subsection__hint">Each one shows up as a text box on the apply form.</p>
                             <div id="ap-questions-list"></div>
-                            <button type="button" class="ap-question-add" id="ap-question-add">+ Add question</button>
+                            <button type="button" class="ap-question-add" id="ap-question-add">Add question</button>
                         </div>
 
                         <div class="ap-subsection">
@@ -1141,8 +1141,7 @@
                             </label>
                             <p class="ap-subsection__hint">
                                 Replaces the form above with a button that opens this link in a popup.
-                                Responses go to that form's own spreadsheet, <strong>not</strong> to this page —
-                                no approvals, waitlist or payment tracking for them.
+                                Responses go to that form's own spreadsheet, <strong>not</strong> to this page.
                             </p>
                         </div>
                     </div>
