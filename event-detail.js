@@ -1176,11 +1176,19 @@
                         </div>
                     </div>
                     <div class="approvals-panel__counts" id="ap-counts"></div>
+                    <button type="button" class="ap-question-add" id="ap-export">Export to Excel</button>
                 </div>
                 <div id="ap-list" class="ap-list">Loading…</div>
             </div>`;
 
         document.querySelector('.event-detail')?.after(panel);
+
+        panel.querySelector('#ap-export').addEventListener('click', async e => {
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            try { await exportApplications(); }
+            finally { btn.disabled = false; }
+        });
 
         panel.querySelector('#ap-lock-toggle').addEventListener('change', async e => {
             const checked = e.target.checked;
@@ -1486,6 +1494,237 @@
             section('Waitlist', [...waitlisted].sort((a, b) => new Date(a.submitted_at) - new Date(b.submitted_at))) +
             section('Approved', approved) +
             section('Rejected', rejected);
+    }
+
+    // ---- Excel export ---------------------------------------------------
+    // Read-only: selects the applications and builds the .xlsx in the
+    // browser, nothing is written back. Every application is included, one
+    // sheet per status, so the Approved sheet doubles as the attendance list.
+    // The file is assembled by hand (an .xlsx is a zip of XML) because the
+    // Attendance column uses Excel's native checkbox cells, which the usual
+    // spreadsheet libraries can't write.
+    async function exportApplications() {
+        const { data: apps, error } = await db
+            .from('applications')
+            .select('*')
+            .eq('event_id', event.id)
+            .order('submitted_at', { ascending: true });
+
+        if (error) { alert('Export failed: ' + error.message); return; }
+        if (!apps || apps.length === 0) { alert('No applications to export yet.'); return; }
+
+        const groups = [
+            ['Approved', 'approved'], ['Pending', 'pending'],
+            ['Waitlist', 'waitlisted'], ['Rejected', 'rejected'],
+        ].map(([name, status]) => ({ name, rows: apps.filter(a => a.status === status) }));
+        // Anything with a status this list doesn't know about still gets exported.
+        const known = new Set(['approved', 'pending', 'waitlisted', 'rejected']);
+        groups.push({ name: 'Other', rows: apps.filter(a => !known.has(a.status)) });
+        const sheets = groups.filter(g => g.rows.length);
+
+        // XML 1.0 can't carry most control characters — one stray one makes
+        // Excel refuse the whole file.
+        const xml = v => String(v ?? '')
+            .replace(/[^\x09\x0A\x0D\x20-퟿-�\u{10000}-\u{10FFFF}]/gu, '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+        // The five fixed columns, then one per extra thing this event asks
+        // for on the apply form. An extra column appears when its setting is
+        // on, or when any application already carries that data — so nothing
+        // collected earlier vanishes from the export after a setting is
+        // switched off.
+        const has = key => apps.some(a => a[key] != null && a[key] !== '');
+        const answersOf = a => Array.isArray(a.custom_answers) ? a.custom_answers : [];
+        const questionLabels = [...new Set([
+            ...(Array.isArray(event.custom_questions) ? event.custom_questions : []).map(q => q.label),
+            ...apps.flatMap(a => answersOf(a).map(x => x.label)),
+        ].map(l => String(l ?? '').trim()).filter(Boolean))];
+
+        const columns = [
+            { header: 'Name',       width: 30, value: a => a.full_name },
+            { header: 'Student ID', width: 16, value: a => a.student_id },
+            { header: 'Email',      width: 34, value: a => a.owa },
+            { header: 'Year',       width: 14, value: a => a.year_of_study },
+            { header: 'Course',     width: 36, value: a => a.course_of_study },
+            (has('school_name')) && { header: 'School', width: 28, value: a => a.school_name },
+            (has('region'))      && { header: 'Region', width: 18, value: a => a.region },
+            (event.requires_phone || has('phone_number')) &&
+                { header: 'Phone Number', width: 18, value: a => a.phone_number },
+            (event.provides_food || has('dietary_medical_info')) &&
+                { header: 'Dietary Restrictions', width: 40, value: a => a.dietary_medical_info },
+            (event.include_visitors || has('visitor_count')) &&
+                { header: 'Visitors', width: 10, value: a => a.visitor_count },
+            ...questionLabels.map(label => ({
+                header: label, width: 40,
+                value: a => answersOf(a).filter(x => String(x.label ?? '').trim() === label)
+                    .map(x => x.answer).filter(Boolean).join('\n'),
+            })),
+            (event.application_file_required || has('attachment_name')) &&
+                { header: 'Attachment', width: 30, value: a => a.attachment_name },
+        ].filter(Boolean);
+
+        const colName = i => {
+            let s = '';
+            for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s;
+            return s;
+        };
+        const checkCol = colName(columns.length);
+        const widths   = [...columns.map(c => c.width), 13];
+
+        // Text cells are inline strings so student IDs and phone numbers
+        // keep leading zeros.
+        const textCell = (col, row, v, style) =>
+            `<c r="${col}${row}" t="inlineStr"${style ? ` s="${style}"` : ''}><is><t xml:space="preserve">${xml(v)}</t></is></c>`;
+        const cell = (col, row, v) => typeof v === 'number' && Number.isFinite(v)
+            ? `<c r="${col}${row}"><v>${v}</v></c>`
+            : textCell(col, row, v);
+
+        const sheetXml = rows => {
+            const head = `<row r="1">${[...columns.map(c => c.header), 'Attendance'].map((h, i) => textCell(colName(i), 1, h, 1)).join('')}</row>`;
+            const body = rows.map((a, i) => {
+                const r = i + 2;
+                return `<row r="${r}">`
+                    + columns.map((c, j) => cell(colName(j), r, c.value(a))).join('')
+                    + `<c r="${checkCol}${r}" s="2" t="b"><v>0</v></c>`
+                    + '</row>';
+            }).join('');
+            return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                + '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+                + `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`
+                + `<sheetData>${head}${body}</sheetData>`
+                + '</worksheet>';
+        };
+
+        const NS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+        const NS_FPB = 'http://schemas.microsoft.com/office/spreadsheetml/2022/featurepropertybag';
+        const DECL   = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+
+        const files = [
+            ['[Content_Types].xml', DECL
+                + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+                + '<Default Extension="xml" ContentType="application/xml"/>'
+                + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+                + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+                + '<Override PartName="/xl/featurePropertyBag/featurePropertyBag.xml" ContentType="application/vnd.ms-excel.featurepropertybag+xml"/>'
+                + sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
+                + '</Types>'],
+            ['_rels/.rels', DECL
+                + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                + `<Relationship Id="rId1" Type="${NS_REL}/officeDocument" Target="xl/workbook.xml"/>`
+                + '</Relationships>'],
+            ['xl/workbook.xml', DECL
+                + `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="${NS_REL}">`
+                + `<sheets>${sheets.map((s, i) => `<sheet name="${xml(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets>`
+                + '</workbook>'],
+            ['xl/_rels/workbook.xml.rels', DECL
+                + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                + sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="${NS_REL}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')
+                + `<Relationship Id="rId${sheets.length + 1}" Type="${NS_REL}/styles" Target="styles.xml"/>`
+                + `<Relationship Id="rId${sheets.length + 2}" Type="http://schemas.microsoft.com/office/2022/11/relationships/FeaturePropertyBag" Target="featurePropertyBag/featurePropertyBag.xml"/>`
+                + '</Relationships>'],
+            // cellXfs: 0 = plain, 1 = bold header, 2 = checkbox.
+            ['xl/styles.xml', DECL
+                + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+                + '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
+                + '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+                + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+                + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+                + '<cellXfs count="3">'
+                + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+                + '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+                + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center"/>'
+                + `<extLst><ext xmlns:xfpb="${NS_FPB}" uri="{C7286773-470A-42A8-94C5-96B5CB345126}"><xfpb:xfComplement i="0"/></ext></extLst></xf>`
+                + '</cellXfs>'
+                + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
+                + '</styleSheet>'],
+            ['xl/featurePropertyBag/featurePropertyBag.xml', DECL
+                + `<FeaturePropertyBags xmlns="${NS_FPB}">`
+                + '<bag type="Checkbox"/>'
+                + '<bag type="XFControls"><bagId k="CellControl">0</bagId></bag>'
+                + '<bag type="XFComplement"><bagId k="XFControls">1</bagId></bag>'
+                + '<bag type="XFComplements" extRef="XFComplementsMapperExtRef"><a k="MappedFeaturePropertyBags"><bagId>2</bagId></a></bag>'
+                + '</FeaturePropertyBags>'],
+            ...sheets.map((s, i) => [`xl/worksheets/sheet${i + 1}.xml`, sheetXml(s.rows)]),
+        ];
+
+        const blob = new Blob([zipStore(files)], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement('a');
+        a.href     = url;
+        a.download = `${slugify(event.title || '') || 'event'}-applications.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    // Minimal uncompressed zip writer — just enough container for an .xlsx.
+    function zipStore(files) {
+        const enc = new TextEncoder();
+        const crcTable = new Uint32Array(256).map((_, n) => {
+            for (let k = 0; k < 8; k++) n = n & 1 ? 0xEDB88320 ^ (n >>> 1) : n >>> 1;
+            return n >>> 0;
+        });
+        const crc32 = bytes => {
+            let c = 0xFFFFFFFF;
+            for (let i = 0; i < bytes.length; i++) c = crcTable[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+            return (c ^ 0xFFFFFFFF) >>> 0;
+        };
+        const now     = new Date();
+        const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+        const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+
+        const parts = [], central = [];
+        let offset = 0;
+        for (const [name, content] of files) {
+            const nameBytes = enc.encode(name);
+            const data      = enc.encode(content);
+            const crc       = crc32(data);
+
+            const local = new DataView(new ArrayBuffer(30));
+            local.setUint32(0, 0x04034b50, true);
+            local.setUint16(4, 20, true);
+            local.setUint16(6, 0x0800, true);      // UTF-8 names
+            local.setUint16(8, 0, true);           // stored, no compression
+            local.setUint16(10, dosTime, true);
+            local.setUint16(12, dosDate, true);
+            local.setUint32(14, crc, true);
+            local.setUint32(18, data.length, true);
+            local.setUint32(22, data.length, true);
+            local.setUint16(26, nameBytes.length, true);
+
+            const cen = new DataView(new ArrayBuffer(46));
+            cen.setUint32(0, 0x02014b50, true);
+            cen.setUint16(4, 20, true);
+            cen.setUint16(6, 20, true);
+            cen.setUint16(8, 0x0800, true);
+            cen.setUint16(10, 0, true);
+            cen.setUint16(12, dosTime, true);
+            cen.setUint16(14, dosDate, true);
+            cen.setUint32(16, crc, true);
+            cen.setUint32(20, data.length, true);
+            cen.setUint32(24, data.length, true);
+            cen.setUint16(28, nameBytes.length, true);
+            cen.setUint32(42, offset, true);
+
+            parts.push(local.buffer, nameBytes, data);
+            central.push(cen.buffer, nameBytes);
+            offset += 30 + nameBytes.length + data.length;
+        }
+
+        const centralSize = central.reduce((n, p) => n + p.byteLength, 0);
+        const end = new DataView(new ArrayBuffer(22));
+        end.setUint32(0, 0x06054b50, true);
+        end.setUint16(8, files.length, true);
+        end.setUint16(10, files.length, true);
+        end.setUint32(12, centralSize, true);
+        end.setUint32(16, offset, true);
+
+        return new Blob([...parts, ...central, end.buffer]);
     }
 
     async function rejectWithReason(id, panel) {
